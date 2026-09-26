@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>siglus_rs Web</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div id="app">
+    <section id="library-screen">
+      <header id="header">
+        <div id="brand">siglus_rs</div>
+        <div id="header-spacer"></div>
+        <label class="file-button secondary" for="game-dir">Choose Folder</label>
+        <input id="game-dir" type="file" webkitdirectory multiple />
+        <button id="rescan-button" class="secondary" disabled>Rescan</button>
+      </header>
+
+      <div id="hint">
+        Choose a Siglus game root, or choose a parent folder that contains multiple Siglus game folders.
+      </div>
+
+      <div id="status-line">No folder selected.</div>
+      <div id="error-box"></div>
+
+      <main id="game-scroll">
+        <div id="game-grid"></div>
+        <div id="empty-card" class="empty-card">
+          <h1>siglus_rs Web</h1>
+          <p>Select a folder to build the game library.</p>
+          <p>The browser can only read files that you explicitly choose.</p>
+        </div>
+      </main>
+    </section>
+
+    <section id="player-screen">
+      <canvas id="siglus-canvas" tabindex="0"></canvas>
+      <div id="player-bar">
+        <div id="player-title"></div>
+        <button id="exit-button">Exit</button>
+      </div>
+    </section>
+
+    <div id="launch-overlay">
+      <div id="launch-card">
+        <div class="spinner"></div>
+        <div id="launch-text">Launching…</div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

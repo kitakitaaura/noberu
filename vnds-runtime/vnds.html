@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en-us">
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1, shrink-to-fit=no, minimum-scale=1, maximum-scale=1">
+  <title>VNDS-LOVE</title>
+
+  <link rel="stylesheet" type="text/css" href="theme/love.css">
+  <style>
+    /* Embedded inside the Noberu vnds tab: the host page's sidebar drives
+       installing a novel and booting, so the runtime's own launcher (folder
+       picker + continue button) and fullscreen footer button are redundant
+       here. Left in the DOM (just hidden) since the original inline script
+       below still touches their ids directly — see VNDSInstallAndBoot() /
+       VNDSContinue() for the host-callable entry points that replace them. */
+    #launcher,
+    footer {
+      display: none !important;
+    }
+
+    html,
+    body,
+    #gameContainer {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    #loadingCanvas,
+    #canvas {
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="launcher">
+    <h1>VNDS Web</h1>
+    <input type="file" id="gameInput" webkitdirectory multiple>
+    <button id="continueButton">Continue (load installed novels)</button>
+  </div>
+
+  <div id="gameContainer" style="display:none;">
+    <canvas id="loadingCanvas" oncontextmenu="event.preventDefault()" width="800" height="600"></canvas>
+    <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+  </div>
+
+  <script type="text/javascript">
+    let loveStarted = false;
+
+    function goFullScreen() {
+      var canvas = document.getElementById("canvas");
+      if (canvas.requestFullScreen) canvas.requestFullScreen();
+      else if (canvas.webkitRequestFullScreen) canvas.webkitRequestFullScreen();
+      else if (canvas.mozRequestFullScreen) canvas.mozRequestFullScreen();
+    }
+    function FullScreenHook() {
+      var canvas = document.getElementById("canvas");
+      canvas.width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+      canvas.height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+    }
+
+    function postToHost(type, detail) {
+      try {
+        window.parent.postMessage(Object.assign({ source: "vnds-runtime", type: type }, detail || {}), "*");
+      } catch (e) { /* no parent listening, ignore */ }
+    }
+
+    var loadingContext = document.getElementById('loadingCanvas').getContext('2d');
+    function drawLoadingText(text) {
+      var canvas = loadingContext.canvas;
+
+      loadingContext.fillStyle = "rgb(142, 195, 227)";
+      loadingContext.fillRect(0, 0, canvas.scrollWidth, canvas.scrollHeight);
+
+      loadingContext.font = '2em arial';
+      loadingContext.textAlign = 'center'
+      loadingContext.fillStyle = "rgb( 11, 86, 117 )";
+      loadingContext.fillText(text, canvas.scrollWidth / 2, canvas.scrollHeight / 2);
+
+      loadingContext.fillText("Powered By Emscripten.", canvas.scrollWidth / 2, canvas.scrollHeight / 4);
+      loadingContext.fillText("Powered By LÖVE.", canvas.scrollWidth / 2, canvas.scrollHeight / 4 * 3);
+    }
+
+    window.onload = function () { window.focus(); };
+    window.onclick = function () { window.focus(); };
+
+    window.addEventListener("keydown", function (e) {
+      // space and arrow keys
+      if ([32, 37, 38, 39, 40].indexOf(e.keyCode) > -1) {
+        e.preventDefault();
+      }
+    }, false);
+
+    var Module = {
+      arguments: ["./game.love"],
+      INITIAL_MEMORY: 268435456,
+      preRun: [],
+      onAbort: function (what) {
+        console.error("love.js aborted:", what);
+        postToHost("error", { message: String(what) });
+      },
+
+      postRun: [],
+
+      printErr: console.error.bind(console),
+      canvas: (function () {
+        var canvas = document.getElementById('canvas');
+        canvas.addEventListener("webglcontextlost", function (e) {
+          postToHost("error", { message: "WebGL context lost. You will need to reload the page." });
+          e.preventDefault();
+        }, false);
+        return canvas;
+      })(),
+      setStatus: function (text) {
+        if (text) {
+          drawLoadingText(text);
+          postToHost("status", { text: text });
+        } else if (Module.remainingDependencies === 0) {
+          document.getElementById('loadingCanvas').style.display = 'none';
+          document.getElementById('canvas').style.visibility = 'visible';
+          postToHost("running", {});
+        }
+      },
+      totalDependencies: 0,
+      remainingDependencies: 0,
+      monitorRunDependencies: function (left) {
+        this.remainingDependencies = left;
+        this.totalDependencies = Math.max(this.totalDependencies, left);
+        Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies - left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
+      }
+    };
+    Module.setStatus('Downloading...');
+    window.onerror = function (event) {
+      Module.setStatus('Exception thrown, see JavaScript console');
+      postToHost("error", { message: String(event && event.message || event) });
+      Module.setStatus = function (text) {
+        if (text) Module.printErr('[post-exception status] ' + text);
+      };
+    };
+
+    function bootLove() {
+      if (loveStarted) {
+        console.warn("bootLove() called again but Love() was already started — ignoring. Reload the page to try again.");
+        return;
+      }
+      console.log("Booting Love()...");
+      loveStarted = true;
+      if (typeof Love !== "function") {
+        postToHost("error", { message: "love.js is still loading — wait a second and try again." });
+        return;
+      }
+
+      document.getElementById("launcher").style.display = "none";
+      document.getElementById("gameContainer").style.display = "block";
+      postToHost("booting", {});
+
+      try {
+        Love(Module);
+      } catch (error) {
+        console.error(error);
+        postToHost("error", { message: error.message });
+      }
+    }
+
+    // ---------------------------------------------------------------
+    // Host bridge: the Noberu vnds tab has its own upload zone (folder
+    // picker or a zip that gets unpacked client-side) and its own
+    // "continue" button, styled like the ps2/boxedwine tabs instead of
+    // this runtime's built-in launcher. These two functions are the
+    // exact install-then-boot logic VNDS-LOVE's own launcher used
+    // (see git history / the standalone web-build/index.html this file
+    // was adapted from), just parameterized so the parent page can call
+    // them directly instead of going through the hidden #gameInput /
+    // #continueButton elements.
+    // ---------------------------------------------------------------
+    window.VNDSInstallAndBoot = function (root, entries) {
+      if (loveStarted) {
+        console.warn("Ignoring VNDSInstallAndBoot — Love() already started this session.");
+        return;
+      }
+      if (typeof Love !== "function") {
+        postToHost("error", { message: "love.js is still loading — wait a second and try again." });
+        return;
+      }
+
+      const gamePath = "/home/web_user/love/VNDS-LOVE/novels/" + root;
+
+      Module.onRuntimeInitialized = function () {
+        // Runs after IDBFS's own mount + sync-from-IndexedDB finish (so we
+        // can't be wiped by it), and strictly before main() starts —
+        // synchronous on purpose, so nothing can slip in between.
+        console.log("Installing", root, "into", gamePath);
+        Module.FS_createPath("/", "home/web_user/love/VNDS-LOVE/novels/" + root, true, true);
+
+        for (let i = 0; i < entries.length; i++) {
+          const { relative, data } = entries[i];
+          const parts = relative.split("/");
+          const filename = parts.pop();
+          if (parts.length) {
+            Module.FS_createPath(gamePath, parts.join("/"), true, true);
+          }
+          const dir = parts.length ? gamePath + "/" + parts.join("/") : gamePath;
+
+          Module.FS.writeFile(dir + "/" + filename, data);
+          entries[i].data = null; // release immediately, don't hold two copies
+        }
+
+        console.log("Finished installing", root);
+        console.log("About to hand off to main()...");
+
+        Module.FS.syncfs(false, function (err) {
+          if (err) console.error("IDBFS persist failed:", err);
+        });
+      };
+
+      bootLove();
+    };
+
+    window.VNDSContinue = function () {
+      // No file to install here — just boot normally. love.js's own
+      // FS.mount(IDBFS)+FS.syncfs(true, ...) startup automatically pulls in
+      // whatever was persisted by a previous VNDSInstallAndBoot call's
+      // Module.FS.syncfs(false, ...), so any novel installed in an earlier
+      // session is already there once the engine finishes booting.
+      bootLove();
+    };
+
+    // Standalone fallback (opening this file directly, no host page):
+    // the original launcher UI still works if unhidden via devtools.
+    const gameInput = document.getElementById("gameInput");
+    gameInput.addEventListener("change", async () => {
+      if (loveStarted) return;
+      gameInput.disabled = true;
+      const files = Array.from(gameInput.files);
+      if (files.length === 0) return;
+
+      const root = files[0].webkitRelativePath.split("/")[0];
+      const entries = [];
+      for (const file of files) {
+        let relative = file.webkitRelativePath;
+        if (relative.startsWith(root + "/")) relative = relative.substring(root.length + 1);
+        if (!relative) continue;
+        entries.push({ relative, data: new Uint8Array(await file.arrayBuffer()) });
+      }
+      window.VNDSInstallAndBoot(root, entries);
+    });
+    document.getElementById("continueButton").addEventListener("click", () => {
+      window.VNDSContinue();
+    });
+  </script>
+
+  <script type="text/javascript" src="game.js"></script>
+  <script src="jszip.min.js"></script>
+  <script async type="text/javascript" src="love.js"></script>
+
+  <footer>
+    <p>Built with <a href="https://github.com/Davidobot/love.js">love.js</a> <button
+        onclick="goFullScreen();">Go Fullscreen</button><br>Hint: Reload the page if screen is blank</p>
+  </footer>
+</body>
+
+</html>

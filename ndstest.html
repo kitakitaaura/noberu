@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #game {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+
+    <input type="file" id="rom" accept=".nds">
+
+    <div id="game"></div>
+
+    <script>
+        const input = document.getElementById("rom");
+
+        input.addEventListener("change", async () => {
+            const file = input.files[0];
+
+            if (!file) return;
+
+            // Read the ROM into memory.
+            const buffer = await file.arrayBuffer();
+
+            // Create a Blob URL from the ROM.
+            const blob = new Blob([buffer], {
+                type: "application/octet-stream"
+            });
+
+            EJS_player = "#game";
+            EJS_core = "desmume";
+            EJS_gameID = "nds-test";
+            EJS_gameName = file.name;
+            EJS_gameUrl = URL.createObjectURL(blob);
+            EJS_pathtodata =
+                "https://cdn.emulatorjs.org/stable/data/";
+
+            const loader = document.createElement("script");
+            loader.src =
+                "https://cdn.emulatorjs.org/stable/data/loader.js";
+
+            document.body.appendChild(loader);
+        });
+    </script>
+
+</body>
+
+</html>

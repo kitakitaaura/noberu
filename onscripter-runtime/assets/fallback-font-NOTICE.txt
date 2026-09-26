@@ -1,0 +1,11 @@
+fallback.ttf is "Kosugi Regular", a Japanese Gothic typeface published by
+Google Fonts (source family: "Kosugi"), obtained via the @fontsource/kosugi
+npm package and converted from WOFF2 to TTF for use with FreeType/SDL_ttf.
+
+Licensed under the SIL Open Font License, Version 1.1.
+Full license text: https://openfontlicense.org/open-font-license-official-text/
+Font family page: https://fonts.google.com/specimen/Kosugi
+
+Used here as the fallback font when a game's own msgothic.ttc (or an
+equivalent bundled in the uploaded game folder) can't be found -- see
+engine/utilities/find_font_file.cc's __EMSCRIPTEN__ branch.

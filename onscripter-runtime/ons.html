@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>onscripter runtime</title>
+  <style>
+    html,
+    body {
+      margin: 0;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #canvas,
+    #video {
+      display: block;
+      background: #000;
+    }
+
+    #video {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+  <video id="video" playsinline></video>
+
+  <script>
+    // The page loaded in an iframe by the "onscripter" tab in ../index.html.
+    // It runs OnscripterYuri (an ONScripter fork: NScripter games) built to
+    // wasm; see ~/Documents/Noberu/onscripter for the sources, patch and build.
+    //
+    // Host entry point, same arrangement as ../rlvm-runtime/rlvm.html:
+    //   window.ONSInstallAndBoot(root, files, options) - `files` is the
+    //   FileList from the tab's directory picker; options.encoding is
+    //   "auto" | "sjis" | "gbk".
+    // Status goes to the parent as
+    // postMessage({ source: "onscripter-runtime", type, ... }).
+    //
+    // Game files are not copied up front. Each one becomes an empty MEMFS
+    // placeholder, and the engine's fopen hook (fopen_ons, patched) asks
+    // Module.onsLazyPending / Module.onsLazyFetch to fill it in on first open.
+    // A game that never plays its opening movie never reads it.
+    //
+    // The engine also calls a few page globals directly (upstream's
+    // onsyuri.html contract): g_onsyuri_module, scale_full, flush_save,
+    // playVideo, g_screen_width/g_screen_height, and posts "onsinit" to
+    // itself once the game has initialised.
+
+    const GAME_DIR = "/game";
+    const FONT_PATH = "/fonts/fallback.ttf";
+    const canvasEl = document.getElementById("canvas");
+    const videoEl = document.getElementById("video");
+
+    function post(type, detail) {
+      window.parent.postMessage(
+        Object.assign({ source: "onscripter-runtime", type: type }, detail || {}), "*");
+    }
+
+    // --- globals the engine calls ------------------------------------------
+
+    var g_onsyuri_module = {};
+    var g_screen_width = 640;
+    var g_screen_height = 480;
+
+    function scale_full(el, ratio) {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      if (ratio > 0 && w / h > ratio) {
+        el.style.width = Math.floor(h * ratio) + "px";
+        el.style.height = h + "px";
+      } else if (ratio > 0) {
+        el.style.width = w + "px";
+        el.style.height = Math.floor(w / ratio) + "px";
+      } else {
+        el.style.width = w + "px";
+        el.style.height = h + "px";
+      }
+    }
+
+    function fitCanvas() {
+      scale_full(canvasEl, g_screen_width / g_screen_height);
+      scale_full(videoEl, g_screen_width / g_screen_height);
+    }
+    window.addEventListener("resize", fitCanvas);
+
+    // Called by the engine after each save.
+    function flush_save() {
+      g_onsyuri_module.FS.syncfs(false, (err) => {
+        if (err) console.error("IDBFS save sync failed", err);
+      });
+    }
+
+    // mpegplay/movie: the engine blocks (via ASYNCIFY) until wait_video clears.
+    // A movie still waiting on lazy load is played straight from its File.
+    function playVideo(path, clickToSkip, loop) {
+      const Mod = g_onsyuri_module;
+      Mod.wait_video = true;
+      const pending = lazyFiles.get(normalizePath(path));
+      const blob = pending
+        ? pending
+        : new Blob([Mod.FS.readFile(path)], { type: "video/mp4" });
+      videoEl.src = URL.createObjectURL(blob);
+      videoEl.loop = !!loop;
+      videoEl.onclick = clickToSkip ? endVideo : null;
+      canvasEl.style.display = "none";
+      videoEl.style.display = "block";
+      videoEl.play().catch((error) => {
+        console.error("video playback failed", path, error);
+        endVideo();
+      });
+    }
+
+    function endVideo() {
+      videoEl.pause();
+      if (videoEl.src.startsWith("blob:")) URL.revokeObjectURL(videoEl.src);
+      videoEl.removeAttribute("src");
+      videoEl.style.display = "none";
+      canvasEl.style.display = "block";
+      canvasEl.focus();
+      g_onsyuri_module.wait_video = false;
+    }
+    videoEl.addEventListener("ended", endVideo);
+    videoEl.addEventListener("error", endVideo);
+
+    window.addEventListener("message", (event) => {
+      if (event.source !== window || event.data !== "onsinit") return;
+      fitCanvas();
+      canvasEl.focus();
+      post("running", { width: g_screen_width, height: g_screen_height });
+    });
+
+    // --- lazy game files ----------------------------------------------------
+
+    const lazyFiles = new Map();  // absolute MEMFS path -> File
+    const inFlight = new Map();   // absolute MEMFS path -> Promise
+
+    function normalizePath(path) {
+      const FS = g_onsyuri_module.FS;
+      const PATH = g_onsyuri_module.PATH;
+      return PATH.normalize(path.startsWith("/") ? path : FS.cwd() + "/" + path);
+    }
+
+    // Chrome fails whole-file reads of multi-gigabyte files with
+    // NotReadableError, so anything big is copied in pieces.
+    const CHUNK_SIZE = 32 * 1024 * 1024;
+
+    async function readBlobWithRetry(blob, label) {
+      for (let attempt = 1; ; attempt++) {
+        try {
+          return new Uint8Array(await blob.arrayBuffer());
+        } catch (error) {
+          if (attempt >= 3) throw new Error(`Could not read "${label}": ${error.name} ${error.message}`);
+          await new Promise((resolve) => setTimeout(resolve, 100 * attempt));
+        }
+      }
+    }
+
+    async function fillFile(path, file) {
+      const FS = g_onsyuri_module.FS;
+      if (file.size <= CHUNK_SIZE) {
+        FS.writeFile(path, await readBlobWithRetry(file, path));
+        return;
+      }
+      const stream = FS.open(path, "w");
+      try {
+        for (let offset = 0; offset < file.size; offset += CHUNK_SIZE) {
+          const chunk = await readBlobWithRetry(
+            file.slice(offset, Math.min(offset + CHUNK_SIZE, file.size)), path);
+          FS.write(stream, chunk, 0, chunk.length, offset);
+        }
+      } finally {
+        FS.close(stream);
+      }
+    }
+
+    g_onsyuri_module.onsLazyPending = (path) => lazyFiles.has(normalizePath(path));
+
+    g_onsyuri_module.onsLazyFetch = (rawPath) => {
+      const path = normalizePath(rawPath);
+      if (inFlight.has(path)) return inFlight.get(path);
+      const file = lazyFiles.get(path);
+      if (!file) return Promise.resolve();
+      if (file.size > 64 * 1024 * 1024) {
+        post("status", { text: `loading ${path.slice(GAME_DIR.length + 1)}...`, transient: true });
+      }
+      const promise = fillFile(path, file).then(() => {
+        lazyFiles.delete(path);
+        inFlight.delete(path);
+        post("loaded", {});
+      }, (error) => {
+        inFlight.delete(path);
+        throw error;
+      });
+      inFlight.set(path, promise);
+      return promise;
+    };
+
+    function stageGameFiles(files) {
+      const FS = g_onsyuri_module.FS;
+      const prefix = files[0].webkitRelativePath
+        ? files[0].webkitRelativePath.split("/")[0] + "/"
+        : "";
+      const byLowerName = new Map();
+      for (const file of files) {
+        let relative = file.webkitRelativePath || file.name;
+        if (prefix && relative.startsWith(prefix)) relative = relative.substring(prefix.length);
+        if (!relative) continue;
+        const path = GAME_DIR + "/" + relative;
+        FS.mkdirTree(path.slice(0, path.lastIndexOf("/")));
+        FS.writeFile(path, new Uint8Array(0));
+        lazyFiles.set(path, file);
+        if (!relative.includes("/")) byLowerName.set(relative.toLowerCase(), file);
+      }
+      return byLowerName;
+    }
+
+    // --- script encoding ----------------------------------------------------
+
+    // This fork decodes scripts as GBK unless told otherwise, which garbles
+    // Japanese games. Sniff the script: NScripter scripts are 0.txt..99.txt /
+    // 00.txt as plain text, or nscript.dat XORed with 0x84.
+    async function detectEncoding(topLevel) {
+      let sample = null;
+      const plain = topLevel.get("0.txt") || topLevel.get("00.txt");
+      if (plain) {
+        sample = await readBlobWithRetry(plain.slice(0, 512 * 1024), plain.name);
+      } else if (topLevel.get("nscript.dat")) {
+        const file = topLevel.get("nscript.dat");
+        sample = await readBlobWithRetry(file.slice(0, 512 * 1024), file.name);
+        for (let i = 0; i < sample.length; i++) sample[i] ^= 0x84;
+      }
+      if (!sample) return "sjis";
+
+      const count = (text, re) => (text.match(re) || []).length;
+      const score = (label) => {
+        const text = new TextDecoder(label).decode(sample);
+        const bad = count(text, /�/g);
+        const kana = count(text, /[ぁ-ヿ]/g);
+        const han = count(text, /[一-鿿]/g);
+        return { bad, kana, han };
+      };
+      const sjis = score("shift_jis");
+      const gbk = score("gbk");
+      // Kana are the giveaway: common in any Japanese text, rare in Chinese.
+      if (sjis.kana > 0 && sjis.bad <= gbk.bad) return "sjis";
+      if (gbk.bad < sjis.bad) return "gbk";
+      return sjis.kana >= gbk.han / 20 ? "sjis" : "gbk";
+    }
+
+    // --- module -------------------------------------------------------------
+
+    let modulePromise = null;
+
+    function loadModule(saveDir) {
+      if (modulePromise) return modulePromise;
+      modulePromise = new Promise((resolve, reject) => {
+        const Mod = g_onsyuri_module;
+        Mod.canvas = canvasEl;
+        Mod.print = (text) => console.log("[ons]", text);
+        Mod.printErr = (text) => console.warn("[ons]", text);
+        Mod.onAbort = (what) => post("error", { message: "engine aborted: " + what });
+        Mod.onExit = (code) => post("exited", { code: code });
+        Mod.preRun = [() => {
+          Mod.FS.mkdir(GAME_DIR);
+          Mod.FS.mkdir("/fonts");
+          Mod.FS.mkdirTree(saveDir);
+          Mod.FS.mount(Mod.IDBFS, {}, "/save");
+          Mod.addRunDependency("ons-idbfs-load");
+          Mod.FS.syncfs(true, (err) => {
+            if (err) console.error("IDBFS initial sync failed", err);
+            try { Mod.FS.mkdirTree(saveDir); } catch (e) { }
+            Mod.removeRunDependency("ons-idbfs-load");
+          });
+        }];
+
+        const script = document.createElement("script");
+        script.src = "onsyuri.js";
+        script.onerror = () => reject(new Error("Failed to load onsyuri.js"));
+        script.onload = () => onsyuri(Mod).then(resolve, reject);
+        document.body.appendChild(script);
+      });
+      return modulePromise;
+    }
+
+    function saveDirFor(root) {
+      const id = (root || "game").replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 64) || "game";
+      return "/save/" + id;
+    }
+
+    let booted = false;
+
+    window.ONSInstallAndBoot = async function (root, files, options) {
+      if (booted) return;
+      booted = true;
+      try {
+        if (!files || files.length === 0) throw new Error("No files were staged.");
+        options = options || {};
+
+        post("status", { text: "loading the ONScripter engine..." });
+        const saveDir = saveDirFor(root);
+        const Mod = await loadModule(saveDir);
+
+        const topLevel = stageGameFiles(files);
+        const hasScript = ["0.txt", "00.txt", "nscript.dat", "nscr_sec.dat", "nscript.___",
+          "onscript.nt2", "onscript.nt3"].some((name) => topLevel.has(name));
+        if (!hasScript) {
+          throw new Error("No ONScripter script here: pick the folder with 0.txt, 00.txt or nscript.dat.");
+        }
+
+        let encoding = options.encoding || "auto";
+        if (encoding === "auto") encoding = await detectEncoding(topLevel);
+
+        const gameFont = topLevel.get("default.ttf");
+        let fontPath = GAME_DIR + "/default.ttf";
+        if (!gameFont) {
+          const response = await fetch("assets/fallback.ttf");
+          if (!response.ok) throw new Error("Could not fetch fallback font: " + response.status);
+          Mod.FS.writeFile(FONT_PATH, new Uint8Array(await response.arrayBuffer()));
+          fontPath = FONT_PATH;
+        }
+
+        const args = ["--root", GAME_DIR, "--font", fontPath, "--save-dir", saveDir,
+          "--enc:" + encoding];
+        console.log("[ons] args", args);
+        post("booting", { encoding: encoding });
+        window.addEventListener("beforeunload", flush_save);
+        // callMain returns when the engine first yields (ASYNCIFY); the
+        // "onsinit" message marks the game actually starting.
+        Mod.callMain(args);
+      } catch (error) {
+        console.error(error);
+        post("error", { message: String((error && error.message) || error) });
+      }
+    };
+
+    // Dev only: ons.html?autoload=testgame boots the folder symlinked at
+    // ./testgame, listed as "<size> <path>" lines in testgame_filelist.txt,
+    // without going through the host's folder picker.
+    (async function autoload() {
+      const name = new URLSearchParams(location.search).get("autoload");
+      if (!name || !/^[\w-]+$/.test(name)) return;
+      const list = await (await fetch(`${name}_filelist.txt`)).text();
+      const files = await Promise.all(list.split("\n").filter(Boolean).map(async (line) => {
+        const relative = line.slice(line.indexOf(" ") + 1);
+        const blob = await (await fetch(`${name}/${relative}`)).blob();
+        const file = new File([blob], relative.split("/").pop());
+        Object.defineProperty(file, "webkitRelativePath", { value: `${name}/${relative}` });
+        return file;
+      }));
+      window.ONSInstallAndBoot(name, files, {});
+    })();
+  </script>
+</body>
+
+</html>

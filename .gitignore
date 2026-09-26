@@ -1,0 +1,13 @@
+# macOS
+.DS_Store
+
+# Editor / tooling noise
+node_modules/
+*.log
+
+# Wrangler's local state for the assets Worker (local R2 simulation, caches)
+large-assets-worker/.wrangler/
+
+# Files too big for a static host, kept outside this tree and served from R2.
+# boxedwine.zip lives in ../noberu-assets/ - see large-assets-worker/README.md.
+*.zip.part

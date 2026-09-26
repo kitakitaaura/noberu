@@ -1,0 +1,19 @@
+{
+  "overlays": [
+    {
+      "file": "msvc80_overlay.zip",
+      "label": "MSVC80 runtime",
+      "description": "Visual C++ 2005 (msvcr80/msvcp80) redistributable DLLs. Needed by many older VN engines that shipped with the VS2005 runtime."
+    },
+    {
+      "file": "winhttp_overlay.zip",
+      "label": "WinHTTP",
+      "description": "winhttp.dll. Needed by installers/launchers or games that make HTTP calls (update checks, license pings, etc.) through WinHTTP."
+    },
+    {
+      "file": "mfc140_overlay.zip",
+      "label": "MFC 14 runtime",
+      "description": "mfc140u/mfcm140u from the Visual C++ 2015-2022 x86 redistributable. Wine has never implemented MFC, so games built with it cannot start without these; the rest of that runtime (ucrtbase, vcruntime140, msvcp140) Wine already provides."
+    }
+  ]
+}

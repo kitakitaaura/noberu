@@ -1,0 +1,16 @@
+# Cloudflare Pages custom headers. Not served itself; Pages parses it and applies
+# these to every static asset response. Wrangler/Pages Functions do NOT get them,
+# so keep this site static.
+#
+# Cross-origin isolation is not optional here. The kirikiri and Play! runtimes are
+# built with pthreads, and a browser only offers SharedArrayBuffer - which those
+# threads need - on a cross-origin-isolated page.
+#
+# require-corp is safe because the site fetches nothing cross-origin. If that ever
+# changes, the cross-origin response needs a Cross-Origin-Resource-Policy header of
+# its own (or a passing CORS check) or it will be blocked.
+/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+  Cross-Origin-Resource-Policy: same-origin
+  Origin-Agent-Cluster: ?1

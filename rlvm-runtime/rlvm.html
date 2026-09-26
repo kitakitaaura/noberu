@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>rlvm runtime</title>
+  <style>
+    html,
+    body {
+      margin: 0;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+    }
+
+    #canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: #000;
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+
+  <script>
+    // The page loaded in an iframe by the "rlvm" tab in ../index.html. rlvm is
+    // a RealLive virtual machine (Key's engine: Kanon, Air, Clannad, Little
+    // Busters, Planetarian) cross-compiled to wasm; see ../../Noberu for the
+    // engine sources and build.
+    //
+    // The host tab stages a game folder and calls the entry point below, same
+    // arrangement as ../vnds-runtime/vnds.html:
+    //   window.RLVMInstallAndBoot(root, files) - `files` is the FileList from
+    //   the tab's directory picker. The files are read here rather than in the
+    //   host page so a multi-gigabyte game is only ever held in memory once.
+    // Status is reported to the parent with
+    // postMessage({ source: "rlvm-runtime", type, ... }).
+
+    const canvasEl = document.getElementById("canvas");
+
+    function post(type, detail) {
+      window.parent.postMessage(
+        Object.assign({ source: "rlvm-runtime", type: type }, detail || {}), "*");
+    }
+
+    let modulePromise = null;
+
+    // Loads rlvm.js (the Emscripten glue) once and resolves when its runtime,
+    // including the /game, /fonts and IDBFS-backed /home mounts, is ready.
+    function loadModule() {
+      if (modulePromise) return modulePromise;
+
+      modulePromise = new Promise((resolve, reject) => {
+        window.Module = {
+          canvas: canvasEl,
+          print: (text) => console.log("[rlvm]", text),
+          printErr: (text) => console.error("[rlvm]", text),
+          onAbort: (what) => reject(new Error("rlvm aborted: " + what)),
+          preRun: [
+            function setUpVirtualFilesystem() {
+              // Free identifiers inside the Emscripten module closure
+              // (FS/IDBFS/ENV), not properties of Module.
+              FS.mkdir("/game");
+              FS.mkdir("/fonts");
+              // /home already exists in Emscripten's MEMFS; mount over it so
+              // saves persist in this browser's IndexedDB.
+              FS.mount(IDBFS, {}, "/home");
+              ENV.HOME = "/home";
+
+              addRunDependency("rlvm-idbfs-load");
+              FS.syncfs(true, (err) => {
+                if (err) console.error("IDBFS initial sync failed", err);
+                removeRunDependency("rlvm-idbfs-load");
+              });
+            },
+          ],
+          onRuntimeInitialized: () => resolve(Module),
+        };
+
+        const script = document.createElement("script");
+        script.src = "rlvm.js";
+        script.onerror = () => reject(new Error("Failed to load rlvm.js"));
+        document.body.appendChild(script);
+      });
+
+      return modulePromise;
+    }
+
+    let fallbackFontLoaded = false;
+    async function ensureFallbackFont(Mod) {
+      if (fallbackFontLoaded) return;
+      const response = await fetch("assets/fallback.ttf");
+      if (!response.ok) throw new Error("Could not fetch fallback font: " + response.status);
+      Mod.FS.writeFile("/fonts/fallback.ttf", new Uint8Array(await response.arrayBuffer()));
+      fallbackFontLoaded = true;
+    }
+
+    // Reads go through a small worker pool: firing arrayBuffer() on every File
+    // at once (tens of thousands for a full game) makes Chrome fail reads with
+    // NotReadableError.
+    const READ_CONCURRENCY = 16;
+
+    async function readBlobWithRetry(blob, relative) {
+      for (let attempt = 1; ; attempt++) {
+        try {
+          return new Uint8Array(await blob.arrayBuffer());
+        } catch (error) {
+          if (attempt >= 3) {
+            throw new Error(`Could not read "${relative}": ${error.name} ${error.message}`);
+          }
+          await new Promise((resolve) => setTimeout(resolve, 100 * attempt));
+        }
+      }
+    }
+
+    // Anything past this is copied in pieces: reading a multi-gigabyte archive
+    // (Little Busters' VOICE0.PAK, say) in one call fails with
+    // NotReadableError once the tab is already holding the rest of the game.
+    const CHUNK_SIZE = 32 * 1024 * 1024;
+
+    // Filesystem errors carry only an errno, which says nothing about which of
+    // several multi-gigabyte files failed or how far in. Name the call, the
+    // file and the offset.
+    function fsStep(description, fn) {
+      try {
+        return fn();
+      } catch (error) {
+        const detail = error && error.errno !== undefined
+          ? `errno ${error.errno}`
+          : String((error && error.message) || error);
+        throw new Error(`${description}: ${detail}`);
+      }
+    }
+
+    async function writeFileToFS(Mod, path, file, relative) {
+      const size = file.size;
+      if (size <= CHUNK_SIZE) {
+        const bytes = await readBlobWithRetry(file, relative);
+        fsStep(`writeFile "${relative}" (${size} bytes)`, () => Mod.FS.writeFile(path, bytes));
+        return;
+      }
+
+      fsStep(`create "${relative}"`, () => Mod.FS.writeFile(path, new Uint8Array(0)));
+
+      // Sizing the file up front lets the filesystem allocate once instead of
+      // regrowing its buffer on every chunk, but it's only an optimisation: if
+      // the allocation is refused (very large files), fall through and let the
+      // writes below grow the file as they go.
+      try {
+        Mod.FS.truncate(path, size);
+      } catch (error) {
+        console.warn(`Could not preallocate "${relative}" (${size} bytes); growing as we write.`, error);
+      }
+
+      const stream = fsStep(`open "${relative}"`, () => Mod.FS.open(path, "w"));
+      try {
+        for (let offset = 0; offset < size; offset += CHUNK_SIZE) {
+          const end = Math.min(offset + CHUNK_SIZE, size);
+          const chunk = await readBlobWithRetry(file.slice(offset, end), relative);
+          fsStep(`write "${relative}" at ${offset} (${chunk.length} bytes)`,
+            () => Mod.FS.write(stream, chunk, 0, chunk.length, offset));
+        }
+      } finally {
+        Mod.FS.close(stream);
+      }
+    }
+
+    // Writes every picked file into MEMFS under /game, preserving the folder's
+    // internal structure but stripping the top-level folder name (rlvm expects
+    // Gameexe.ini etc directly under the game root).
+    async function populateGameFiles(Mod, files) {
+      const prefix = files[0].webkitRelativePath
+        ? files[0].webkitRelativePath.split("/")[0] + "/"
+        : "";
+
+      let next = 0;
+      let done = 0;
+      async function worker() {
+        while (next < files.length) {
+          const file = files[next++];
+          let relative = file.webkitRelativePath || file.name;
+          if (prefix && relative.startsWith(prefix)) relative = relative.substring(prefix.length);
+          if (!relative) continue;
+
+          const path = "/game/" + relative;
+          const directory = path.slice(0, path.lastIndexOf("/"));
+          if (directory) Mod.FS.mkdirTree(directory);
+
+          await writeFileToFS(Mod, path, file, relative);
+          if (++done % 500 === 0) {
+            post("status", { text: `copying ${done} / ${files.length} files...` });
+          }
+        }
+      }
+
+      await Promise.all(Array.from({ length: READ_CONCURRENCY }, worker));
+    }
+
+    let saveSyncIntervalId = null;
+    function startPeriodicSaveSync(Mod) {
+      // Sync IDBFS on a timer rather than hooking every C++ save-completion
+      // call site: enough for "close the tab, come back later, your saves are
+      // there".
+      if (saveSyncIntervalId) return;
+      saveSyncIntervalId = window.setInterval(() => {
+        Mod.FS.syncfs(false, (err) => {
+          if (err) console.error("IDBFS periodic sync failed", err);
+        });
+      }, 5000);
+
+      window.addEventListener("beforeunload", () => {
+        Mod.FS.syncfs(false, () => { });
+      });
+    }
+
+    let booting = false;
+
+    window.RLVMInstallAndBoot = async function (root, files) {
+      if (booting) return;
+      booting = true;
+
+      try {
+        if (!files || files.length === 0) throw new Error("No files were staged.");
+
+        post("status", { text: "loading the rlvm engine..." });
+        const Mod = await loadModule();
+
+        post("status", { text: `copying ${files.length} files...` });
+        await populateGameFiles(Mod, files);
+        await ensureFallbackFont(Mod);
+
+        post("booting", {});
+        Mod.ccall("rlvm_start", null, ["string"], ["/game"]);
+        startPeriodicSaveSync(Mod);
+        post("running", { root: root || "" });
+      } catch (error) {
+        console.error(error);
+        post("error", { message: String((error && error.message) || error) });
+      } finally {
+        booting = false;
+      }
+    };
+  </script>
+</body>
+
+</html>

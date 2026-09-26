@@ -1,0 +1,55 @@
+# Local ONScripter Runtime Artifacts
+
+Build output from `~/Documents/Noberu/onscripter` (OnscripterYuri, an
+ONScripter fork, GPLv2). ONScripter is an open reimplementation of NScripter,
+so this runs NScripter games: Tsukihime, the original Higurashi and Umineko
+releases, Narcissu, and most doujin visual novels that ship an `nscript.dat`
+or `0.txt` plus `.nsa`/`.sar` archives.
+
+- `onsyuri.js` / `onsyuri.wasm` — the engine (Emscripten, SDL2, ASYNCIFY).
+  Rebuild with `~/Documents/Noberu/onscripter/build_web.sh install`, which
+  copies both here. The engine patch is in `onscripter/patches/`.
+- `assets/fallback.ttf` — Kosugi (SIL OFL), used when the game folder has no
+  `default.ttf`. See the NOTICE file beside it.
+- `ons.html` — the page loaded in an iframe by the "onscripter" tab in
+  `../index.html`. Host entry point:
+  - `window.ONSInstallAndBoot(root, files, { encoding })` — `files` is the
+    `FileList` from the directory picker; `encoding` is `auto`, `sjis` or
+    `gbk`. The engine starts once per page, so the host reloads the iframe
+    for every boot.
+
+  Events go to the parent as
+  `postMessage({ source: "onscripter-runtime", type, ... })` with `type` one
+  of `status`, `booting`, `running`, `loaded`, `exited`, `error`.
+
+## How files are loaded
+
+Nothing is copied up front. Each picked file becomes an empty placeholder in
+MEMFS under `/game`, so the engine's case-insensitive directory scan still
+finds it. The first time the engine opens a file for reading, the patched
+`fopen_ons` hook waits (via ASYNCIFY) while the page reads that File into
+MEMFS. Files the game never opens (Windows DLLs, unused movies) are never
+read. Movies are played by a `<video>` element; one that hasn't been loaded
+yet plays straight from its File.
+
+Once a file is loaded it stays in memory for the session. That means a game
+whose archives are huge (several GB of `.nsa`) still needs that much memory.
+
+## Script encoding
+
+This fork decodes scripts as GBK unless told otherwise. With `auto`, the
+page samples `0.txt`/`00.txt` or `nscript.dat` (XOR 0x84) and picks Shift-JIS
+when kana show up or the text decodes cleanly, else GBK. English-only
+scripts come out as Shift-JIS, which is fine. Encrypted `nscr_sec.dat` /
+`onscript.nt2` / `nt3` scripts can't be sampled and default to Shift-JIS.
+
+## Saves
+
+`/save` is IDBFS. Each game saves to `/save/<folder name>`, and the engine
+flushes it to IndexedDB after every save, plus once more on unload.
+
+## Dev
+
+`ons.html?autoload=testgame` boots the folder symlinked at `./testgame`
+(currently Narcissu, `~/narcissu_pkg`), using the `<size> <path>` list in
+`testgame_filelist.txt`, without the folder picker.

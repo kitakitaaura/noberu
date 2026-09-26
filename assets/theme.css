@@ -1,0 +1,728 @@
+/**
+ * noberu theme: quiet dark, in the spirit of cobalt.tools — flat near-black
+ * surfaces, hairline strokes, generous rounding, one accent colour, monospace
+ * type at a calm weight.
+ *
+ * This layers over the base stylesheet in index.html and only changes how
+ * things look: colour, borders, rounding, type and the old CRT effects
+ * (scanlines, glitch, glow). Layout, spacing rhythm and behaviour are
+ * untouched, so markup does not need to change.
+ */
+
+:root {
+  /* Dark is the default. The light set below only swaps these values. */
+  --paper: #000000;
+  --pink: #000000;
+  --cream: #0e0e0e;
+  --panel: #0b0b0b;
+  --panel-soft: #141414;
+  --surface: #191919;
+  --surface-hover: #202020;
+  --surface-press: #262626;
+
+  --ink: #e4e4e4;
+  --muted: #8b8b93;
+
+  /* Strokes: hairlines, not neon frames. */
+  --line: rgba(255, 255, 255, 0.09);
+  --line-strong: rgba(255, 255, 255, 0.16);
+
+  --drop-shadow: rgba(0, 0, 0, 0.55);
+  --backdrop: rgba(0, 0, 0, 0.72);
+
+  /* One accent, used for focus and the selected tab. */
+  --accent: #2f8af9;
+  --mint: var(--ink);
+  --sky: var(--accent);
+  --blue: var(--accent);
+  --gold: #f19a38;
+  --red: #ed2236;
+
+  --shadow: transparent;
+  --glow: transparent;
+
+  /* The stage: the viewport, the scene behind it, and the cards sitting on
+     top. It follows the theme like everything else. */
+  --stage: #070707;
+  --stage-deep: #050505;
+  --stage-panel: rgba(16, 16, 16, 0.88);
+  --stage-surface: #1c1c1c;
+  --stage-surface-hover: #242424;
+  --stage-ink: #e9e9e9;
+  --stage-muted: #9a9aa2;
+  --stage-line: rgba(255, 255, 255, 0.12);
+  --scene-fade: rgba(0, 0, 0, 0.9);
+  --scene-glow: rgba(47, 138, 249, 0.16);
+  --scene-shape: rgba(255, 255, 255, 0.05);
+  --scene-accent: var(--accent);
+  --scene-accent-opacity: 0.9;
+
+  /* Film grain: a little texture over the whole page. */
+  --grain-opacity: 0.09;
+  --grain-blend: normal;
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-pill: 999px;
+}
+
+:root[data-theme="light"] {
+  --paper: #ffffff;
+  --pink: #ffffff;
+  --cream: #f4f4f4;
+  --panel: #ffffff;
+  --panel-soft: #f1f1f1;
+  --surface: #f4f4f4;
+  --surface-hover: #ededed;
+  --surface-press: #e3e3e3;
+
+  --ink: #282828;
+  --muted: #75757e;
+
+  --line: rgba(0, 0, 0, 0.09);
+  --line-strong: rgba(0, 0, 0, 0.18);
+
+  --drop-shadow: rgba(0, 0, 0, 0.16);
+  --backdrop: rgba(0, 0, 0, 0.35);
+
+  --stage: #f7f7f8;
+  --stage-deep: #ededee;
+  --stage-panel: rgba(255, 255, 255, 0.92);
+  --stage-surface: #ffffff;
+  --stage-surface-hover: #f0f0f1;
+  --stage-ink: #282828;
+  --stage-muted: #75757e;
+  --stage-line: rgba(0, 0, 0, 0.1);
+  --scene-fade: rgba(0, 0, 0, 0.05);
+  --scene-glow: rgba(47, 138, 249, 0.14);
+  --scene-shape: rgba(0, 0, 0, 0.05);
+  --scene-accent-opacity: 0.75;
+
+  /* Light surfaces hide grain, so it needs a little more. */
+  --grain-opacity: 0.075;
+  --grain-blend: multiply;
+}
+
+body {
+  font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas,
+    "IBM Plex Mono", "Courier New", monospace;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+/* The CRT layer: scanlines, drifting static and the glitch band. */
+body::before,
+.static-noise {
+  display: none;
+}
+
+/* Film grain. One tile of SVG noise, repeated over the page and blended in
+   softly: no motion, no repaint, and it never eats a click. The maximized
+   runtime sits above it (z-index 10000), so a game is never grained. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9990;
+  display: block;
+  pointer-events: none;
+  opacity: var(--grain-opacity);
+  mix-blend-mode: var(--grain-blend);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+  animation: none;
+  clip-path: none;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  body::after {
+    display: none;
+  }
+}
+
+/* Nothing pulses or shifts any more. */
+.brand-text,
+.caption-box h1,
+.upload-zone h1,
+.window-title,
+.panel-header h2,
+.pixel-sun,
+.logo-box {
+  animation: none;
+  text-shadow: none;
+}
+
+/* --- top bar --- */
+
+.brand-chip,
+.downloads-chip {
+  min-height: 2.4rem;
+  border: 1px solid var(--line);
+  border-top: 0;
+  background: var(--cream);
+  box-shadow: none;
+}
+
+.brand-chip {
+  border-left: 0;
+  border-radius: 0 0 var(--radius) 0;
+  /* No overflow clipping here: the noberu menu hangs out of this chip. */
+}
+
+.downloads-chip {
+  border-right: 0;
+  border-radius: 0 0 0 var(--radius);
+  color: var(--ink);
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.topbar-actions {
+  display: flex;
+  pointer-events: auto;
+}
+
+.topbar-actions .downloads-chip {
+  border-radius: 0;
+}
+
+.topbar-actions .downloads-chip:first-child {
+  border-radius: 0 0 0 var(--radius);
+}
+
+.theme-chip {
+  padding: 0 0.85rem;
+}
+
+/* Each icon shows the mode the button switches to. */
+.theme-icon-light {
+  display: none;
+}
+
+:root[data-theme="light"] .theme-icon-light {
+  display: block;
+}
+
+:root[data-theme="light"] .theme-icon-dark {
+  display: none;
+}
+
+.downloads-chip:hover,
+.downloads-chip:focus-visible {
+  background: var(--surface-hover);
+}
+
+.logo-box {
+  /* Inverted against the page, so it reads in both themes. */
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow: none;
+  text-transform: none;
+  font-weight: 600;
+}
+
+.brand-text {
+  color: var(--muted);
+  font-weight: 500;
+  text-transform: none;
+}
+
+/* --- start menu --- */
+
+.start-menu {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-soft);
+  box-shadow: 0 12px 32px var(--drop-shadow);
+  overflow: hidden;
+}
+
+.start-menu-item {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-weight: 500;
+  text-transform: none;
+}
+
+.start-menu-item:hover,
+.start-menu-item:focus-visible {
+  background: var(--surface-hover);
+  outline: none;
+}
+
+/* --- window --- */
+
+.window {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--cream);
+  box-shadow: none;
+}
+
+.window-bar {
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-soft);
+}
+
+.window-title {
+  color: var(--muted);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: lowercase;
+}
+
+.tool-x,
+.tool-corner {
+  color: var(--muted);
+}
+
+.tool-square {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: none;
+}
+
+.tool-square:hover,
+.tool-square:focus-visible {
+  background: var(--surface-hover);
+  box-shadow: none;
+  outline: none;
+}
+
+/* --- viewport and its scene --- */
+
+.viewport {
+  border: 0;
+  background: var(--stage);
+  color: var(--stage-ink);
+}
+
+.scene {
+  background:
+    linear-gradient(to top, var(--scene-fade), transparent 55%),
+    radial-gradient(circle at 70% 22%, var(--scene-glow), transparent 55%),
+    var(--stage);
+}
+
+.pixel-sun {
+  border-radius: var(--radius);
+  background: var(--scene-accent);
+  box-shadow: none;
+  opacity: var(--scene-accent-opacity);
+}
+
+.hill,
+.hill::before,
+.hill::after {
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--scene-shape);
+}
+
+/* A pale sprite on a near-white page needs more alpha to read at all. Opacity
+   only - no filter, so she keeps her own colours. */
+:root[data-theme="light"] #bg-art::before {
+  opacity: 0.38;
+}
+
+.caption-box,
+.autodetect-card {
+  border: 1px solid var(--stage-line);
+  border-radius: var(--radius);
+  background: var(--stage-panel);
+  color: var(--stage-ink);
+  box-shadow: none;
+}
+
+.caption-box h1 {
+  text-transform: none;
+  letter-spacing: -0.01em;
+}
+
+/* --- side panel --- */
+
+.panel-header,
+.panel-footer {
+  border-color: var(--line);
+  background: var(--panel-soft);
+}
+
+.panel-header h2 {
+  color: var(--ink);
+  font-weight: 600;
+  text-transform: none;
+}
+
+.panel-header p,
+.panel-footer p,
+.control-note {
+  color: var(--muted);
+}
+
+.panel-body {
+  background: var(--panel);
+}
+
+.mini-icon {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: none;
+  color: var(--muted);
+}
+
+/* --- controls --- */
+
+.retro-button,
+.tiny-button,
+.library-engine,
+.library-url input,
+.field input[type="text"],
+.field input[type="number"],
+.field select,
+.field-inline select,
+.control-key {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  box-shadow: none;
+  transition: background 0.12s ease;
+}
+
+.retro-button {
+  min-height: 2.4rem;
+  padding: 0 1rem;
+  border-radius: var(--radius-pill);
+}
+
+.retro-button:hover,
+.tiny-button:hover,
+.control-key:hover {
+  transform: none;
+  background: var(--surface-hover);
+  box-shadow: none;
+}
+
+.retro-button:active,
+.tiny-button:active,
+.control-key:active {
+  background: var(--surface-press);
+  transform: none;
+}
+
+.retro-button.secondary {
+  background: transparent;
+}
+
+.retro-button.secondary:hover {
+  background: var(--surface-hover);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* The advanced panels sit inside a side panel, so they read as a nested
+   section rather than another card. */
+.field-panel {
+  background: transparent;
+}
+
+.field-panel > summary {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.field-panel > summary:hover {
+  color: var(--accent);
+}
+
+.field-heading {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.field {
+  color: var(--muted);
+}
+
+.field input::placeholder {
+  color: var(--muted);
+}
+
+.field input[type="checkbox"],
+.option-row input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+/* The overlay list: each row is the card, the list itself is just spacing. */
+.option-item {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  transition: background 0.12s ease;
+}
+
+.option-item:hover {
+  background: var(--surface-hover);
+}
+
+.option-text b {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.option-text span,
+.option-empty {
+  color: var(--muted);
+}
+
+.file-card,
+.upload-zone,
+.runtime-card,
+.control-panel,
+.keymap-table {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-soft);
+  box-shadow: none;
+}
+
+.upload-zone {
+  border-color: var(--stage-line);
+  background: var(--stage-panel);
+  color: var(--stage-ink);
+}
+
+/* Controls that sit on the stage follow the stage, not the page chrome. */
+.viewport .retro-button,
+.viewport .tiny-button {
+  border-color: var(--stage-line);
+  background: var(--stage-surface);
+  color: var(--stage-ink);
+}
+
+.viewport .retro-button.secondary {
+  background: transparent;
+}
+
+.viewport .retro-button:hover,
+.viewport .tiny-button:hover {
+  background: var(--stage-surface-hover);
+}
+
+.upload-zone.dragging {
+  border-color: var(--accent);
+  background: rgba(47, 138, 249, 0.08);
+}
+
+/* A tile with an upload arrow, mirroring the download arrow in the header
+   (the old one was a CRT television with a play glyph). */
+.upload-symbol {
+  width: 3.4rem;
+  height: 3.4rem;
+  margin: 0 auto 0.9rem;
+  border: 1px solid var(--stage-line);
+  border-radius: var(--radius);
+  background: var(--stage-surface);
+  box-shadow: none;
+  color: var(--accent);
+}
+
+.upload-symbol svg {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+
+.upload-zone.dragging .upload-symbol {
+  border-color: var(--accent);
+  background: rgba(47, 138, 249, 0.12);
+}
+
+.meter {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface-press);
+  overflow: hidden;
+}
+
+.meter span {
+  background: var(--accent);
+  box-shadow: none;
+}
+
+/* --- runtime frames --- */
+
+.play-runtime {
+  background: var(--stage-deep);
+  color: var(--stage-ink);
+}
+
+.play-frame-toolbar {
+  border-top: 1px solid var(--stage-line);
+  background: var(--stage-panel);
+  color: var(--stage-muted);
+  text-transform: none;
+}
+
+.play-canvas {
+  border: 1px solid var(--stage-line) !important;
+  border-radius: var(--radius);
+  box-shadow: none !important;
+}
+
+.runtime-overlay {
+  background: rgba(0, 0, 0, 0.72);
+  color: var(--stage-ink);
+}
+
+.runtime-card {
+  border-color: var(--stage-line);
+  background: var(--stage-panel);
+  color: var(--stage-ink);
+}
+
+/* --- status strip --- */
+
+.status-strip {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-soft);
+  box-shadow: none;
+}
+
+.status-readout {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--muted);
+  text-transform: none;
+}
+
+.status-live {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--muted);
+  text-transform: none;
+}
+
+.live-dot {
+  background: var(--red);
+  box-shadow: none;
+}
+
+/* --- bottom tabs --- */
+
+.bottom-tabs {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--cream);
+  box-shadow: 0 10px 30px var(--drop-shadow);
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.bottom-tabs::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.bottom-tabs::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: var(--radius-pill);
+}
+
+.tab-button {
+  min-height: 4.4rem;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.tab-button:hover {
+  transform: none;
+  background: var(--surface-hover);
+  box-shadow: none;
+}
+
+.tab-button[aria-selected="true"] {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.tab-icon {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: none;
+  font-size: 1.05rem;
+}
+
+.tab-button[aria-selected="true"] .tab-icon {
+  border-color: var(--line-strong);
+  background: var(--surface-press);
+}
+
+.tab-label {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.78rem;
+}
+
+/* --- downloads popup --- */
+
+.library-modal {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--cream);
+  box-shadow: 0 18px 48px var(--drop-shadow);
+}
+
+.library-backdrop {
+  background: var(--backdrop);
+}
+
+.library-bar {
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-soft);
+  text-transform: none;
+}
+
+.library-add {
+  border-bottom: 1px solid var(--line);
+}
+
+.library-url input {
+  border-radius: var(--radius-pill);
+  padding: 0.5rem 0.9rem;
+}
+
+.library-item {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-soft);
+}
+
+.library-item-main span {
+  color: var(--muted);
+}
+
+.library-foot {
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+}
+
+/* --- mobile notice --- */
+
+#mobile-block {
+  background: var(--paper);
+}

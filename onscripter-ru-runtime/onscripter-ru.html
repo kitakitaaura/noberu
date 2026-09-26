@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>onscripter-ru runtime</title>
+  <style>
+    html,
+    body {
+      margin: 0;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #canvas {
+      display: block;
+      background: #000;
+      max-width: 100%;
+      max-height: 100%;
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+
+  <script>
+    // The page loaded in an iframe by the "onscripter-ru" tab in ../index.html.
+    // It runs onscripter-ru (the Umineko Project's ONScripter fork) built to
+    // wasm with pthreads; see ~/Documents/Noberu/onscripter-ru.
+    //
+    // Host entry point:
+    //   window.ONSRUInstallAndBoot(root, files) - `files` is the FileList from
+    //   the tab's directory picker.
+    // Status goes to the parent as
+    // postMessage({ source: "onscripter-ru-runtime", type, ... }).
+    //
+    // No game data is copied. Every File gets a blob: URL, listed with its
+    // size and path in /manifest.tsv; the engine's main() (web/web_glue.cpp)
+    // turns that into a read-only /game whose reads slice the Files on demand.
+    // This page needs cross-origin isolation (SharedArrayBuffer) for threads.
+
+    const canvasEl = document.getElementById("canvas");
+
+    function post(type, detail) {
+      window.parent.postMessage(
+        Object.assign({ source: "onscripter-ru-runtime", type: type }, detail || {}), "*");
+    }
+
+    function fitCanvas() {
+      const w = canvasEl.width || 1280;
+      const h = canvasEl.height || 720;
+      const scale = Math.min(window.innerWidth / w, window.innerHeight / h);
+      canvasEl.style.width = Math.floor(w * scale) + "px";
+      canvasEl.style.height = Math.floor(h * scale) + "px";
+    }
+    window.addEventListener("resize", fitCanvas);
+
+    function relativePaths(files) {
+      const prefix = files[0].webkitRelativePath
+        ? files[0].webkitRelativePath.split("/")[0] + "/"
+        : "";
+      return files.map((file) => {
+        let relative = file.webkitRelativePath || file.name;
+        if (prefix && relative.startsWith(prefix)) relative = relative.substring(prefix.length);
+        return relative;
+      });
+    }
+
+    // Umineko Project's layout: default.cfg names the script (en.file etc).
+    async function readConfig(files, paths) {
+      const index = paths.findIndex((p) => p.toLowerCase() === "default.cfg");
+      if (index < 0) return {};
+      const options = {};
+      for (const raw of (await files[index].text()).split(/\r?\n/)) {
+        const line = raw.trim();
+        if (!line || line.startsWith(";")) continue;
+        const eq = line.indexOf("=");
+        if (eq < 0) options[line] = true;
+        else options[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+      }
+      return options;
+    }
+
+    let started = false;
+    let presenter = null;
+    let firstFrame = false;
+    let latestFrame = null;
+    let framePending = null;
+    let drawScheduled = false;
+
+    function drawFrame() {
+      drawScheduled = false;
+      if (latestFrame) {
+        if (!presenter) presenter = canvasEl.getContext("bitmaprenderer");
+        presenter.transferFromImageBitmap(latestFrame);
+        latestFrame = null;
+        if (!firstFrame) {
+          firstFrame = true;
+          fitCanvas();
+        }
+      }
+      if (framePending) {
+        Atomics.store(framePending, 0, 0);
+        Atomics.notify(framePending, 0);
+      }
+    }
+
+    // Render at 1 CSS pixel per game pixel: SDL would otherwise size the
+    // canvas by devicePixelRatio (4x the pixels on a Retina screen) for no
+    // visible gain once the frame is scaled to fit.
+    Object.defineProperty(window, "devicePixelRatio", { get: () => 1 });
+
+    // entries: [{ path, size, url }]
+    async function boot(root, entries, extraArgs) {
+      if (started) return;
+      started = true;
+      if (!self.crossOriginIsolated) {
+        throw new Error("This page is not cross-origin isolated, so threads are unavailable.");
+      }
+
+      post("status", { text: "loading the onscripter-ru engine..." });
+      await new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = "onscripter-ru.js";
+        script.onload = resolve;
+        script.onerror = () => reject(new Error("Failed to load onscripter-ru.js"));
+        document.body.appendChild(script);
+      });
+
+      const Mod = await createOnscripterRu({
+        canvas: canvasEl,
+        print: (text) => console.log("[ons-ru]", text),
+        printErr: (text) => console.warn("[ons-ru]", text),
+        onAbort: (what) => post("error", { message: "engine aborted: " + what }),
+        onExit: (code) => post("exited", { code: code }),
+        // The engine renders on its own thread and sends finished frames here
+        // (web/present.js in the engine tree). Only the newest frame is kept;
+        // clearing `pending` after drawing lets the engine send the next one.
+        onsPresentFrame: (bitmap, pending) => {
+          if (latestFrame) latestFrame.close();
+          latestFrame = bitmap;
+          framePending = pending;
+          if (!drawScheduled) {
+            drawScheduled = true;
+            requestAnimationFrame(drawFrame);
+          }
+        },
+        // Engine message boxes (fatal script errors, mostly).
+        onsAlert: (message) => {
+          console.warn("[ons-ru] message box:", message);
+          post("error", { message: message });
+        },
+        onHostEvent: (type, detail) => {
+          if (type === "booting") {
+            post("running", {});
+            window.setTimeout(fitCanvas, 1000);
+          } else if (type === "error") {
+            post("error", { message: detail });
+          } else if (type === "relaunch") {
+            // The engine asked to restart (after changing its settings).
+            if (autoloadName) location.reload();
+            else post("relaunch", {});
+          }
+        },
+      });
+
+      post("status", { text: `staging ${entries.length} files...` });
+      const manifest = entries.map((e) => `${e.size}\t${e.url}\t${e.path}`).join("\n") + "\n";
+      Mod.FS.writeFile("/manifest.tsv", manifest);
+
+      const args = ["--root", "/game", "--save", "/save/" + saveId(root),
+        // Umineko's first-run screen only picks window/fullscreen options,
+        // which mean nothing here, and then needs a relaunch.
+        "--env[first_launch]", "passed",
+        // The engine sizes its image/sound caches from system RAM, which it
+        // cannot read here (it then assumes 4 GB).
+        "--ramlimit", "1024",
+        ...extraArgs];
+      console.log("[ons-ru] args", args);
+      post("booting", {});
+      Mod.callMain(args);
+      canvasEl.focus();
+    }
+
+    function saveId(root) {
+      return (root || "game").replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 64) || "game";
+    }
+
+    async function argsFromConfig(config) {
+      const args = [];
+      if (config["game-script"]) args.push("--game-script", config["game-script"]);
+      // The engine sizes the window from this; the canvas is scaled to fit anyway.
+      if (config["window-width"]) args.push("--window-width", config["window-width"]);
+      return args;
+    }
+
+    window.ONSRUInstallAndBoot = async function (root, fileList) {
+      try {
+        const files = [...(fileList || [])];
+        if (files.length === 0) throw new Error("No files were staged.");
+        const paths = relativePaths(files);
+        const config = await readConfig(files, paths);
+        // This build only reads onscripter-ru's own compiled scripts (.file).
+        const script = (config["game-script"] || "script.file").toLowerCase();
+        if (!paths.some((p) => p.toLowerCase() === script)) {
+          throw new Error(`No ${script} here. This tab runs Umineko Project releases; ` +
+            "pick the folder holding default.cfg and en.file, or use the onscripter tab for other NScripter games.");
+        }
+        const entries = files.map((file, i) => ({
+          path: paths[i],
+          size: file.size,
+          url: URL.createObjectURL(file),
+        })).filter((e) => e.path);
+        await boot(root, entries, await argsFromConfig(config));
+      } catch (error) {
+        console.error(error);
+        post("error", { message: String((error && error.message) || error) });
+      }
+    };
+
+    // Dev only: onscripter-ru.html?autoload=testgame boots the folder
+    // symlinked at ./testgame over plain HTTP, using the "<size> <path>" list in
+    // testgame_filelist.txt.
+    const autoloadName = new URLSearchParams(location.search).get("autoload");
+    (async function autoload() {
+      const name = autoloadName;
+      if (!name || !/^[\w-]+$/.test(name)) return;
+      try {
+        const list = await (await fetch(`${name}_filelist.txt`)).text();
+        const base = new URL(`${name}/`, location.href);
+        const entries = list.split("\n").filter(Boolean).map((line) => {
+          const space = line.indexOf(" ");
+          const path = line.slice(space + 1);
+          return {
+            path,
+            size: Number(line.slice(0, space)),
+            url: new URL(path.split("/").map(encodeURIComponent).join("/"), base).href,
+          };
+        });
+        const cfg = entries.find((e) => e.path === "default.cfg");
+        const config = {};
+        if (cfg) {
+          for (const raw of (await (await fetch(cfg.url)).text()).split(/\r?\n/)) {
+            const line = raw.trim();
+            const eq = line.indexOf("=");
+            if (line && eq > 0) config[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+          }
+        }
+        await boot(name, entries, await argsFromConfig(config));
+      } catch (error) {
+        console.error(error);
+        post("error", { message: String((error && error.message) || error) });
+      }
+    })();
+  </script>
+</body>
+
+</html>

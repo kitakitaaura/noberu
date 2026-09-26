@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en-us">
+
+<head>
+  <meta charset="utf-8">
+  <title>BoxedWine</title>
+  <meta name="description" content="boxedwine emulator">
+  <meta name="keywords" content="emulator,wine,windows,x86,PC,emscripten,web assembly,wasm,boxedwine">
+  <meta name="author" content="James Bryant, Kevin O'Dwyer">
+  <link href="boxedwine.css" rel="stylesheet">
+  <style>
+    /* Embedded inside the Noberu boxedwine tab: the host page's sidebar
+       drives everything, so the runtime's own built-in controls and file
+       upload modals would just be redundant clutter. */
+    #controls,
+    #openModal,
+    #openModalExe {
+      display: none !important;
+    }
+
+    html,
+    body,
+    #app {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+    }
+
+    #dropzone {
+      width: 100%;
+      height: 100%;
+    }
+
+    .emscripten_border {
+      width: 100%;
+      height: 100%;
+    }
+
+    #canvas {
+      width: 100%;
+      height: 100%;
+      outline: none;
+    }
+
+    #console {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      max-height: 30%;
+      z-index: 2;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="loading">
+    <figure id="spinner" style="overflow:visible">
+      <div class="spinner" style="margin-top:.5em;margin-left:auto;margin-right:auto"></div>
+    </figure>
+    <div id="status" class="emscripten">Downloading...</div>
+    <div class="emscripten">
+      <progress id="progress" max="100" value="0"></progress>
+    </div>
+  </div>
+  <div id="app">
+    <div id="controls" class="emscripten">
+      <button onclick="start()" id="startbtn" style="display:none">Start</button>
+      <button onclick='document.getElementById("upload").click()' id="uploadbtn" style="display:none">Add
+        File(s)</button>
+      <input id="upload" type="file" onclick='document.getElementById("uploadbtn").click()' multiple name="upload"
+        onchange="startWithFiles(event.target.files)" style="display:none">
+      <button onclick="buildGetFilesModal()" id="downloadbtn" style="display:none">Get File(s)</button>
+      <button onclick="saveJitModules()" id="savejitbtn" style="display:none">Save JIT Cache</button>
+      <a href="#openModal" id="modalLink" style="display:none">Open</a>
+      <a href="#openModalExe" id="modalLinkExe" style="display:none">Open</a>
+      <span id="sound-checkbox" style="display:none">
+        <input id="soundToggle" type="checkbox" onclick="toggleSound()">Enable Sound
+      </span>
+      <input id="pointerLock" type="checkbox">Lock/hide mouse pointer
+      <input id="showConsole" type="checkbox" onclick="toggleConsole()">Show console
+    </div>
+    <div id="dropzone">
+      <div class="emscripten_border">
+        <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+      </div>
+    </div>
+    <div id="console">
+      <textarea class="emscripten" id="output" rows="8" style="display:none"></textarea>
+    </div>
+    <div id="openModal" class="modalDialog">
+      <div>
+        <a href="#close" class="close" title="Close" onclick="closeGetFilesModal()">X</a>
+        <div>
+          <h3>Get File(s)</h3>
+          <input id="selectedItem" size="50" readonly>
+          <button onclick="extract()">Get</button>
+        </div>
+        <div id="tree" class="scroll-style"></div>
+        <div>
+          <h3 id="loadStatus">Loading...</h3>
+        </div>
+      </div>
+    </div>
+    <div id="openModalExe" class="modalDialog">
+      <div>
+        <a href="#close" id="openModalExeClick" class="close" title="Close">X</a>
+        <div>
+          <h3>Execute</h3>
+          <div id="message"></div>
+          <div id="items" class="scroll-style"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <hr>
+  <script>
+    // Established before boxedwine-shell.js runs so its host-config gate
+    // (see initialSetup in boxedwine-shell.js) has something to await. The
+    // parent Noberu page sets window.BoxedWineHost then calls
+    // window.__resolveBoxedWineHost() once the uploaded zip bytes are ready.
+    window.BoxedWineHost = null;
+    window.BoxedWineHostGate = new Promise((resolve) => {
+      window.__resolveBoxedWineHost = resolve;
+    });
+  </script>
+  <!-- Ours: where boxedwine.zip is served from. See ../noberu-config.js. -->
+  <script src="../noberu-config.js"></script>
+  <script src="boxedwine-shell.js"></script>
+  <script src="boxedwine.js" async></script>
+</body>
+
+</html>

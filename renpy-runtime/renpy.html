@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>renpy runtime</title>
+  <style>
+    html,
+    body {
+      margin: 0;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #canvas {
+      display: block;
+      background: #000;
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    /* Ren'Py's own pre-js drives these; they sit on top of the canvas. */
+    #overlayDiv {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: 0 none;
+      pointer-events: none;
+    }
+
+    #statusDiv,
+    #inputDiv {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      width: 60%;
+      min-width: 320px;
+      margin: auto;
+      padding: 10px;
+      background: rgba(0, 0, 0, 0.75);
+      border-radius: 0 0 6px 6px;
+      color: #ccc;
+      font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    #statusTextDiv {
+      overflow: auto;
+      max-height: 40vh;
+    }
+
+    #statusProgress {
+      display: none;
+      width: 100%;
+    }
+
+    #inputText {
+      width: 100%;
+      font-size: 150%;
+      padding: 5px;
+      background: inherit;
+      color: #eee;
+    }
+
+    .hidden {
+      visibility: hidden;
+      opacity: 0;
+    }
+
+    /* Ren'Py's hamburger menu duplicates the tab's own save handling. */
+    #ContextContainer {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+  <div id="overlayDiv"></div>
+  <div id="presplash"></div>
+
+  <div id="ContextContainer">
+    <a id="ContextButton">&#8801;</a>
+    <div id="ContextMenu" style="display: none;"></div>
+  </div>
+
+  <div id="statusDiv" class="hidden">
+    <div id="statusTextDiv"></div>
+    <progress id="statusProgress" value="0" max="100"></progress>
+  </div>
+
+  <div id="inputDiv" class="hidden">
+    <form id="inputForm">
+      <div id="inputPrompt"></div>
+      <input id="inputText" type="text">
+    </form>
+  </div>
+
+  <script src="stage.js"></script>
+  <script src="dev.js"></script>
+  <script>
+    // The page loaded in an iframe by the "ren'py" tab in ../index.html.
+    //
+    // Unlike the other runtimes, nothing here was ported: Ren'Py ships an
+    // official Emscripten build, and renpy.js / renpy.wasm / renpy.data /
+    // renpy-pre.js below are the stock files from the 8.5.3 SDK's web
+    // support package (renpy.org/dl/8.5.3/renpy-8.5.3-web.zip).
+    //
+    // Host entry point:
+    //   window.RenPyInstallAndBoot(root, files) - `files` is the FileList from
+    //   the tab's directory picker.
+    // Status goes to the parent as
+    // postMessage({ source: "renpy-runtime", type, ... }).
+    //
+    // Ren'Py's web build boots from a single game.zip holding both the engine
+    // (renpy/, precompiled) and the game (game/). engine-8.5.3.zip is the
+    // engine half, built once from the SDK; this page stitches the picked
+    // game/ folder onto it in the browser and hands Ren'Py the result as a
+    // blob: URL through window.gameZipURL, which its pre-js reads.
+    //
+    // Nothing is copied while stitching: the Blob is assembled from the File
+    // objects themselves, so JS memory stays flat. Ren'Py then reads the whole
+    // zip into the wasm heap and unpacks it there, so the game still has to
+    // fit in memory twice over - see BIG_GAME_BYTES.
+
+    const ENGINE_ZIP = "engine-8.5.3.zip";
+    const ENGINE_VERSION = [8, 5, 3];
+
+    // Past this the wasm heap is likely to run out while unpacking. Warn
+    // rather than refuse: the real ceiling depends on the browser.
+    const BIG_GAME_BYTES = 1200 * 1024 * 1024;
+
+    const canvasEl = document.getElementById("canvas");
+
+    // Render at 1 CSS pixel per game pixel. SDL otherwise sizes the canvas by
+    // devicePixelRatio, so a 1920x1080 game renders at 3840x2160 on a Retina
+    // screen - 4x the pixels - and is then scaled straight back down to fit.
+    // This build has no threads, so that cost lands on the one frame thread
+    // and shows up as lag.
+    //
+    // ?scale=N overrides it: below 1 the game renders smaller and the browser
+    // scales it up, which is the lever for a heavy game. "native" restores the
+    // browser's own ratio.
+    const scaleParam = new URLSearchParams(location.search).get("scale");
+    if (scaleParam !== "native") {
+      const scale = Math.min(2, Math.max(0.25, parseFloat(scaleParam) || 1));
+      Object.defineProperty(window, "devicePixelRatio", { get: () => scale });
+    }
+    // Readable from outside the page's JS world, for debugging.
+    document.documentElement.dataset.renpyDpr = String(window.devicePixelRatio);
+
+
+    function post(type, detail) {
+      window.parent.postMessage(
+        Object.assign({ source: "renpy-runtime", type: type }, detail || {}), "*");
+    }
+
+    function status(text) {
+      post("status", { text: text });
+    }
+
+    // ---- boot ------------------------------------------------------------
+
+    let started = false;
+
+    async function boot(root, fileList) {
+      if (started) return;
+      started = true;
+
+      const staged = await NoberuRenPyStage.prepare({
+        fileList: fileList,
+        checkVersion: (version) => {
+          if (version && version[0] < 8) {
+            throw new Error(
+              `This is a Ren'Py ${version.join(".")} game, and this is the Ren'Py ` +
+              `${ENGINE_VERSION.join(".")} runtime. The ren'py tab picks the 7.x runtime ` +
+              "for those; loading this page directly skips that choice.");
+          }
+        },
+      });
+
+      if (staged.bytes > BIG_GAME_BYTES) {
+        post("warning", {
+          message: `This game is ${Math.round(staged.bytes / (1024 * 1024))} MB, which has to fit ` +
+            "in memory all at once. It may run out and crash.",
+        });
+      }
+
+      // Only the engine goes through the zip; the game is written into the
+      // filesystem below, so it is never held twice.
+      window.gameZipURL = ENGINE_ZIP;
+      window.presplashEnd = window.presplashEnd || function () { };
+
+      status("loading the Ren'Py engine...");
+      post("booting", {});
+
+      // renpy-pre.js sets up Module and the DOM hooks; renpy.js is the
+      // Emscripten runtime and starts as soon as it loads.
+      await loadScript("renpy-pre.js");
+
+      // renpy-pre.js has now created Module and queued its own preRun steps;
+      // ours runs alongside them and the engine waits for all of them.
+      Module.preRun.push(function () {
+        Module.addRunDependency("installGame");
+        NoberuRenPyStage.install(Module.FS || FS, staged, status)
+          .then(() => Module.removeRunDependency("installGame"))
+          .catch((error) => {
+            post("error", { message: "Could not install the game: " + error.message });
+          });
+      });
+
+      // Ren'Py calls this once the game has drawn its first frame, which is
+      // the real "running" moment - renpy.js loading only means the engine
+      // started up.
+      const enginePresplashEnd = window.presplashEnd;
+      window.presplashEnd = function () {
+        try {
+          if (enginePresplashEnd) enginePresplashEnd();
+        } finally {
+          post("running", {});
+          canvasEl.focus();
+          applyPerformancePreferences();
+        }
+      };
+
+      await loadScript("renpy.js");
+    }
+
+    // Ren'Py's own Shift+G screen offers a renderer choice, powersave and a
+    // framerate cap. Only the last two mean anything here: on Emscripten the
+    // renderer is always GLES2, and the "Force ANGLE2" option desktop guides
+    // recommend is Windows-only (ANGLE translates GL to Direct3D; the browser
+    // already does its own translation).
+    //
+    // Powersave drops the framerate when Ren'Py thinks the game is idle, which
+    // on a laptop reads as stutter. Turn it off and leave the framerate on the
+    // screen's own rate. The player can still change both from Shift+G.
+    function applyPerformancePreferences() {
+      if (typeof window.renpy_exec !== "function") return;
+      window.renpy_exec(
+        "renpy.game.preferences.gl_powersave = False\n" +
+        "renpy.game.preferences.gl_framerate = None\n"
+      ).catch((error) => console.warn("[renpy] could not set performance preferences", error));
+    }
+
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = () => reject(new Error("Failed to load " + src));
+        document.body.appendChild(script);
+      });
+    }
+
+    window.RenPyInstallAndBoot = async function (root, fileList) {
+      try {
+        await boot(root, fileList);
+      } catch (error) {
+        console.error(error);
+        post("error", { message: String((error && error.message) || error) });
+      }
+    };
+
+    // Dev only: renpy.html?autoload=testgame boots the folder symlinked at
+    // ./testgame over plain HTTP, using the "<size> <path>" list in
+    // testgame_filelist.txt (same convention as the other runtimes).
+    (async function autoload() {
+      const name = new URLSearchParams(location.search).get("autoload");
+      if (!name || !/^[\w-]+$/.test(name)) return;
+      try {
+        await boot(name, await NoberuRenPyDev.load(name));
+      } catch (error) {
+        console.error(error);
+        post("error", { message: String((error && error.message) || error) });
+      }
+    })();
+  </script>
+</body>
+
+</html>
