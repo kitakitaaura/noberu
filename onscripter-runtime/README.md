@@ -43,6 +43,13 @@ when kana show up or the text decodes cleanly, else GBK. English-only
 scripts come out as Shift-JIS, which is fine. Encrypted `nscr_sec.dat` /
 `onscript.nt2` / `nt3` scripts can't be sampled and default to Shift-JIS.
 
+When a Shift-JIS script is mostly backtick (1-byte) lines, the page also
+passes `--english-menu` (a local engine patch). The save/load menus and
+yes/no dialogs then use ONScripter-EN's English text and ASCII numbers.
+The fork's Japanese defaults need full-width glyphs that English fan
+releases' fonts often lack. Tsukihime's font has only 97 glyphs, for example,
+so those menus showed up as rows of boxes.
+
 ## Saves
 
 `/save` is IDBFS. Each game saves to `/save/<folder name>`, and the engine

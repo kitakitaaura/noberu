@@ -4,11 +4,6 @@ import { createServer } from "node:http";
 import { networkInterfaces } from "node:os";
 
 const root = new URL(".", import.meta.url).pathname;
-// Files too big for the site's host live outside it, and are fetched through a
-// base URL rather than from the site (see noberu-config.js). `/large/` is that
-// base locally; in production it is the R2-backed Worker in large-assets-worker/.
-const largeRoot = new URL("../noberu-assets/", import.meta.url).pathname;
-const LARGE_PREFIX = "/large/";
 const preferredPort = Number(process.env.PORT || 4175);
 const host = process.env.HOST || "0.0.0.0";
 
@@ -35,9 +30,6 @@ const mimeTypes = {
 function resolvePath(urlPath) {
   const decodedPath = decodeURIComponent(urlPath.split("?")[0]);
   const safePath = normalize(decodedPath).replace(/^(\.\.[/\\])+/, "");
-  if (safePath.startsWith(LARGE_PREFIX)) {
-    return join(largeRoot, safePath.slice(LARGE_PREFIX.length));
-  }
   let filePath = join(root, safePath);
   if (filePath.endsWith("/")) filePath = join(filePath, "index.html");
   if (existsSync(filePath) && statSync(filePath).isDirectory()) {
@@ -49,8 +41,7 @@ function resolvePath(urlPath) {
 function createPlayServer() {
   return createServer((request, response) => {
     const filePath = resolvePath(request.url || "/");
-    const allowed = filePath.startsWith(root) || filePath.startsWith(largeRoot);
-    if (!allowed || !existsSync(filePath)) {
+    if (!filePath.startsWith(root) || !existsSync(filePath)) {
       response.writeHead(404, {
         "Content-Type": "text/plain; charset=utf-8",
       });

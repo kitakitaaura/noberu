@@ -5,8 +5,34 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="data:," />
-  <title>VN Web Port Framework</title>
-  <link rel="icon" type="image/x-icon" href="assets/kita.jpg">
+  <title>noberu</title>
+  <!-- Frame 1 of the animated favicon (assets/favicon-frames.png), so the still
+       icon and the animation are the same picture. This is what shows when the
+       loop does not run: reduced motion, JavaScript off, or the sheet failing
+       to load. See the animated favicon block at the end of this file. -->
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+
+  <!-- The link preview Discord, Twitter and the rest build when this URL is
+       pasted. og:image has to be an ABSOLUTE url - a crawler is not on this
+       page, so a relative one resolves against nothing. Update the origin here
+       if the site ever moves. -->
+  <meta name="description" content="web-based visual novel porter" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="noberu" />
+  <meta property="og:title" content="noberu" />
+  <meta property="og:description" content="web-based visual novel porter" />
+  <meta property="og:url" content="https://noberu.kitaaura.com/" />
+  <meta property="og:image" content="https://noberu.kitaaura.com/assets/noberu-card.png" />
+  <meta property="og:image:width" content="418" />
+  <meta property="og:image:height" content="392" />
+  <meta property="og:image:alt" content="noberu" />
+  <!-- summary, not summary_large_image: the art is square, and the wide card
+       would crop the top and bottom off it. -->
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="noberu" />
+  <meta name="twitter:description" content="web-based visual novel porter" />
+  <meta name="twitter:image" content="https://noberu.kitaaura.com/assets/noberu-card.png" />
+  <meta name="theme-color" content="#0b1416" />
   <style>
     :root {
       --ink: #d9fff4;
@@ -1733,7 +1759,6 @@
     <div class="brand-chip">
       <button class="logo-box" id="noberu-menu-button" type="button" aria-haspopup="menu" aria-expanded="false"
         aria-controls="start-menu">noberu</button>
-      <div class="brand-text">by kitakita</div>
       <div class="start-menu" id="start-menu" role="menu" aria-label="noberu menu" hidden>
         <button class="start-menu-item" type="button" role="menuitem" data-tab="arcade">
           <span class="tab-icon" aria-hidden="true">⬤</span>
@@ -1870,7 +1895,7 @@
               </div>
             </div>
             <div class="panel-footer">
-              <p>Status: framework draft / awaiting project copy.</p>
+              <p>Status: lobby.</p>
             </div>
           </aside>
         </div>
@@ -2926,7 +2951,7 @@
       </div>
 
       <div class="status-strip">
-        <div class="status-readout" id="status-readout">Channel: about / framework lobby</div>
+        <div class="status-readout" id="status-readout">Channel: about / lobby</div>
         <div class="status-live"><span class="live-dot" aria-hidden="true"></span> LOCAL</div>
       </div>
     </section>
@@ -2991,10 +3016,35 @@
   </nav>
 
   <script src="assets/vendor/fflate.min.js"></script>
-  <script src="noberu-config.js"></script>
+  <!-- Shown once, on a first visit, and never again after OK. See the welcome
+       notice script at the end of this file. -->
+  <div class="library-backdrop hidden" id="welcome-backdrop">
+    <div class="library-modal" role="dialog" aria-modal="true" aria-labelledby="welcome-title"
+      style="width:min(34rem,100%);">
+      <div class="library-bar">
+        <b id="welcome-title">noberu v0.1 — beta</b>
+      </div>
+      <div class="library-add">
+        <img src="assets/noberu-card.png" alt="" width="418" height="392"
+          style="display:block;width:7rem;height:auto;margin:0 auto 0.3rem;border:2px solid var(--line);border-radius:6px;" />
+        <p class="control-note">This is a <b>BETA</b> release. Things break, games fail to boot, and
+          saves can be lost between updates.</p>
+        <p class="control-note">Every tab runs a real engine or emulator in your browser, which asks
+          a lot of a machine. On weaker systems expect long loads, stutter, or games that never
+          start at all.</p>
+        <p class="control-note">Questions, bugs, or a game that will not run — dm
+          <b>farisnyanyann</b> on Discord.</p>
+      </div>
+      <div class="library-foot">
+        <button class="retro-button" type="button" id="welcome-ok">ok</button>
+      </div>
+    </div>
+  </div>
+
   <script src="tyrano-runtime/noberu-glue.js"></script>
   <script src="assets/library.js"></script>
   <script src="assets/saves.js"></script>
+  <script src="assets/tour.js"></script>
   <script>
     const tabs = [...document.querySelectorAll(".tab-button")];
     const views = {
@@ -3125,7 +3175,7 @@
       });
 
       statusReadout.textContent = tabName === "about"
-        ? "Channel: about / framework lobby"
+        ? "Channel: about / lobby"
         : tabName === "boxedwine"
           ? "Channel: boxedwine / Wine staging"
           : tabName === "vnds"
@@ -5745,6 +5795,55 @@
 
     themeButton.addEventListener("click", () => {
       applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light");
+    });
+
+
+    // --- first-visit notice -------------------------------------------------
+    //
+    // Shown once per browser and dismissed for good with ok. The key carries the
+    // version, so a later release can say its piece again rather than being
+    // silenced by someone having clicked ok on this one.
+
+    const WELCOME_KEY = "noberu.welcome.v0.1";
+    const welcomeBackdrop = document.querySelector("#welcome-backdrop");
+    const welcomeOk = document.querySelector("#welcome-ok");
+
+    // Storage can be unavailable outright (private windows, blocked site data),
+    // and it throws on access rather than returning null. A notice is not worth
+    // a broken page, so a failure here just means it shows again next time.
+    function welcomeSeen() {
+      try {
+        return localStorage.getItem(WELCOME_KEY) === "1";
+      } catch (error) {
+        return false;
+      }
+    }
+
+    function dismissWelcome() {
+      const wasOpen = !welcomeBackdrop.classList.contains("hidden");
+      welcomeBackdrop.classList.add("hidden");
+      // First visit: the demo tour follows the notice.
+      if (wasOpen) window.NoberuTour.startIfNew();
+      try {
+        localStorage.setItem(WELCOME_KEY, "1");
+      } catch (error) {
+        /* see welcomeSeen: nothing to do, it will appear again */
+      }
+    }
+
+    if (!welcomeSeen()) {
+      welcomeBackdrop.classList.remove("hidden");
+      welcomeOk.focus();
+    } else {
+      // Visitors from before the tour existed get it once too; ?tour replays it.
+      window.NoberuTour.startIfNew();
+    }
+
+    welcomeOk.addEventListener("click", dismissWelcome);
+    // Escape counts as ok. Clicking the backdrop deliberately does NOT: the
+    // whole point is that it was read and acknowledged once.
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !welcomeBackdrop.classList.contains("hidden")) dismissWelcome();
     });
 
     document.querySelectorAll("button[data-library]").forEach((button) => {

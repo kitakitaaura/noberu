@@ -5,14 +5,21 @@ of size (the root filesystem zip alone is ~150MB):
 
 - `boxedwine.js` / `boxedwine.wasm` — the emulator itself
 - `boxedwine.css` — stock BoxedWine styling (kept for the loading spinner)
-- `boxedwine.zip` — the root filesystem (Linux userland + Wine), produced by
-  the upstream BoxedWine build and always required. **No longer in this folder.**
-  At ~152 MiB it is over Cloudflare Pages' 25 MiB per-asset limit, so it lives in
-  `~/Documents/noberu-assets/` and is fetched through
-  `window.NOBERU_LARGE_ASSET_BASE` (`../noberu-config.js`): `/large/` locally,
-  an R2 bucket behind `../large-assets-worker/` in production. `boxedwine.html`
-  loads that config, and `boxedwine-shell.js` reads it into
-  `Config.locateRootBaseUrl` — one more line patched against upstream
+- `root/` — the root filesystem (Linux userland + Wine), produced by the upstream
+  BoxedWine build and always required, **split into numbered parts**. At ~152 MiB
+  the zip is far over Cloudflare Pages' 25 MiB per-asset limit, so it ships as
+  eight ~20 MiB pieces plus `parts.json`, and `boxedwine-shell.js` fetches them in
+  order and joins them before handing the bytes to the emulator (`fetchRootZip` /
+  `loadRootZip`, ours — one more patch against upstream). That costs no extra
+  memory: the whole zip landed in a single array either way. Regenerate after any
+  rebuild of the zip:
+
+  ```sh
+  node tools/split-root-zip.mjs ~/Documents/noberu-assets/boxedwine.zip
+  ```
+
+  The unsplit zip is kept outside the site at `~/Documents/noberu-assets/`, so it
+  is never deployed or committed
 - `boxedwine.html` — the page loaded in an iframe by the "boxedwine" tab in
   `../index.html`. Patched from the stock BoxedWine shell page: built-in
   controls are hidden (the tab's sidebar drives everything) and it establishes

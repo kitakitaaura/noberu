@@ -230,7 +230,7 @@
     // This fork decodes scripts as GBK unless told otherwise, which garbles
     // Japanese games. Sniff the script: NScripter scripts are 0.txt..99.txt /
     // 00.txt as plain text, or nscript.dat XORed with 0x84.
-    async function detectEncoding(topLevel) {
+    async function readScriptSample(topLevel) {
       let sample = null;
       const plain = topLevel.get("0.txt") || topLevel.get("00.txt");
       if (plain) {
@@ -240,6 +240,25 @@
         sample = await readBlobWithRetry(file.slice(0, 512 * 1024), file.name);
         for (let i = 0; i < sample.length; i++) sample[i] ^= 0x84;
       }
+      return sample;
+    }
+
+    // English fan translations mark nearly every text line with a backtick
+    // (1-byte mode) and keep little or no kana outside comments.
+    function isEnglishScript(sample) {
+      if (!sample) return false;
+      const lines = new TextDecoder("shift_jis").decode(sample).split("\n");
+      let english = 0, japanese = 0;
+      for (const raw of lines) {
+        const line = raw.trimStart();
+        if (line.startsWith(";")) continue;
+        if (line.startsWith("`")) english++;
+        else if (/[ぁ-ヿ]/.test(line)) japanese++;
+      }
+      return english > 100 && english > japanese * 20;
+    }
+
+    function detectEncoding(sample) {
       if (!sample) return "sjis";
 
       const count = (text, re) => (text.match(re) || []).length;
@@ -318,8 +337,12 @@
           throw new Error("No ONScripter script here: pick the folder with 0.txt, 00.txt or nscript.dat.");
         }
 
+        const sample = await readScriptSample(topLevel);
         let encoding = options.encoding || "auto";
-        if (encoding === "auto") encoding = await detectEncoding(topLevel);
+        if (encoding === "auto") encoding = detectEncoding(sample);
+        // Use ONScripter-EN's system menu text (the Japanese one needs glyphs
+        // that English games' fonts often lack).
+        const englishMenu = encoding === "sjis" && isEnglishScript(sample);
 
         const gameFont = topLevel.get("default.ttf");
         let fontPath = GAME_DIR + "/default.ttf";
@@ -332,6 +355,7 @@
 
         const args = ["--root", GAME_DIR, "--font", fontPath, "--save-dir", saveDir,
           "--enc:" + encoding];
+        if (englishMenu) args.push("--english-menu");
         console.log("[ons] args", args);
         post("booting", { encoding: encoding });
         window.addEventListener("beforeunload", flush_save);

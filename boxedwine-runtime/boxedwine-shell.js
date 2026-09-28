@@ -23,9 +23,7 @@
         let DEFAULT_ROOT_ZIP_FILE = "boxedwine.zip";
         //params
         let Config = {};
-        // Ours: the root filesystem zip is too big for the site host, so it is
-        // served from somewhere else entirely (../noberu-config.js says where).
-        Config.locateRootBaseUrl = window.NOBERU_LARGE_ASSET_BASE || ""; // ie "assets/"
+        Config.locateRootBaseUrl = ""; // ie "assets/"
         Config.locateAppBaseUrl = "";
         Config.locateOverlayBaseUrl = "";
         Config.urlParams = "";
@@ -548,6 +546,62 @@
     		}
     		return contents;
         }
+        // Ours: the root filesystem in numbered pieces.
+        //
+        // Cloudflare Pages refuses any asset over 25 MiB and this zip is ~152 MiB,
+        // so `root/` holds it split into parts with a manifest beside them (see
+        // ../tools/split-root-zip.mjs). They are fetched in order and joined into
+        // the single array the emulator wants - which is no more memory than
+        // fetching it whole ever was, since the whole zip lands in one array
+        // either way.
+        //
+        // Sequential rather than parallel: eight concurrent 20 MiB downloads on a
+        // phone is how you get a tab killed, and the progress line would be a lie.
+        async function fetchRootZip(onProgress) {
+            const manifestUrl = Config.locateRootBaseUrl + "root/parts.json";
+            const manifestResponse = await fetch(manifestUrl);
+            if (!manifestResponse.ok) {
+                throw new Error("cannot read " + manifestUrl + " (" + manifestResponse.status + ")");
+            }
+            const manifest = await manifestResponse.json();
+            const whole = new Uint8Array(manifest.bytes);
+            let at = 0;
+            for (let i = 0; i < manifest.parts.length; i++) {
+                const url = Config.locateRootBaseUrl + "root/" + manifest.parts[i];
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error("cannot read " + url + " (" + response.status + ")");
+                }
+                const part = new Uint8Array(await response.arrayBuffer());
+                if (at + part.length > whole.length) {
+                    throw new Error("root filesystem parts are longer than parts.json says");
+                }
+                whole.set(part, at);
+                at += part.length;
+                onProgress(i + 1, manifest.parts.length);
+            }
+            // A truncated part would otherwise reach the emulator as a corrupt zip
+            // and fail somewhere far less obvious.
+            if (at !== whole.length) {
+                throw new Error("root filesystem is " + at + " bytes, expected " + whole.length);
+            }
+            return whole;
+        }
+
+        function loadRootZip(callback) {
+            fetchRootZip(function (done, total) {
+                const text = "loading the Wine root filesystem (" + done + "/" + total + ")";
+                if (statusElement) statusElement.innerHTML = text;
+                postToHost("status", { text: text });
+            })
+                .then(callback)
+                .catch(function (error) {
+                    const text = "root filesystem: " + (error && error.message ? error.message : error);
+                    if (statusElement) statusElement.innerHTML = text;
+                    postToHost("error", { message: text });
+                });
+        }
+
         function loadFile(pathPrefix, filename, callback) {
 			fetch(pathPrefix + filename, { method: 'GET' }).then(function(response) {
       			if (response.status === 200) {
@@ -803,7 +857,7 @@
             
 	        	buildExtraFileSystems(() => {
     	        	buildAppFileSystem(() => {
-    	            	loadFile(Config.locateRootBaseUrl, Config.rootZipFile, (rootZipfileBytes) => {
+    	            	loadRootZip((rootZipfileBytes) => {
     	            	    createFile("/", Config.rootZipFile, rootZipfileBytes);
                         	buildBrowserFileSystem();
 						});
