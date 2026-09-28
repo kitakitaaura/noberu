@@ -21,19 +21,6 @@ Live at **https://noberu.kitaaura.com** (also https://noberu.pages.dev).
 > Things can break, games fail to boot, and saves can be lost between updates.
 
 ---
-## Contents
-- [Supported engines](#supported-engines)
-- [How it works](#how-it-works)
-- [Using it](#using-it)
-- [Running it locally](#running-it-locally)
-- [Deploying](#deploying)
-- [Repository layout](#repository-layout)
-- [Rebuilding an engine](#rebuilding-an-engine)
-- [Demo game](#demo-game)
-- [Upstream projects and credits](#upstream-projects-and-credits)
-- [Legal](#legal)
-
----
 
 ## Supported engines
 
