@@ -2,26 +2,25 @@
 
 Play visual novels in the browser, from your own copies of the games.
 
-![Noberu Screenshot](./assets/markdown/Screenshot%202026-09-28%20at%201.28.33 AM.png)
-
 noberu is a static website that runs real visual novel engines, compiled to
-WebAssembly, inside your browser.
+WebAssembly, inside browser tabs. You point it at a game folder on your
+computer, or a download link, and the matching engine plays it. Nothing is
+uploaded anywhere: the game's files stay on your machine and the engine reads
+them in place.
 
-**noberu is still in development, and it at a very underdeveloped state. Please back up saves, don't use it for anything you consider "important", and please report bugs.**
-
-Questions (not for issues - just file an issue on GitHub)? DM me on Discord - farisnyanyann
-
-**noberu does not host or distribute games.** You use a copy you own. The one
+**noberu does not host or distribute games.** You bring a copy you own. The one
 exception is the demo, *Narcissu*, a freeware title whose authors allow
 unmodified redistribution (see [Demo game](#demo-game)).
 
 Live at **https://noberu.kitaaura.com** (also https://noberu.pages.dev).
 
-> [!WARNING]
-> Things can break, games fail to boot, and saves can be lost between updates.
+> Status: beta. Things break, games fail to boot, and saves can be lost between
+> updates. Desktop browsers only; phones get a "desktop only" screen.
 
 ---
+
 ## Contents
+
 - [Supported engines](#supported-engines)
 - [How it works](#how-it-works)
 - [Using it](#using-it)
@@ -37,7 +36,7 @@ Live at **https://noberu.kitaaura.com** (also https://noberu.pages.dev).
 
 ## Supported engines
 
-Each tab runs a different "engine". An engine is an official WASM build, or reverse engineered WASM build, or emulator designed to run the visual novel directly in the browser itself. The downloads library guesses the engine
+Each tab runs a different engine. The downloads library guesses the engine
 from a folder's file names and sends the game to the right tab.
 
 | Tab | Engine | Plays | How it's identified | Upstream |
@@ -53,12 +52,10 @@ from a folder's file names and sends the game to the right tab.
 | **ps2** | Play! | PlayStation 2 disc images | `.iso`, `.bin`, `.cue`, `.chd`, `.cso` … | [jpd002/Play-](https://github.com/jpd002/Play-) |
 | **wine** | BoxedWine | Windows `.exe` games, as a last resort | `.exe` | [danoon2/Boxedwine](https://github.com/danoon2/Boxedwine) |
 
+There are also two toys in the noberu menu (breakout and a slot machine) that
+have nothing to do with visual novels.
 
 ### Engine notes
-
-> [!IMPORTANT]
-> All engines that are either eager or lazy loading are being developed to a point where they can be chosen which way to do it in some sort of "settings" popup.
-
 
 - **rlvm** reads the whole game into memory when it boots, so a multi-gigabyte
   game needs that much RAM. Steam re-releases (e.g. Clannad English HD) run, but
@@ -82,7 +79,7 @@ from a folder's file names and sends the game to the right tab.
   so a 5 GB game stages in seconds. It reimplements ~30 of the Windows plugin
   DLLs commercial games call. Google Analytics, a CDN script and the PWA service
   worker are stripped from upstream's page (`strip-upstream.py`).
-- **siglus** is the least mature. We carry six patches against
+- **siglus** is the least mature. We carry six unmerged patches against
   upstream (listed in `siglus-runtime/README.md`).
 - **tyrano** needs no engine: a Tyrano game *is* a website. A service worker
   serves the game's files straight from the folder you picked.
@@ -93,9 +90,10 @@ from a folder's file names and sends the game to the right tab.
 
 ## How it works
 
-### The structure
+### The shell
+
 `index.html` is the whole app: header, tabs, and one "adapter" view per engine.
-Each engine is in its own folder (`*-runtime/`) as a page that the tab loads
+Each engine lives in its own folder (`*-runtime/`) as a page that the tab loads
 in an `<iframe>`. Every runtime page follows the same contract:
 
 - It exposes one function on `window`, e.g. `ONSInstallAndBoot(root, files, options)`,
@@ -106,27 +104,24 @@ in an `<iframe>`. Every runtime page follows the same contract:
   `postMessage({ source: "<name>-runtime", type, ... })`, where `type` is one of
   `status`, `booting`, `running`, `error` (plus a few engine-specific extras).
 
-So a runtime doesn't know or even care whether its files came from a folder picker, the downloads library, or a zip that was unpacked in the browser.
+So a runtime doesn't know or care whether its files came from a folder picker,
+the downloads library, or a zip that was unpacked in the browser.
 
 ### No server
-
-> [!NOTE]
-> I feel the need to add some sort of "server" for backup, sharing games between devices, and other things. Not sure if it's worth destroying the whole idea of a static site for that in the first place, but maybe I will go that route.
 
 The site is 100% static: HTML, JS, wasm, and a `_headers` file. There are no
 API endpoints and no accounts. Everything a player does stays in their browser:
 
 | What | Where it's kept |
 |---|---|
-| Linked game folders | A `FileSystemDirectoryHandle` in IndexedDB (`noberu-library`) - nothing copied |
+| Linked game folders | A `FileSystemDirectoryHandle` in IndexedDB (`noberu-library`); nothing copied |
 | Downloaded / copied games | The browser's private file storage (OPFS), under `library/<id>/` |
 | Saves | Per engine: IDBFS databases (`/save`, `/home`, `/home/web_user/.renpy`), OPFS (umineko), `krkr2-space-*` databases (kirikiri) |
 | Theme, tour, welcome notice | `localStorage` |
 
 Because storage is tied to the site's address, **saves on one domain don't
-save on another** (ex. `noberu.pages.dev` vs `noberu.kitaaura.com`). The
+appear on another** (e.g. `noberu.pages.dev` vs `noberu.kitaaura.com`). The
 saves panel can export and import them as zips.
-
 
 ### Cross-origin isolation
 
@@ -141,25 +136,24 @@ Cross-Origin-Resource-Policy: same-origin
 Origin-Agent-Cluster: ?1
 ```
 
-The problem: under `require-corp`, anything loaded from another site must send
+The catch: under `require-corp`, anything loaded from another site must send
 CORS headers or a `Cross-Origin-Resource-Policy` header, or the browser blocks
 it. This is why the demo game is hosted on Hugging Face (which sends CORS
 headers) rather than archive.org or GitHub (which don't).
 
-
 ### Downloads library (`assets/library.js`)
 
-The download icon in the header opens this pop. Three ways:
+The download icon in the header opens it. Three ways in:
 
 - **add folder**: links a folder on this computer (Chrome/Edge). Instant, even
   for a 12 GB game, because only a reference is stored.
 - **add file**: copies files (a `.zip`, a disc image) into browser storage.
 - **web link**: the browser downloads a file straight from a URL into browser
-  storage. ***The server has to allow cross-origin reads, or the download fails
-  with a message saying so.***
+  storage. The server has to allow cross-origin reads, or the download fails
+  with a message saying so.
 
 A downloaded `.zip` gets an **unzip** button (via vendored `fflate`). **play**
-hands the game to the tab for its detected engine - the engine dropdown
+hands the game to the tab for its detected engine; the engine dropdown
 overrides a wrong guess.
 
 ### Saves panel (`assets/saves.js`)
@@ -172,9 +166,8 @@ import and delete. It knows the three storage shapes above.
 On a first visit, after the welcome notice, a guided tour highlights each
 control in turn: downloads → types the Narcissu link for you → download →
 unzip → play → boot local → the ▣ fullscreen button. It uses the real
-controls, so people learn the actual flow. 
-
-***`?tour` replays it - `?tour-url=…` points it at a different zip (useful for local testing).***
+controls, so people learn the actual flow. `?tour` replays it; `?tour-url=…`
+points it at a different zip (useful for local testing).
 
 ---
 
@@ -192,11 +185,12 @@ Pick the folder that holds the game's data files (the one with `nscript.dat`,
 `Gameexe.ini`, `data.xp3`, and so on). A wrapper folder one level above is
 usually fine; the library searches a couple of levels down.
 
-For every SDL-based engine: move the mouse before clicking. SDL takes a
+Tip for every SDL-based engine: move the mouse before clicking. SDL takes a
 click's position from the last mouse movement, so a click without one can land
 in the wrong place.
 
 ---
+
 ## Running it locally
 
 Requires Node.js. From the repo root:
@@ -218,16 +212,17 @@ the threaded engines won't start without the COOP/COEP headers.
 Most runtime pages accept `?autoload=<name>` to boot a folder without the
 picker: symlink a game at `<runtime>/<name>` and list its files in
 `<name>_filelist.txt` as `<size> <relative path>` lines. The repo has
-`testgame` symlinks pointing at games on my machine; they
+`testgame` symlinks pointing at games on the original developer's machine; they
 are dev-only and are **never deployed** (see below).
 
---
+---
+
 ## Deploying
 
 Production is **Cloudflare Pages**, project `noberu`, deployed by direct upload
 (not a Git-connected build), with the custom domain `noberu.kitaaura.com`.
 
-### Rules
+### Rules that matter
 
 - **25 MiB per file.** Pages rejects any single file over 25 MiB. The largest
   engine files (Ren'Py and KiriKiri wasm, ~22 MB) fit. BoxedWine's 152 MiB root
@@ -238,7 +233,9 @@ Production is **Cloudflare Pages**, project `noberu`, deployed by direct upload
   the `testgame` links point at real games. Deploying the folder directly either
   fails on the size limit or, worse, publishes a game. Always deploy a
   symlink-free copy.
-- **`_headers` must ship.** 
+- **`_headers` must ship.** Without it the threaded engines break.
+
+### Steps
 
 ```sh
 # 1. stage a copy without symlinks, .git or .wrangler
@@ -252,9 +249,53 @@ npx wrangler pages deploy /tmp/noberu-deploy --project-name noberu --branch main
 `tools/stage-deploy.sh` does step 1 too (add `--exclude '.wrangler'` to it
 first; it currently copies that folder).
 
+### Custom domain
+
+`noberu.kitaaura.com` was added from the Pages project (**Custom domains → Set
+up a custom domain**), which creates a proxied `CNAME noberu → noberu.pages.dev`
+in the `kitaaura.com` zone and issues the certificate. Adding the CNAME by hand
+isn't enough; Pages has to know about the domain or it returns 522.
+
+### Before overwriting production
+
+If more than one machine deploys, compare the live files with your local copy
+first, so you don't roll back someone else's changes.
+
+---
+
+## Repository layout
+
+```
+index.html                 the app: header, tabs, adapter views, all glue code
+_headers                   Cloudflare Pages headers (cross-origin isolation)
+serve-local.mjs            local dev server with the same headers
+assets/
+  theme.css                flat dark/light theme
+  library.js               downloads library
+  saves.js                 saves panel
+  tour.js                  first-visit demo tour
+  vendor/fflate.min.js     unzip (MIT)
+rlvm-runtime/              rlvm.js/.wasm + rlvm.html
+onscripter-runtime/        onsyuri.js/.wasm + ons.html
+onscripter-ru-runtime/     onscripter-ru.js/.wasm + onscripter-ru.html
+renpy-runtime/             renpy.* (8.x), v7/ (7.x), stage.js
+kirikiri-runtime/          Kirikiroid2 build, vlfs.js, noberu-glue.js, strip-upstream.py
+siglus-runtime/            pkg/ (wasm-bindgen output), noberu.html, noberu-glue.js
+tyrano-runtime/            tyrano-sw.js (service worker), noberu-glue.js, test-vfs.mjs
+vnds-runtime/              love.js/.wasm, game.data (VNDS-LOVE), vnds.html
+play-runtime/              Play.js/.wasm, play-bridge.js
+boxedwine-runtime/         boxedwine.js/.wasm, root/ (split rootfs), overlays/
+tools/                     split-root-zip.mjs, stage-deploy.sh, make-favicon-frames.py
+```
+
+Each `*-runtime/README.md` documents that engine in depth: its host API, how it
+reads files, where it saves, and its known limits.
+
+---
+
 ## Rebuilding an engine
 
-The compiled engines are committed here; their **builds are not**. The
+The compiled engines are committed here; their **build trees are not**. The
 Emscripten builds of rlvm, OnscripterYuri and onscripter-ru live in a separate
 workspace with their patches and build scripts. In short:
 
@@ -290,6 +331,32 @@ file and Hugging Face sends the CORS headers the site needs.
 
 ---
 
+## Upstream projects and credits
+
+noberu stands on these projects. Engines marked *patched* carry local changes.
+
+- [eglaysher/rlvm](https://github.com/eglaysher/rlvm) (*patched*) — RealLive clone
+- [YuriSizuku/OnscripterYuri](https://github.com/YuriSizuku/OnscripterYuri) (*patched*) — ONScripter fork, GPLv2
+- [umineko-project/onscripter-ru](https://github.com/umineko-project/onscripter-ru) (*patched*) and [umineko-project/sdl-gpu](https://github.com/umineko-project/sdl-gpu)
+- [renpy/renpy](https://github.com/renpy/renpy) — official web packages from renpy.org
+- [fenghengzhi/kirikiroid2-web](https://github.com/fenghengzhi/kirikiroid2-web) (*patched page*) — Kirikiroid2 web build
+- [xmoezzz/siglus_rs](https://github.com/xmoezzz/siglus_rs) (*patched*) — SiglusEngine in Rust, MPL-2.0
+- [ShikemokuMK/tyranoscript](https://github.com/ShikemokuMK/tyranoscript) — nothing consumed; games ship their own engine
+- [ajusa/VNDS-LOVE](https://github.com/ajusa/VNDS-LOVE) and [Davidobot/love.js](https://github.com/Davidobot/love.js)
+- [jpd002/Play-](https://github.com/jpd002/Play-) — PS2 emulator
+- [danoon2/Boxedwine](https://github.com/danoon2/Boxedwine) (*patched shell*) — Windows emulator
+- [emscripten-core/emsdk](https://github.com/emscripten-core/emsdk), [boostorg/boost](https://github.com/boostorg/boost)
+- [101arrowz/fflate](https://github.com/101arrowz/fflate) — unzip, MIT
+- Kosugi font (SIL Open Font License) — fallback font for rlvm and onscripter
+- *Katawa Shoujo* art on the mobile screen — Four Leaf Studios, CC BY-NC-ND 3.0
+
+Also evaluated and not used: [krkrsdl2/krkrsdl2](https://github.com/krkrsdl2/krkrsdl2)
+(no commercial plugin support), [FWGS/rlvm](https://github.com/FWGS/rlvm) (SDL2
+fork, dormant), [cretz/vitaslop](https://github.com/cretz/vitaslop) (PS Vita,
+out of scope).
+
+---
+
 ## Legal
 
 This project is intended solely for use with lawfully acquired copies of the
@@ -297,4 +364,9 @@ original works. It hosts no commercial game data. Engine licenses belong to thei
 respective projects (see each upstream); several are GPL, which applies to the
 compiled engines shipped here.
 
-noberu itself is licensed under the GNU GPLv3, see `LICENSE` for details.
+<!-- TODO before publishing:
+  - pick a license for noberu's own code (index.html, assets/*.js, glue files)
+  - confirm each engine's license and whether its source must be linked/offered
+    (GPL engines: rlvm, OnscripterYuri, onscripter-ru, BoxedWine)
+  - Discord contact: farisnyanyann
+-->
