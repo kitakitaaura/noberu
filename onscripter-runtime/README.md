@@ -50,6 +50,16 @@ The fork's Japanese defaults need full-width glyphs that English fan
 releases' fonts often lack. Tsukihime's font has only 97 glyphs, for example,
 so those menus showed up as rows of boxes.
 
+## Keyboard menus
+
+Up/down in menus and choices move a highlight between buttons. Upstream does
+that by warping the mouse onto the next button (`shiftCursorOnButton` →
+`warpMouse`), and SDL's emscripten backend cannot warp the pointer: the call
+is a no-op, so arrows did nothing here while they work in the Windows build.
+The local patch makes `warpMouse` post the equivalent `SDL_MOUSEMOTION` on
+the web build instead. The phone d-pad (assets/touch.js) goes through the
+same path.
+
 ## Saves
 
 `/save` is IDBFS. Each game saves to `/save/<folder name>`, and the engine

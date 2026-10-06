@@ -76,6 +76,30 @@ engine's filesystem directly, from a run dependency the engine waits on.
   powersave off and leave the framerate on the screen's rate once the game has
   drawn its first frame. The player can still change both from Shift+G.
 
+- **Top-level folders:** everything beside `game/` except `renpy/`, `lib/` and
+  `*.app` is installed too, since games reach outside `game/` through
+  `config.basedir`. DDLC keeps its `characters/*.chr` files there.
+- **Files a game writes into its own folder** (`stage.js`, the overlay): Ren'Py
+  saves go to IDBFS, but some games also write next to their scripts, and
+  lose track of themselves if that is gone on the next boot. DDLC writes
+  `game/firstrun` after its first launch; without it, every boot asks whether
+  to delete your saves. `FS.close` and `FS.unlink` are wrapped after install,
+  and writes and deletes under the game (not the engine, caches, `.rpyc` or
+  saves; 1 MB a file at most) are kept per game folder in the
+  `noberu-renpy-overlay` IndexedDB database and replayed at the next install.
+  Beam does not carry it yet, so DDLC saves beamed to a new device come with
+  that prompt once ("No, continue" keeps them).
+- **Sound in archives** (`noberu_patches.py`, in both engine zips): Ren'Py's
+  web audio hands the browser a file path, taken from `file.raw.name`. A
+  sound inside an `.rpa` has no path of its own, so Ren'Py dropped it without
+  a word, and every shipped game that keeps its audio in `audio.rpa` (DDLC,
+  Katawa Shoujo) played silent. Ren'Py's own web export never hits this
+  because it ships loose files. The patch copies an archived sound to
+  `/tmp/noberu-audio/` for the moment the browser reads it, then removes it.
+  Verified on DDLC: the title music and menu sounds decode and play.
+- **Shims** (`renpy7.html`): stand-in Python modules written to `/` for
+  desktop-only imports. `fcntl`, which DDLC's single-instance lock needs.
+
 ## Host interface
 
 Both pages expose the same thing, so the tab does not care which one it got:
@@ -84,18 +108,20 @@ Both pages expose the same thing, so the tab does not care which one it got:
   from the directory picker.
 - Events go to the parent as
   `postMessage({ source: "renpy-runtime", type, ... })` with `type` one of
-  `status`, `booting`, `running`, `warning` and `error`.
+  `status`, `booting`, `running`, `save-directory`, `warning` and `error`.
+- `save-directory` carries `config.save_directory`, the name of the game's
+  save folder. The tab hands it to `NoberuSaves.name()`, so the saves panel
+  shows those saves under the game's name and beam finds them.
 
 `running` means the game has drawn its first frame (Ren'Py calls
 `presplashEnd()`), not that the engine script loaded.
 
 ## Limits
 
-- **Ren'Py 6 is untested.** The 7.8.7 runtime is there for DDLC (6.99.12.4) and
-  Katawa Shoujo, but only a 7.8.7 game has actually been run through it. Ren'Py
-  7 is the direct continuation of 6.99 on the same Python 2, so it should load
-  them; if it does not, the oldest published web package is 7.3.5, which is one
-  release off 6.99.13 and can be dropped in as a third runtime the same way.
+- **Ren'Py 6.99 runs on the 7 runtime.** Verified with DDLC 1.1.1 (6.99.12.4):
+  the age gate, name entry, story, save and load all work. 6.99 games ship no
+  `script_version.txt`, so the tab reads `renpy/__init__.py` when the whole
+  folder was picked, and otherwise treats a game with no marker as old.
 - **Size.** The whole game still has to fit in memory at once; there is no
   lazy reading. Past `BIG_GAME_BYTES` the tab warns and boots anyway — 1.2 GB
   on 8.x, 900 MB on the older 7.x build.
@@ -127,7 +153,12 @@ From a Ren'Py SDK of the matching version with its web package installed at
 <sdk>/renpy.sh launcher web_build <sdk>/the_question --dest /tmp/out
 mkdir /tmp/zx && cd /tmp/zx && unzip -q /tmp/out/game.zip
 zip -qr -X -9 engine-<version>.zip renpy main.py
+sh patch-engine.sh engine-<version>.zip
 ```
+
+`patch-engine.sh` is the one edit to the stock engine: it adds
+`noberu_patches.py` and has `main.py` import it before Ren'Py starts. Skip it
+and archived audio goes silent again (below).
 
 The `game/`, `_placeholders/` and `the_question.py` entries are the sample
 game's and are left out. Bump `ENGINE_ZIP` and `ENGINE_VERSION` in the matching

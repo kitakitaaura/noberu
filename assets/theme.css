@@ -726,3 +726,134 @@ body::after {
 #mobile-block {
   background: var(--paper);
 }
+
+/* --- short or detailed text ------------------------------------------------
+   Short by default: enough for someone new to know what to do. Settings →
+   display → "detailed descriptions" sets data-verbose and brings back the
+   longer, technical notes. Phones keep their own, even shorter layout
+   (assets/mobile.css) either way. */
+
+:root:not([data-verbose="1"]) .verbose {
+  display: none !important;
+}
+
+:root[data-verbose="1"] .brief {
+  display: none !important;
+}
+
+/* --- continue (assets/session.js) -------------------------------------------- */
+
+.continue-card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: min(100%, 640px);
+  margin-bottom: 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--gold);
+  border-radius: var(--radius);
+  background: var(--stage-panel);
+  color: var(--stage-ink);
+}
+
+.continue-card.hidden {
+  display: none;
+}
+
+.continue-label {
+  flex: none;
+  color: var(--gold);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.continue-card b {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.continue-card .retro-button {
+  flex: none;
+}
+
+/* --- CRT look (settings → display) ------------------------------------------- */
+
+:root[data-crt="1"] .play-frame-wrap.active .play-runtime {
+  position: relative;
+}
+
+:root[data-crt="1"] .play-frame-wrap.active .play-runtime::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at center, transparent 58%, rgba(0, 0, 0, 0.5) 100%);
+}
+
+/* --- reduced motion (settings → display) --------------------------------------
+   Everything on noberu's own page settles at once instead of moving. Games
+   run in their own documents and are not touched. */
+
+:root[data-reduce-motion="1"] *,
+:root[data-reduce-motion="1"] *::before,
+:root[data-reduce-motion="1"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* About → "tested games": the compatibility list, folded away by default. */
+.compat {
+  margin-top: 0.5rem;
+}
+
+.compat summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.82rem;
+  width: fit-content;
+}
+
+.compat summary:hover,
+.compat[open] summary {
+  color: var(--ink);
+}
+
+.compat dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.3rem 0.8rem;
+  margin: 0.6rem 0 0;
+  font-size: 0.8rem;
+}
+
+.compat dt {
+  color: var(--muted);
+}
+
+.compat dd {
+  margin: 0;
+  color: var(--ink);
+}
+
+.compat small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.compat p {
+  margin: 0.5rem 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}

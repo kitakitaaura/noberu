@@ -1,0 +1,40 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "noberu-beam",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-28",
+  "observability": { "enabled": true },
+
+  // Cloudflare creates the DNS record and certificate for this on deploy.
+  "routes": [
+    { "pattern": "beam.kitaaura.com", "custom_domain": true }
+  ],
+
+  "durable_objects": {
+    "bindings": [
+      { "name": "ROOMS", "class_name": "Room" },
+      { "name": "QUOTAS", "class_name": "Quota" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["Room", "Quota"] }
+  ],
+
+  "vars": {
+    // Sites allowed to use this. localhost is always allowed, for development.
+    "ALLOWED_ORIGINS": "https://noberu.kitaaura.com,https://noberu.pages.dev,https://staging.noberu.pages.dev",
+    // Also allow *.trycloudflare.com quick tunnels (phone testing). Anyone can
+    // make one, so turn this off once testing is done.
+    "ALLOW_DEV_TUNNELS": "true",
+
+    // The relay (TURN) is the only part that costs money: Cloudflare's first
+    // 1,000 GB a month are free, then $0.05/GB. Direct beams are never capped.
+    "RELAY_MAX_BEAM_BYTES": "2147483648",
+    "RELAY_DAILY_BYTES": "4294967296"
+  }
+
+  // Secrets, set with `npx wrangler secret put <NAME>` (never in this file):
+  //   TURN_KEY_ID         the TURN key's id (Cloudflare dashboard → Realtime → TURN)
+  //   TURN_KEY_API_TOKEN  that key's API token
+  // Without them the relay is simply unavailable and only direct beams work.
+}

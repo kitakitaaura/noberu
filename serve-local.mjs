@@ -25,6 +25,8 @@ const mimeTypes = {
   ".ico": "image/x-icon",
   ".svg": "image/svg+xml",
   ".zip": "application/zip",
+  ".png": "image/png",
+  ".webmanifest": "application/manifest+json",
 };
 
 function resolvePath(urlPath) {
@@ -34,6 +36,11 @@ function resolvePath(urlPath) {
   if (filePath.endsWith("/")) filePath = join(filePath, "index.html");
   if (existsSync(filePath) && statSync(filePath).isDirectory()) {
     filePath = join(filePath, "index.html");
+  }
+  // Cloudflare Pages serves "x.html" at "x", and the site loads its runtime
+  // pages by those addresses (see index.html), so answer them here too.
+  if (!existsSync(filePath) && existsSync(`${filePath}.html`)) {
+    filePath = `${filePath}.html`;
   }
   return filePath;
 }

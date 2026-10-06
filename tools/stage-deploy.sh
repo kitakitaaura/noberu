@@ -25,6 +25,8 @@ rsync -rptgoD \
   --exclude '.gitignore' \
   --exclude '.DS_Store' \
   --exclude 'node_modules' \
+  --exclude '.wrangler' \
+  --exclude 'beam-worker' \
   "$SRC"/ "$DST"/ 2>&1 | grep -v '^$' || true
 
 echo

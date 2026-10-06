@@ -2,6 +2,8 @@
 <html lang="en-us">
   <!-- Adapted for RenPyWeb from https://github.com/emscripten-core/emscripten/blob/master/src/shell.html -->
   <head>
+  <!-- noberu runtime hooks (volume, sharp pixels): before any engine code (assets/runtime.js) -->
+  <script src="../assets/runtime.js"></script>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -767,6 +769,34 @@
       document.documentElement.dataset.renpyDpr = String(window.devicePixelRatio);
 
 
+      // Stand-ins for desktop-only modules that older games import. The engine
+      // is unpacked at / and runs /main.py, so / is first on sys.path.
+      //
+      // fcntl: DDLC's singleton.py locks a file so a second copy of the game
+      // refuses to start. A browser tab has no second copy to stop, so the
+      // lock can always succeed.
+      const SHIMS = {
+        "/fcntl.py":
+          "# noberu: browsers have no fcntl; one tab is one instance.\n" +
+          "LOCK_SH, LOCK_EX, LOCK_NB, LOCK_UN = 1, 2, 4, 8\n" +
+          "F_GETFD, F_SETFD, F_GETFL, F_SETFL = 1, 2, 3, 4\n" +
+          "FD_CLOEXEC = 1\n" +
+          "def lockf(fd, operation, length=0, start=0, whence=0): return None\n" +
+          "def flock(fd, operation): return None\n" +
+          "def fcntl(fd, op, arg=0): return 0\n" +
+          "def ioctl(fd, op, arg=0, mutate_flag=True): return 0\n",
+      };
+
+      function installShims(FS) {
+        for (const [path, source] of Object.entries(SHIMS)) {
+          try {
+            FS.stat(path);
+          } catch (error) {
+            FS.writeFile(path, source);
+          }
+        }
+      }
+
       function post(type, detail) {
         window.parent.postMessage(
           Object.assign({ source: "renpy-runtime", type: type }, detail || {}), "*");
@@ -798,8 +828,25 @@
           post("running", {});
           document.getElementById("canvas").focus();
           applyPerformancePreferences();
+          reportSaveDirectory();
         }
       };
+
+      // Ren'Py names a game's save folder after config.save_directory, which
+      // lives in the compiled scripts (DDLC's is "DDLC-1454445547"). Tell the
+      // host, so the saves panel and beam can match the folder to the game.
+      function reportSaveDirectory() {
+        try {
+          Module.ccall("PyRun_SimpleString", "number", ["string"], [
+            "import renpy\n" +
+            "open('/tmp/noberu-save-directory', 'w').write(renpy.config.save_directory or '')\n"
+          ]);
+          const name = FS.readFile("/tmp/noberu-save-directory", { encoding: "utf8" });
+          if (name) post("save-directory", { name: name });
+        } catch (error) {
+          console.warn("[renpy] could not read the save directory", error);
+        }
+      }
 
       // Ren'Py's own Shift+G screen offers a renderer choice, powersave and a
       // framerate cap. Only the last two mean anything here: on Emscripten the
@@ -856,8 +903,11 @@
         // creates.
         Module.preRun.push(function () {
           Module.addRunDependency("installGame");
-          NoberuRenPyStage.install(Module.FS || FS, staged, status)
-            .then(() => Module.removeRunDependency("installGame"))
+          NoberuRenPyStage.install(Module.FS || FS, staged, status, root)
+            .then(() => {
+              installShims(Module.FS || FS);
+              Module.removeRunDependency("installGame");
+            })
             .catch((error) => {
               post("error", { message: "Could not install the game: " + error.message });
             });

@@ -1,0 +1,677 @@
+/*
+ * noberu on phones and tablets.
+ *
+ * Two independent switches:
+ *
+ *   layout  - a phone-sized viewport (narrow, or short in landscape with a
+ *             touch pointer). Pure CSS, so rotating re-lays out by itself.
+ *   touch   - :root[data-touch="1"], set in index.html's <head> for touch
+ *             devices. Drives the in-game controls (assets/touch.js) and hides
+ *             the wine tab, which is not usable on a phone.
+ */
+
+/* --- wording that differs on touch devices (index.html) ------------------------ */
+
+.touch-only {
+  display: none;
+}
+
+:root[data-touch="1"] .touch-only {
+  display: inline;
+}
+
+:root[data-touch="1"] .desktop-only {
+  display: none;
+}
+
+/* --- wine is desktop only --------------------------------------------------- */
+
+:root[data-touch="1"] #boxedwine-tab,
+:root[data-touch="1"] #boxedwine-view {
+  display: none !important;
+}
+
+/* --- phone layout ------------------------------------------------------------ */
+
+/*
+ * A phone gets an app layout rather than a shrunken desktop window:
+ *   - a solid top bar (logo, theme, saves, downloads)
+ *   - the engines as a row of scrollable chips under it
+ *   - per engine, two plain cards: what to play, then the game and its boot
+ *     button. No fake window chrome, no decorative scene, no long notes.
+ */
+@media (max-width: 760px), (max-height: 520px) and (pointer: coarse) {
+  :root {
+    --bar-h: 3rem;
+    --chips-h: 3rem;
+  }
+
+  body {
+    min-height: 100dvh;
+    background: var(--paper);
+  }
+
+  .start-menu,
+  .static-noise,
+  .pixel-sun,
+  .hill,
+  .window-bar,
+  .status-strip {
+    display: none !important;
+  }
+
+  /* Background art, as on desktop but with the phone mascot: bottom right,
+     behind the cards, faint (opacity comes from the desktop
+     rules, stronger in light mode). Sized so her face lands in the space
+     below the cards rather than behind them; the sprite has ~27% empty
+     space above her head, so the box is taller than the part that shows. */
+  #bg-art {
+    --mascot-h: min(56dvh, 30rem);
+    --bg-art-w: calc(var(--mascot-h) * 531 / 1080);
+  }
+
+  /* Against the right edge (her sprite's own ~9% transparent margin trimmed
+     off, as on desktop), and a little below the bottom so she peeks up. */
+  #bg-art::before,
+  #bg-art::after {
+    left: auto;
+    right: calc(-0.09 * var(--bg-art-w));
+    bottom: calc(-0.1 * var(--mascot-h));
+    width: var(--bg-art-w);
+    height: var(--mascot-h);
+    transform: none;
+  }
+
+  #bg-art::before {
+    background-image: url("mobile-mascot.png");
+    background-position: right bottom;
+  }
+
+  #bg-art::after {
+    -webkit-mask-image: url("mobile-mascot.png");
+    mask-image: url("mobile-mascot.png");
+    -webkit-mask-position: right bottom;
+    mask-position: right bottom;
+  }
+
+  /* Top bar. */
+  .topbar {
+    height: calc(var(--bar-h) + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+    align-items: stretch;
+    background: var(--paper);
+    border-bottom: 1px solid var(--line);
+    pointer-events: auto;
+  }
+
+  .brand-chip,
+  .topbar-actions .downloads-chip {
+    min-height: 0;
+    height: 100%;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+  }
+
+  .topbar-actions {
+    display: flex;
+  }
+
+  .topbar-actions .downloads-chip {
+    padding: 0 0.85rem;
+  }
+
+  .topbar-actions .downloads-chip span {
+    display: none;
+  }
+
+  /* Engine chips, pinned under the top bar. */
+  .bottom-tabs {
+    top: calc(var(--bar-h) + env(safe-area-inset-top));
+    bottom: auto;
+    left: 0;
+    right: 0;
+    width: auto;
+    height: var(--chips-h);
+    transform: none;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0 calc(0.75rem + env(safe-area-inset-right)) 0 calc(0.75rem + env(safe-area-inset-left));
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    box-shadow: none;
+    background: var(--paper);
+    scrollbar-width: none;
+  }
+
+  .bottom-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tab-button {
+    flex: none;
+    min-height: 0;
+    height: 2rem;
+    padding: 0 0.9rem;
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--line-strong, var(--line));
+    border-radius: 999px;
+    background: transparent;
+  }
+
+  .tab-button:last-child {
+    border-right: 1px solid var(--line-strong, var(--line));
+  }
+
+  .tab-button[aria-selected="true"] {
+    background: var(--ink);
+    border-color: var(--ink);
+  }
+
+  .tab-button[aria-selected="true"] .tab-label {
+    color: var(--paper);
+  }
+
+  .tab-icon {
+    display: none;
+  }
+
+  .tab-label {
+    font-size: 0.8rem;
+  }
+
+  /* Content column. */
+  .shell {
+    width: 100%;
+    min-height: 100dvh;
+    padding:
+      calc(var(--bar-h) + var(--chips-h) + 0.75rem + env(safe-area-inset-top))
+      calc(0.75rem + env(safe-area-inset-right))
+      calc(1.5rem + env(safe-area-inset-bottom))
+      calc(0.75rem + env(safe-area-inset-left));
+    place-items: start stretch;
+  }
+
+  .window {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  .screen {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    height: auto;
+    border: 0;
+    background: transparent;
+  }
+
+  /* Card one: the engine and what to play. The scene is a plain block here,
+     so the card grows with its content instead of spilling off the top. */
+  .viewport,
+  .side-panel {
+    border: 1px solid var(--line);
+    border-radius: var(--radius, 12px);
+    background: var(--panel);
+    overflow: hidden;
+  }
+
+  /* A game running inline (after leaving full screen) needs some room. */
+  .viewport {
+    height: auto;
+    min-height: 0;
+    flex: none;
+  }
+
+  .viewport:has(.play-frame-wrap.active) {
+    min-height: 14rem;
+  }
+
+  .scene {
+    position: static;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: none;
+  }
+
+  .upload-zone,
+  .autodetect-card,
+  .caption-box {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    text-align: left;
+  }
+
+  .upload-symbol,
+  .upload-zone p,
+  .autodetect-note,
+  .caption-box p {
+    display: none;
+  }
+
+  .upload-zone h1,
+  .caption-box h1 {
+    margin: 0 0 0.85rem;
+    font-size: 1.25rem;
+    line-height: 1.2;
+  }
+
+  .button-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .button-row > * {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    justify-content: center;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  /* The staging card's own "boot local" repeats the panel's. */
+  .upload-zone .button-row [id$="-run"] {
+    display: none;
+  }
+
+  .autodetect-card .retro-button {
+    width: 100%;
+  }
+
+  /* Card two: the staged game, its settings, boot, status. */
+  .side-panel {
+    height: auto;
+  }
+
+  .side-panel .panel-header,
+  .side-panel p.control-note,
+  .control-panel,
+  .keymap-table {
+    display: none;
+  }
+
+  .panel-body {
+    padding: 1rem;
+  }
+
+  .panel-footer {
+    padding: 0.6rem 1rem;
+    border-top: 1px solid var(--line);
+    box-shadow: none;
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+
+  /* About: the pitch and the one button; the notes shrink to the credits. */
+  #about-view .side-panel .panel-header {
+    display: block;
+    padding: 1rem 1rem 0;
+    border: 0;
+    background: none;
+  }
+
+  #about-view .mini-row:nth-child(-n+3),
+  #about-view .panel-footer {
+    display: none;
+  }
+
+  #about-view .viewport {
+    min-height: 0;
+  }
+
+  #about-view .caption-box {
+    order: -1;
+  }
+
+  #about-view .caption-box h1 {
+    margin: 0;
+  }
+
+  #about-view .mini-icon {
+    display: none;
+  }
+
+  #about-view .mini-row {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  .library-backdrop {
+    padding:
+      calc(0.6rem + env(safe-area-inset-top))
+      0.6rem
+      calc(0.6rem + env(safe-area-inset-bottom));
+  }
+
+  .library-modal {
+    max-height: 100%;
+  }
+
+  .library-url {
+    flex-wrap: wrap;
+  }
+
+  .library-item {
+    flex-wrap: wrap;
+  }
+}
+
+/* A phone on its side: every pixel of height counts. */
+@media (max-height: 520px) and (pointer: coarse) {
+  :root {
+    --bar-h: 2.6rem;
+    --chips-h: 2.6rem;
+  }
+
+  /* Full height, off to the right, out from under the cards' text. */
+  #bg-art {
+    --mascot-h: 100dvh;
+  }
+
+  #bg-art::before,
+  #bg-art::after {
+    bottom: 0;
+  }
+}
+
+/* --- the game, full screen, on a touch device --------------------------------- */
+
+:root[data-touch="1"] .play-frame-wrap.emulator-maximized,
+:root[data-touch="1"] .play-frame-wrap:fullscreen {
+  height: 100dvh;
+  background: #000;
+}
+
+:root[data-touch="1"] .play-frame-wrap.emulator-maximized .play-runtime,
+:root[data-touch="1"] .play-frame-wrap:fullscreen .play-runtime {
+  height: 100dvh;
+  min-height: 100dvh;
+  padding: 0;
+  display: block;
+  background: #000;
+}
+
+:root[data-touch="1"] .play-frame-wrap.emulator-maximized .play-canvas,
+:root[data-touch="1"] .play-frame-wrap:fullscreen .play-canvas {
+  display: block;
+  width: 100vw;
+  height: 100dvh;
+  max-height: none;
+  aspect-ratio: auto;
+  border: 0 !important;
+  border-radius: 0;
+}
+
+/* The PS2 canvas is drawn by the page, not an iframe: keep its shape. */
+:root[data-touch="1"] #play-frame-wrap.emulator-maximized .play-canvas,
+:root[data-touch="1"] #play-frame-wrap:fullscreen .play-canvas {
+  width: min(100vw, calc(100dvh * 4 / 3));
+  height: auto;
+  aspect-ratio: 4 / 3;
+  margin: auto;
+  position: absolute;
+  inset: 0;
+}
+
+:root[data-touch="1"] .play-frame-wrap.emulator-maximized .play-frame-toolbar,
+:root[data-touch="1"] .play-frame-wrap:fullscreen .play-frame-toolbar {
+  display: none;
+}
+
+/* Loading and error messages float over the game instead of taking a row. */
+:root[data-touch="1"] .play-frame-wrap.emulator-maximized .runtime-overlay,
+:root[data-touch="1"] .play-frame-wrap:fullscreen .runtime-overlay {
+  position: absolute;
+  left: 50%;
+  top: calc(3.2rem + env(safe-area-inset-top));
+  transform: translateX(-50%);
+  width: min(60vw, 26rem);
+  z-index: 4;
+}
+
+/* --- on-screen controls ------------------------------------------------------- */
+
+.touch-pad {
+  display: none;
+}
+
+:root[data-touch="1"] .emulator-maximized > .touch-pad,
+:root[data-touch="1"] :fullscreen > .touch-pad,
+:root[data-pad-desktop="1"] .emulator-maximized > .touch-pad,
+:root[data-pad-desktop="1"] :fullscreen > .touch-pad {
+  display: block;
+}
+
+/* On a computer the frame's toolbar would sit under the bottom keys; the
+   pad's ✕ leaves fullscreen instead, as on a phone. */
+:root[data-pad-desktop="1"] .play-frame-wrap.emulator-maximized:has(> .touch-pad) .play-frame-toolbar,
+:root[data-pad-desktop="1"] .play-frame-wrap:fullscreen:has(> .touch-pad) .play-frame-toolbar {
+  display: none;
+}
+
+.touch-pad {
+  /* --pad-scale and --pad-opacity come from settings (assets/settings.js). */
+  --pad-size: calc(min(9.5rem, 30vmin) * var(--pad-scale, 1));
+  --key: calc(min(3.6rem, 11.5vmin) * var(--pad-scale, 1));
+  --fill: rgba(255, 255, 255, 0.14);
+  --fill-down: rgba(255, 255, 255, 0.38);
+  --edge: rgba(255, 255, 255, 0.42);
+  --ink: rgba(255, 255, 255, 0.9);
+
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  opacity: var(--pad-opacity, 1);
+  pointer-events: none;
+  font-family: inherit;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.touch-pad .tp-group {
+  position: absolute;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.touch-pad button {
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  display: grid;
+  place-items: center;
+  width: var(--key);
+  height: var(--key);
+  padding: 0;
+  border: 1.5px solid var(--edge);
+  border-radius: 50%;
+  background: var(--fill);
+  color: var(--ink);
+  font: 700 0.78rem/1 inherit;
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.25);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  cursor: pointer;
+}
+
+.touch-pad button.down,
+.touch-pad button.latched {
+  background: var(--fill-down);
+}
+
+.touch-pad button.latched {
+  border-color: var(--gold, #f19a38);
+  color: #fff;
+}
+
+/* Top corners: small pills. */
+.touch-pad .tp-top-left {
+  top: calc(0.6rem + env(safe-area-inset-top));
+  left: calc(0.6rem + env(safe-area-inset-left));
+  grid-auto-flow: column;
+}
+
+.touch-pad .tp-top-right {
+  top: calc(0.6rem + env(safe-area-inset-top));
+  right: calc(0.6rem + env(safe-area-inset-right));
+  grid-auto-flow: column;
+}
+
+.touch-pad .tp-pill {
+  width: auto;
+  min-width: 2.6rem;
+  height: 2.1rem;
+  padding: 0 0.8rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+}
+
+/* D-pad: a plus of four keys, bottom left. */
+.touch-pad .tp-dpad {
+  left: calc(0.9rem + env(safe-area-inset-left));
+  bottom: calc(0.9rem + env(safe-area-inset-bottom));
+  width: var(--pad-size);
+  height: var(--pad-size);
+  grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+  gap: 0;
+}
+
+.touch-pad .tp-dpad button {
+  width: 100%;
+  height: 100%;
+  border-radius: 0.55rem;
+  font-size: 1rem;
+}
+
+.touch-pad .tp-dpad [data-key="ArrowUp"] { grid-area: 1 / 2; border-radius: 0.55rem 0.55rem 0 0; }
+.touch-pad .tp-dpad [data-key="ArrowLeft"] { grid-area: 2 / 1; border-radius: 0.55rem 0 0 0.55rem; }
+.touch-pad .tp-dpad [data-key="ArrowRight"] { grid-area: 2 / 3; border-radius: 0 0.55rem 0.55rem 0; }
+.touch-pad .tp-dpad [data-key="ArrowDown"] { grid-area: 3 / 2; border-radius: 0 0 0.55rem 0.55rem; }
+
+/* Visual novel keys, bottom right: enter is the big one, like an A button. */
+.touch-pad .tp-vn {
+  right: calc(0.9rem + env(safe-area-inset-right));
+  bottom: calc(0.9rem + env(safe-area-inset-bottom));
+  width: var(--pad-size);
+  height: var(--pad-size);
+  grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+  gap: 0;
+  place-items: center;
+}
+
+.touch-pad .tp-vn [data-key="Escape"] { grid-area: 1 / 3; }
+.touch-pad .tp-vn [data-key="Control"] { grid-area: 3 / 1; }
+.touch-pad .tp-vn [data-key="Enter"] {
+  grid-area: 2 / 2 / 4 / 4;
+  width: calc(var(--key) * 1.45);
+  height: calc(var(--key) * 1.45);
+  font-size: 0.9rem;
+}
+
+/* PS2: face buttons in a diamond, shoulders on top, start/select centre. */
+.touch-pad .tp-face {
+  right: calc(0.9rem + env(safe-area-inset-right));
+  bottom: calc(0.9rem + env(safe-area-inset-bottom));
+  width: var(--pad-size);
+  height: var(--pad-size);
+  grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+  gap: 0;
+  place-items: center;
+}
+
+.touch-pad .tp-face button { font-size: 1.15rem; }
+.touch-pad .tp-face [data-key="KeyS"] { grid-area: 1 / 2; }
+.touch-pad .tp-face [data-key="KeyA"] { grid-area: 2 / 1; }
+.touch-pad .tp-face [data-key="KeyX"] { grid-area: 2 / 3; }
+.touch-pad .tp-face [data-key="KeyZ"] { grid-area: 3 / 2; }
+
+.touch-pad .tp-shoulder-left,
+.touch-pad .tp-shoulder-right {
+  top: calc(3.3rem + env(safe-area-inset-top));
+  grid-auto-flow: column;
+}
+
+.touch-pad .tp-shoulder-left { left: calc(0.6rem + env(safe-area-inset-left)); }
+.touch-pad .tp-shoulder-right { right: calc(0.6rem + env(safe-area-inset-right)); }
+
+.touch-pad .tp-shoulder-left button,
+.touch-pad .tp-shoulder-right button {
+  width: 3.4rem;
+  height: 2.1rem;
+  border-radius: 0.6rem;
+  text-transform: uppercase;
+}
+
+.touch-pad .tp-center {
+  left: 50%;
+  bottom: calc(0.9rem + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  grid-auto-flow: column;
+}
+
+/* Left-handed (settings → controls): the d-pad and the buttons trade sides,
+   and the visual novel keys mirror so enter stays nearest the thumb. The
+   shoulders stay put: L is still left. */
+:root[data-pad-hand="left"] .touch-pad .tp-dpad {
+  left: auto;
+  right: calc(0.9rem + env(safe-area-inset-right));
+}
+
+:root[data-pad-hand="left"] .touch-pad .tp-vn,
+:root[data-pad-hand="left"] .touch-pad .tp-face {
+  right: auto;
+  left: calc(0.9rem + env(safe-area-inset-left));
+}
+
+:root[data-pad-hand="left"] .touch-pad .tp-vn [data-key="Escape"] { grid-area: 1 / 1; }
+:root[data-pad-hand="left"] .touch-pad .tp-vn [data-key="Control"] { grid-area: 3 / 3; }
+:root[data-pad-hand="left"] .touch-pad .tp-vn [data-key="Enter"] { grid-area: 2 / 1 / 4 / 3; }
+
+/* Hidden: everything but the button that brings them back, and that faint. */
+.touch-pad.tp-hidden button:not([data-act="hide"]) {
+  visibility: hidden;
+}
+
+.touch-pad.tp-hidden [data-act="hide"] {
+  opacity: 0.45;
+}
+
+/* Portrait phone: the game sits in the middle band, keys below it. */
+@media (orientation: portrait) {
+  .touch-pad {
+    --pad-size: min(10.5rem, 40vw);
+    --key: min(3.8rem, 14vw);
+  }
+}
+
+/* "Continue" on the phone layout's about card stack. */
+@media (max-width: 760px), (max-height: 520px) and (pointer: coarse) {
+  .continue-card {
+    width: 100%;
+    margin: 0;
+  }
+}

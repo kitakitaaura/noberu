@@ -44,7 +44,11 @@
     const db = await openDb();
     return new Promise((resolve, reject) => {
       const request = db.transaction(STORE).objectStore(STORE).getAll();
-      request.onsuccess = () => resolve(request.result.sort((a, b) => b.addedAt - a.addedAt));
+      // Entries saved before gameRoot() existed kept Ren'Py's game/ as their
+      // root; everything reads through here, so this corrects them all.
+      request.onsuccess = () => resolve(request.result
+        .map((entry) => ({ ...entry, root: gameRoot(entry.engine, entry.root || "") }))
+        .sort((a, b) => b.addedAt - a.addedAt));
       request.onerror = () => reject(request.error);
     });
   }
@@ -114,9 +118,11 @@
     kirikiri: { label: "KiriKiri", tab: "kirikiri" },
     siglus: { label: "SiglusEngine", tab: "siglus" },
     tyrano: { label: "TyranoScript", tab: "tyrano" },
+    rpgmaker: { label: "RPG Maker", tab: "rpgmaker" },
     vnds: { label: "VNDS", tab: "vnds" },
     ps2: { label: "PS2", tab: "ps2" },
-    wine: { label: "Windows", tab: "boxedwine" },
+    // Desktop only: the wine tab is hidden on touch devices (assets/mobile.css).
+    wine: { label: "Windows", tab: document.documentElement.dataset.touch === "1" ? null : "boxedwine" },
     archive: { label: "archive", tab: null },
     unknown: { label: "unknown", tab: null },
   };
@@ -150,6 +156,18 @@
       return { engine: "tyrano", root: tyrano.slice(0, cut).replace(/\/$/, "") };
     }
 
+    // RPG Maker MV and MZ are web games too, with the engine's first script at
+    // js/rpg_core.js (MV) or js/rmmz_core.js (MZ) inside the game's folder -
+    // which is www/ next to the .exe for an MV release, so this goes before the
+    // .exe fallback below. The shallowest one is the game; a deeper copy is
+    // usually a plugin's bundled sample.
+    const rpgmaker = paths
+      .filter((path) => /(^|\/)js\/(rpg_core|rmmz_core)\.js$/i.test(path))
+      .sort((a, b) => a.split("/").length - b.split("/").length)[0];
+    if (rpgmaker) {
+      return { engine: "rpgmaker", root: rpgmaker.replace(/\/?js\/[^/]+$/i, "") };
+    }
+
     const test = (names) => {
       const has = (n) => names.has(n);
       const any = (re) => [...names].some((n) => re.test(n));
@@ -181,9 +199,17 @@
         fallback = fallback || { engine, root: dir };
         continue;
       }
-      return { engine, root: dir };
+      return { engine, root: gameRoot(engine, dir) };
     }
     return fallback || { engine: "unknown", root: "" };
+  }
+
+  // A Ren'Py game's scripts are in game/, but the game is the folder above:
+  // games also read and write beside it (DDLC's characters/*.chr).
+  function gameRoot(engine, root) {
+    if (engine !== "renpy") return root;
+    if (/^game$/i.test(root)) return "";
+    return root.replace(/\/game$/i, "");
   }
 
   // --- adding -------------------------------------------------------------
@@ -314,6 +340,41 @@
     });
   }
 
+  // For assets/beam.js: a stored entry written file by file as it arrives
+  // from another device. Nothing is listed until commit(); abort() removes
+  // whatever was written.
+  async function createStored(name) {
+    const id = newId();
+    const dir = await (await storageRoot()).getDirectoryHandle(id, { create: true });
+    return {
+      id,
+      async open(path) {
+        const parent = await ensureDir(dir, path);
+        const handle = await parent.getFileHandle(path.split("/").pop(), { create: true });
+        return handle.createWritable();
+      },
+      commit({ paths, bytes, engine, root }) {
+        const detected = detectEngine(paths);
+        return dbPut({
+          id,
+          name: sanitize(name),
+          kind: "stored",
+          engine: engine || detected.engine,
+          root: engine ? (root || "") : detected.root,
+          fileCount: paths.length,
+          bytes,
+          addedAt: Date.now(),
+          source: "beam",
+        });
+      },
+      async abort() {
+        try {
+          await (await storageRoot()).removeEntry(id, { recursive: true });
+        } catch (error) { /* nothing written yet */ }
+      },
+    };
+  }
+
   // --- actions on an entry -------------------------------------------------
 
   async function ensurePermission(entry) {
@@ -331,7 +392,8 @@
     }
     // Everything below entry.root is the game; the prefix is stripped so the
     // runtime sees the layout it expects.
-    const prefix = entry.root ? entry.root + "/" : "";
+    const root = gameRoot(entry.engine, entry.root || "");
+    const prefix = root ? root + "/" : "";
     const files = [];
     for await (const { path, handle } of walk(dir)) {
       if (prefix && !path.startsWith(prefix)) continue;
@@ -466,12 +528,13 @@
           <div class="button-row">
             <button class="retro-button" type="button" id="library-add-folder">add folder</button>
             <button class="retro-button secondary" type="button" id="library-add-file">add file</button>
+            <button class="retro-button secondary" type="button" id="library-receive">receive</button>
           </div>
           <form class="library-url" id="library-url-form">
             <input type="url" id="library-url" placeholder="https://example.com/game.zip" />
             <button class="retro-button" type="submit">download</button>
           </form>
-          <p class="control-note" id="library-note">Folders stay where they are; only a reference is kept, so adding one is instant. Downloads and files are copied into this browser.</p>
+          <p class="control-note" id="library-note"><span class="brief">Add a game folder, or paste a link to a .zip.</span><span class="verbose">Folders stay where they are; only a reference is kept, so adding one is instant. Downloads and files are copied into this browser.</span></p>
         </div>
         <div class="library-list" id="library-list"></div>
         <div class="library-foot">
@@ -499,6 +562,10 @@
         if (input.files.length) run(() => addFiles(input.files, status), "Added.");
       });
       input.click();
+    });
+    // Another device beams a game here (assets/beam.js).
+    dialog.querySelector("#library-receive").addEventListener("click", () => {
+      if (window.NoberuBeam) window.NoberuBeam.receive();
     });
     dialog.querySelector("#library-url-form").addEventListener("submit", (event) => {
       event.preventDefault();
@@ -576,6 +643,7 @@
           <div class="button-row">
             ${entry.engine === "archive" ? "" : `<select class="library-engine" aria-label="runtime for ${escapeHtml(entry.name)}">${options}</select>
             <button class="retro-button" type="button" data-act="boot">${pickEngine ? (matches ? "use this" : "use anyway") : "play"}</button>`}
+            ${pickEngine ? "" : `<button class="retro-button secondary" type="button" data-act="beam">beam</button>`}
             ${entry.kind === "linked" ? `<button class="retro-button secondary" type="button" data-act="copy">make a copy</button>` : ""}
             ${entry.engine === "archive" ? `<button class="retro-button secondary" type="button" data-act="unzip">unzip</button>` : ""}
             <button class="retro-button secondary" type="button" data-act="remove">remove</button>
@@ -589,7 +657,9 @@
         const entry = (await dbAll()).find((e) => e.id === id);
         if (!entry) return;
         const act = button.dataset.act;
-        if (act === "copy") run(() => copyToStorage(entry, status), "Copied into this browser.");
+        if (act === "beam") {
+          if (window.NoberuBeam) window.NoberuBeam.send(entry);
+        } else if (act === "copy") run(() => copyToStorage(entry, status), "Copied into this browser.");
         else if (act === "unzip") run(() => unzip(entry, status), "Unpacked.");
         else if (act === "remove") {
           if (confirm(`Remove "${entry.name}" from the library?` +
@@ -606,8 +676,12 @@
 
   async function boot(entry, engineId) {
     const engine = ENGINES[engineId] || ENGINES[entry.engine] || ENGINES.unknown;
-    // A corrected guess is worth keeping.
-    if (engineId && engineId !== entry.engine) await dbPut({ ...entry, engine: engineId });
+    // A corrected guess is worth keeping, along with the root that engine
+    // expects (Ren'Py's is the folder above game/).
+    if (engineId && engineId !== entry.engine) {
+      entry = { ...entry, engine: engineId, root: gameRoot(engineId, entry.root || "") };
+      await dbPut(entry);
+    }
     status("opening files...");
     const files = await getFiles(entry, status);
     if (pickResolve) {
@@ -619,7 +693,20 @@
     }
     if (!engine.tab) throw new Error("No runtime here can play that.");
     close();
+    if (window.NoberuSession) window.NoberuSession.remember(entry, engineId || entry.engine);
     window.NoberuLibraryHandoff(engine.tab, files);
+  }
+
+  // Straight from an id to a running game, with no popup: the about tab's
+  // "continue" (assets/session.js).
+  async function play(id, engineId) {
+    const entry = (await dbAll()).find((e) => e.id === id);
+    if (!entry) throw new Error("That game is no longer in downloads.");
+    const engine = ENGINES[engineId] || ENGINES[entry.engine] || ENGINES.unknown;
+    if (!engine.tab) throw new Error("No runtime here can play that.");
+    const files = await getFiles(entry);
+    if (window.NoberuSession) window.NoberuSession.remember(entry, engineId || entry.engine);
+    await window.NoberuLibraryHandoff(engine.tab, files, { boot: true });
   }
 
   function open(title) {
@@ -658,6 +745,13 @@
     addFolder,
     addFiles,
     getFiles,
+    play,
+    createStored,
+    list: dbAll,
+    // Redraws the popup if it is open (a beam just landed, say).
+    refresh() {
+      if (dialog && !dialog.classList.contains("hidden")) render();
+    },
     openManager() {
       pickEngine = null;
       open("downloads");

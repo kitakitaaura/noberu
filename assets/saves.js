@@ -19,6 +19,13 @@
  *               timestamps, so those saves show as "date unknown".
  *               kirikiri: "krkr2-space-<game folder>", keys absolute.
  *               siglus:   "siglus-saves-<game folder>", keys relative.
+ *   RPG Maker - games served by the rpgmaker tab save the way they do in any
+ *               browser. MV: localStorage, "noberu.rpgmv.<staged id>.RPG File1"
+ *               (the prefix is rpgmaker-runtime/noberu-shim.js's). MZ:
+ *               localforage (IndexedDB "localforage", store "keyvaluepairs"),
+ *               "rmmzsave.<gameId>.file1". Each value is exactly what the
+ *               desktop game writes to save/file1.rpgsave or .rmmzsave, so
+ *               exports are real save files and those import back.
  *
  * Exports are plain zips, so they can be unzipped and inspected, and an
  * import puts the same files back where they came from.
@@ -151,6 +158,141 @@
       // This store keeps no timestamps; the panel shows "date unknown".
       modified: 0,
     }];
+  }
+
+  // --- RPG Maker (rpgmaker tab) -------------------------------------------
+
+  const RPGMV_KEY = /^noberu\.rpgmv\.(.+)\.(RPG (?:File(\d+)|Global|Config))(bak)?$/;
+  const RPGMZ_KEY = /^rmmzsave\.(.+)\.([^.]+)$/;
+  const FORAGE_DB = "localforage";
+  const FORAGE_STORE = "keyvaluepairs";
+
+  // MV's web storage keys and the file names the desktop game uses for the
+  // same data (StorageManager.localFilePath / webStorageKey).
+  function rpgmvFile(match) {
+    const [, , kind, number, bak] = match;
+    const base = number ? `file${number}` : kind === "RPG Global" ? "global" : "config";
+    return `${base}.rpgsave${bak ? ".bak" : ""}`;
+  }
+
+  function rpgmvKey(id, file) {
+    const match = /^(file(\d+)|global|config)\.rpgsave(\.bak)?$/i.exec(file.split("/").pop());
+    if (!match) return null;
+    const kind = match[2] ? `RPG File${match[2]}` : /^global/i.test(match[1]) ? "RPG Global" : "RPG Config";
+    return `noberu.rpgmv.${id}.${kind}${match[3] ? "bak" : ""}`;
+  }
+
+  function scanRpgmv() {
+    const byGame = new Map();
+    let keys = [];
+    try {
+      keys = Object.keys(localStorage);
+    } catch (error) {
+      return [];
+    }
+    for (const key of keys) {
+      const match = RPGMV_KEY.exec(key);
+      if (!match) continue;
+      const bytes = (localStorage.getItem(key) || "").length;
+      if (!byGame.has(match[1])) byGame.set(match[1], { files: [], bytes: 0 });
+      const game = byGame.get(match[1]);
+      game.files.push({ path: rpgmvFile(match), bytes });
+      game.bytes += bytes;
+    }
+    return [...byGame].map(([id, game]) => ({
+      id: `rpgmv:${id}`,
+      kind: "rpgmv",
+      group: id,
+      name: id,
+      runtime: "rpg maker",
+      system: false,
+      ...game,
+      // The dates are inside the compressed save data; not worth unpacking.
+      modified: 0,
+    }));
+  }
+
+  // { key: value } of every MZ save in localforage's database, or {} when
+  // no MZ game has run here.
+  async function forageRecords() {
+    let db;
+    try {
+      db = await openDb(FORAGE_DB);
+    } catch (error) {
+      return {};
+    }
+    if (!db.objectStoreNames.contains(FORAGE_STORE)) {
+      db.close();
+      return {};
+    }
+    const records = await new Promise((resolve, reject) => {
+      const store = db.transaction(FORAGE_STORE).objectStore(FORAGE_STORE);
+      const keys = store.getAllKeys();
+      const values = store.getAll();
+      keys.onerror = () => reject(keys.error);
+      values.onsuccess = () => {
+        const out = {};
+        keys.result.forEach((key, i) => {
+          if (RPGMZ_KEY.test(String(key)) && String(key) !== "rmmzsave.test") out[key] = values.result[i];
+        });
+        resolve(out);
+      };
+    });
+    db.close();
+    return records;
+  }
+
+  const textBytes = (value) => new TextEncoder().encode(typeof value === "string" ? value : "");
+
+  async function scanRpgmz() {
+    const byGame = new Map();
+    for (const [key, value] of Object.entries(await forageRecords())) {
+      const [, gameId, save] = RPGMZ_KEY.exec(key);
+      const bytes = textBytes(value).length;
+      if (!byGame.has(gameId)) byGame.set(gameId, { files: [], bytes: 0 });
+      const game = byGame.get(gameId);
+      game.files.push({ path: `${save}.rmmzsave`, bytes });
+      game.bytes += bytes;
+    }
+    return [...byGame].map(([gameId, game]) => ({
+      id: `rpgmz:${gameId}`,
+      kind: "rpgmz",
+      group: gameId,
+      // The game page reports this name (noberu-shim.js), mapped to its folder.
+      name: `rmmz.${gameId}`,
+      runtime: "rpg maker",
+      system: false,
+      ...game,
+      modified: 0,
+    }));
+  }
+
+  async function writeForage(gameId, files) {
+    // The database as localforage left it, or, where no MZ game has run yet,
+    // localforage's own layout: version 1, its key-value store and the store
+    // it probes Blob support with.
+    const db = await openDb(FORAGE_DB).catch(() => new Promise((resolve, reject) => {
+      const request = indexedDB.open(FORAGE_DB, 1);
+      request.onupgradeneeded = () => {
+        const created = request.result;
+        if (!created.objectStoreNames.contains(FORAGE_STORE)) created.createObjectStore(FORAGE_STORE);
+        if (!created.objectStoreNames.contains("local-forage-detect-blob-support")) {
+          created.createObjectStore("local-forage-detect-blob-support");
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    }));
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(FORAGE_STORE, "readwrite");
+      for (const [path, data] of Object.entries(files)) {
+        const save = path.split("/").pop().replace(/\.rmmzsave$/i, "");
+        tx.objectStore(FORAGE_STORE).put(new TextDecoder().decode(data), `rmmzsave.${gameId}.${save}`);
+      }
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
   }
 
   function isDir(entry) {
@@ -289,6 +431,7 @@
       }
     }
     sets.push(...(await scanOpfs()));
+    sets.push(...scanRpgmv(), ...(await scanRpgmz()));
     return sets.sort((a, b) => b.modified - a.modified);
   }
 
@@ -296,6 +439,20 @@
 
   async function readSet(set) {
     const files = {};
+    if (set.kind === "rpgmv") {
+      for (const key of Object.keys(localStorage)) {
+        const match = RPGMV_KEY.exec(key);
+        if (match && match[1] === set.group) files[rpgmvFile(match)] = textBytes(localStorage.getItem(key));
+      }
+      return files;
+    }
+    if (set.kind === "rpgmz") {
+      for (const [key, value] of Object.entries(await forageRecords())) {
+        const [, gameId, save] = RPGMZ_KEY.exec(key);
+        if (gameId === set.group) files[`${save}.rmmzsave`] = textBytes(value);
+      }
+      return files;
+    }
     if (set.kind === "flat") {
       const db = await openDb(set.db);
       const entries = await krkrEntries(db);
@@ -352,6 +509,27 @@
     });
     const paths = Object.keys(unzipped).filter((p) => !p.endsWith("/"));
     if (!paths.length) throw new Error("That zip is empty.");
+
+    // RPG Maker: the save files, from this panel's export or the desktop
+    // game's save/ folder. Anything else in the zip is left out.
+    if (set.kind === "rpgmv") {
+      let count = 0;
+      for (const path of paths) {
+        const key = rpgmvKey(set.group, path);
+        if (!key) continue;
+        localStorage.setItem(key, new TextDecoder().decode(unzipped[path]));
+        count++;
+      }
+      if (!count) throw new Error("No RPG Maker MV saves (file1.rpgsave...) in that zip.");
+      return count;
+    }
+    if (set.kind === "rpgmz") {
+      const saves = {};
+      for (const path of paths) if (/\.rmmzsave$/i.test(path)) saves[path] = unzipped[path];
+      if (!Object.keys(saves).length) throw new Error("No RPG Maker MZ saves (file1.rmmzsave...) in that zip.");
+      await writeForage(set.group, saves);
+      return Object.keys(saves).length;
+    }
 
     if (set.kind === "flat") {
       const db = await openDb(set.db);
@@ -412,6 +590,30 @@
   }
 
   async function deleteSet(set) {
+    if (set.kind === "rpgmv") {
+      for (const key of Object.keys(localStorage)) {
+        const match = RPGMV_KEY.exec(key);
+        if (match && match[1] === set.group) localStorage.removeItem(key);
+      }
+      return;
+    }
+    if (set.kind === "rpgmz") {
+      const db = await openDb(FORAGE_DB);
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(FORAGE_STORE, "readwrite");
+        const request = tx.objectStore(FORAGE_STORE).getAllKeys();
+        request.onsuccess = () => {
+          for (const key of request.result) {
+            const match = RPGMZ_KEY.exec(String(key));
+            if (match && match[1] === set.group) tx.objectStore(FORAGE_STORE).delete(key);
+          }
+        };
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+      db.close();
+      return;
+    }
     if (set.kind === "flat") {
       // A database is one game, so the whole thing goes. The runtime also
       // keeps a list of its save spaces for its own picker; drop it there too
@@ -510,7 +712,8 @@
           <button class="tiny-button" type="button" id="saves-close">close</button>
         </div>
         <div class="library-add">
-          <p class="control-note">Saves the runtimes keep inside this browser. Export one to keep a copy on your device, or put an exported zip back. Close a running game first: it writes its own saves when it exits.</p>
+          <p class="control-note brief">Your game saves. Export one to keep a copy, or import one back.</p>
+          <p class="control-note verbose">Saves the runtimes keep inside this browser. Export one to keep a copy on your device, or put an exported zip back. Close a running game first: it writes its own saves when it exits.</p>
         </div>
         <div class="library-list" id="saves-list"></div>
         <div class="library-foot">
@@ -561,14 +764,16 @@
       return;
     }
 
+    const names = savedNames();
     const item = (set) => `
       <div class="library-item" data-id="${escapeHtml(set.id)}">
         <div class="library-item-main">
-          <b>${escapeHtml(set.name)}</b>
+          <b>${escapeHtml(names[set.name.toLowerCase()] || set.name)}</b>
           <span>${escapeHtml(set.runtime)} · ${set.files.length} file${set.files.length === 1 ? "" : "s"} · ${bytesLabel(set.bytes)} · ${dateLabel(set.modified)}${set.note ? " · " + escapeHtml(set.note) : ""}</span>
         </div>
         <div class="button-row">
-          <button class="retro-button" type="button" data-act="export">export</button>
+          ${set.system ? "" : `<button class="retro-button" type="button" data-act="beam">beam</button>`}
+          <button class="retro-button${set.system ? "" : " secondary"}" type="button" data-act="export">export</button>
           <button class="retro-button secondary" type="button" data-act="import">import</button>
           <button class="retro-button secondary" type="button" data-act="delete">delete</button>
         </div>
@@ -589,7 +794,10 @@
         const set = sets.find((s) => s.id === id);
         if (!set) return;
         const act = button.dataset.act;
-        if (act === "export") run(() => exportSet(set), "Exported.");
+        if (act === "beam") {
+          // Just these saves, to another device (assets/beam.js).
+          if (window.NoberuBeam) window.NoberuBeam.sendSaves(set);
+        } else if (act === "export") run(() => exportSet(set), "Exported.");
         else if (act === "import") {
           const input = document.createElement("input");
           input.type = "file";
@@ -615,7 +823,144 @@
       (other.length ? `, ${other.length} other` : "") + ` · ${bytesLabel(total)} stored`);
   }
 
+  // --- beam (assets/beam.js) -----------------------------------------------
+  //
+  // A game's saves travel with it. They are matched by name: the runtimes
+  // name a game's save folder after its game folder, which is also its name
+  // in the library. (Ren'Py names it after the game's own save_directory, so
+  // those only match when the two agree.)
+
+  // What a set needs to be written back somewhere else.
+  function portable(set) {
+    const { kind, db, group, prefix, keyPrefix, spacesKey, name, runtime } = set;
+    return { kind, db, group, prefix, keyPrefix, spacesKey, name, runtime };
+  }
+
+  // |names|: one name or several (a game's saves can go by more than one;
+  // see saveNamesFor in assets/beam.js).
+  // Save folders not named after their game - Ren'Py names its after
+  // config.save_directory ("DDLC-1454445547") - mapped to the game's folder
+  // name, as the runtimes report them.
+  const NAMES_KEY = "noberu.saves.names";
+
+  function savedNames() {
+    try {
+      return JSON.parse(localStorage.getItem(NAMES_KEY)) || {};
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function nameSaves(saveName, gameName) {
+    if (!saveName || !gameName || saveName === gameName) return;
+    const names = savedNames();
+    names[saveName.toLowerCase()] = gameName;
+    try {
+      localStorage.setItem(NAMES_KEY, JSON.stringify(names));
+    } catch (error) {
+      // Storage off: the folder just keeps showing under its own name.
+    }
+  }
+
+  async function savesForGame(names) {
+    const wanted = new Set([].concat(names).map((name) => String(name || "").toLowerCase()));
+    for (const [saveName, gameName] of Object.entries(savedNames())) {
+      if (wanted.has(gameName.toLowerCase())) wanted.add(saveName);
+    }
+    const sets = (await scan()).filter((set) => !set.system && wanted.has(set.name.toLowerCase()));
+    const out = [];
+    for (const set of sets) {
+      const files = await readSet(set);
+      if (!Object.keys(files).length) continue;
+      const zip = await new Promise((resolve, reject) => {
+        fflate.zip(files, { level: 6 }, (err, data) => (err ? reject(err) : resolve(data)));
+      });
+      out.push({ set: portable(set), zip });
+    }
+    return out;
+  }
+
+  // Emscripten's IDBFS layout (DB_VERSION 21, one FILE_DATA store indexed by
+  // timestamp), for a runtime that has never run on this device yet.
+  function ensureIdbfs(name) {
+    return new Promise((resolve, reject) => {
+      const probe = indexedDB.open(name);
+      probe.onupgradeneeded = () => {
+        probe.transaction.abort();
+        const create = indexedDB.open(name, 21);
+        create.onupgradeneeded = () => {
+          const store = create.result.createObjectStore("FILE_DATA");
+          store.createIndex("timestamp", "timestamp", { unique: false });
+        };
+        create.onsuccess = () => {
+          create.result.close();
+          resolve();
+        };
+        create.onerror = () => reject(create.error);
+      };
+      probe.onsuccess = () => {
+        probe.result.close();
+        resolve();
+      };
+      probe.onerror = () => { /* aborted upgrade lands here; handled above */ };
+    });
+  }
+
+  // A game that has never run on this device has no store yet. Both runtimes
+  // open theirs exactly this way - version 1, one "files" store with
+  // out-of-line keys (kirikiri-runtime/index.html idbOpen, siglus-runtime's
+  // noberu-glue.js) - so making it here first is the same database they would
+  // make, and they find the saves on the game's first run. Kirikiri also lists
+  // its spaces in localStorage for its own picker.
+  function ensureFlat(set) {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(set.db, 1);
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains("files")) {
+          request.result.createObjectStore("files");
+        }
+      };
+      request.onsuccess = () => {
+        request.result.close();
+        if (set.spacesKey) {
+          try {
+            const spaces = JSON.parse(localStorage.getItem(set.spacesKey) || "[]");
+            const spec = FLAT_STORES.find((store) => set.db.startsWith(store.prefix));
+            const space = set.db.slice(spec.prefix.length);
+            if (!spaces.includes(space)) {
+              spaces.push(space);
+              localStorage.setItem(set.spacesKey, JSON.stringify(spaces));
+            }
+          } catch (error) {
+            // The list is only for upstream's own picker, which noberu skips.
+          }
+        }
+        resolve();
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async function restoreSaves(set, zip) {
+    if (set.kind === "idb") await ensureIdbfs(set.db);
+    if (set.kind === "flat") await ensureFlat(set);
+    return importInto(set, new Blob([zip]));
+  }
+
+  // One set, packed for beam.
+  async function packSet(set) {
+    const files = await readSet(set);
+    const zip = await new Promise((resolve, reject) => {
+      fflate.zip(files, { level: 6 }, (err, data) => (err ? reject(err) : resolve(data)));
+    });
+    return { set: portable(set), zip };
+  }
+
   window.NoberuSaves = {
+    forGame: savesForGame,
+    name: nameSaves,
+    pack: packSet,
+    restore: restoreSaves,
     open() {
       if (!dialog) build();
       dialog.classList.remove("hidden");

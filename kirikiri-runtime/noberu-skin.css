@@ -1,0 +1,169 @@
+/* noberu's look for upstream's overlays.
+ *
+ * Upstream's page has its own brand: a navy backdrop, a "Kirikiroid2 Web"
+ * title in red and a red-to-navy progress bar. Inside noberu the frame should
+ * look like every other runtime - a black stage with quiet monospace status -
+ * so this sheet re-skins those overlays. It is linked after upstream's <style>
+ * (strip-upstream.py injects it), only changes how things look, and leaves the
+ * markup alone so a fresh upstream build still lines up.
+ *
+ * Colours are noberu's dark tokens from ../assets/theme.css. The stage is black
+ * in both site themes, so there is no light set here.
+ */
+
+:root {
+  --nb-stage: #000;
+  --nb-panel: #0b0b0b;
+  --nb-surface: #191919;
+  --nb-surface-hover: #202020;
+  --nb-ink: #e4e4e4;
+  --nb-muted: #8b8b93;
+  --nb-line: rgba(255, 255, 255, 0.09);
+  --nb-line-strong: rgba(255, 255, 255, 0.16);
+  --nb-accent: #2f8af9;
+  --nb-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas,
+    "IBM Plex Mono", "Courier New", monospace;
+}
+
+html,
+body {
+  background: var(--nb-stage);
+  color: var(--nb-ink);
+  font-family: var(--nb-mono);
+}
+
+/* Loading: no title, a hairline bar and one line of status. */
+#loading {
+  background: var(--nb-stage);
+  gap: 14px;
+}
+
+#loading h1 {
+  display: none;
+}
+
+#progress-bar,
+#picker-progress {
+  width: min(240px, 60vw);
+  height: 2px;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--nb-line-strong);
+}
+
+#progress-fill,
+#picker-progress-fill {
+  background: var(--nb-accent);
+  border-radius: 999px;
+}
+
+#status,
+#picker-status,
+#engine-status {
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--nb-muted);
+}
+
+/* Errors: a plain card, the same shape as noberu's dialogs. */
+#error-overlay {
+  background: rgba(0, 0, 0, 0.72);
+  padding: 16px;
+}
+
+#error-box {
+  background: var(--nb-panel);
+  border: 1px solid var(--nb-line-strong);
+  border-radius: 12px;
+  padding: 22px 24px;
+  max-width: 440px;
+}
+
+#error-box h2 {
+  color: var(--nb-ink);
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+#error-box p {
+  color: var(--nb-muted);
+  font-size: 13px;
+}
+
+#error-update-btn {
+  margin-top: 16px;
+  padding: 8px 18px;
+  background: var(--nb-surface);
+  color: var(--nb-ink);
+  border: 1px solid var(--nb-line-strong);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 13px;
+}
+
+#error-update-btn:hover {
+  background: var(--nb-surface-hover);
+}
+
+#error-update-btn:focus-visible {
+  outline: 2px solid var(--nb-accent);
+  outline-offset: 2px;
+}
+
+/* The pickers. The glue answers their questions itself, so they should never
+   show inside noberu; if one ever does, it at least looks like it belongs. */
+#file-picker,
+#xp3-selector,
+#save-space-picker {
+  background: var(--nb-stage);
+}
+
+#picker-box h1,
+#selector-box h2,
+#space-box h1 {
+  color: var(--nb-ink);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+#drop-zone {
+  border: 1px dashed var(--nb-line-strong);
+}
+
+#drop-zone.dragover {
+  border-color: var(--nb-accent);
+  background: rgba(47, 138, 249, 0.08);
+}
+
+.picker-buttons button,
+.picker-buttons button.primary,
+.xp3-item,
+.space-item {
+  background: var(--nb-surface);
+  color: var(--nb-ink);
+  border: 1px solid var(--nb-line);
+  font-family: inherit;
+}
+
+.picker-buttons button:hover,
+.picker-buttons button.primary:hover,
+.xp3-item:hover,
+.space-item:hover {
+  background: var(--nb-surface-hover);
+  border-color: var(--nb-line-strong);
+  color: var(--nb-ink);
+}
+
+.about-content h2,
+.about-content a,
+.feedback-link a:hover {
+  color: var(--nb-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #loading,
+  #progress-fill {
+    transition: none;
+  }
+}

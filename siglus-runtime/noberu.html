@@ -1,11 +1,13 @@
 <!doctype html>
 <html lang="en">
 <head>
+  <!-- noberu runtime hooks (volume, sharp pixels): before any engine code (assets/runtime.js) -->
+  <script src="../assets/runtime.js"></script>
 <meta charset="utf-8" />
 <title>siglus runtime</title>
 <style>
   html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
-  #siglus-canvas { display: block; margin: 0 auto; background: #000; outline: none; }
+  #siglus-canvas { display: block; margin: 0 auto; background: #000; outline: none; touch-action: none; }
 </style>
 </head>
 <body>

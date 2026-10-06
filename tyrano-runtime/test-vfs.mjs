@@ -8,6 +8,8 @@ const DIR = new URL("./", import.meta.url);
 const read = (n) => readFileSync(new URL(n, DIR), "utf8");
 
 // --- stubs -----------------------------------------------------------------
+// Safari and Firefox in private browsing will not store File objects.
+let idbRefusesFiles = false;
 const db = new Map(); // store name -> Map(key -> record)
 db.set("games", new Map());
 const indexedDB = {
@@ -20,7 +22,7 @@ const indexedDB = {
         transaction: () => ({
           objectStore: () => ({
             get(key) { const r = {}; queueMicrotask(() => { r.result = db.get("games").get(key); r.onsuccess && r.onsuccess(); }); return r; },
-            put(v) { db.get("games").set(v.id, v); },
+            put(v) { if (idbRefusesFiles) throw new DOMException("refused", "DataCloneError"); db.get("games").set(v.id, v); },
             clear() { db.get("games").clear(); },
           }),
           set oncomplete(fn) { queueMicrotask(fn); },
@@ -35,17 +37,31 @@ const indexedDB = {
 };
 
 const listeners = {};
+// The noberu page's side of the worker's "send me the files" message, and the
+// clients the worker can see: that page, and the game's own frame (inside the
+// scope, never answers).
+let pageListener = null;
+const clients = [
+  { url: "http://localhost:4175/", postMessage: (data, ports) => pageListener && pageListener({ data, ports }) },
+  { url: "http://localhost:4175/tyrano-runtime/vfs/x/index.html", postMessage: () => assert.fail("asked the game frame") },
+];
 const ctx = {
-  console, URL, Response, Request, Headers, File, Blob, Map, Set, Number, Math, Date,
+  console, URL, Response, Request, Headers, File, Blob, Map, Set, Number, Math, Date, MessageChannel,
   queueMicrotask, setTimeout, clearTimeout, indexedDB,
   TextEncoder, Object, JSON, encodeURIComponent, decodeURIComponent,
   self: {
     addEventListener: (name, fn) => (listeners[name] = fn),
     registration: { scope: "http://localhost:4175/tyrano-runtime/vfs/" },
-    location: { origin: "http://localhost:4175" },
-    clients: { claim: () => {} },
+    location: new URL("http://localhost:4175/tyrano-runtime/tyrano-sw.js"),
+    clients: { claim: () => {}, matchAll: async () => clients },
   },
-  navigator: { serviceWorker: { register: async () => ({ active: {} }) } },
+  navigator: {
+    serviceWorker: {
+      register: async () => ({ active: {} }),
+      addEventListener: (name, fn) => (pageListener = fn),
+      startMessages() {},
+    },
+  },
 };
 ctx.window = ctx;
 ctx.globalThis = ctx;
@@ -143,5 +159,17 @@ const gone = await serve("some-other-game/index.html");
 assert.equal(gone.status, 503);
 assert.match(await gone.text(), /stage it again/i);
 console.log("ok  a missing asset is a 404, an unstaged game says to stage it again");
+
+// --- 6. private browsing: IndexedDB refuses the files ---------------------
+idbRefusesFiles = true;
+const hidden = await ctx.window.TyranoVFS.stage([
+  file("Private Game/index.html", "<html>private</html>"),
+  file("Private Game/data/x.ks", "*x"),
+]);
+idbRefusesFiles = false;
+assert.equal(db.get("games").has(hidden.id), false, "nothing reached IndexedDB");
+assert.equal(await (await serve(`${hidden.id}/index.html`)).text(), "<html>private</html>");
+assert.equal(await (await serve(`${hidden.id}/data/x.ks`)).text(), "*x");
+console.log("ok  with IndexedDB refusing File objects, the page's copy serves the game");
 
 console.log("\nall tyrano runtime checks passed");

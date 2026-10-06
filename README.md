@@ -32,20 +32,17 @@ from a folder's file names and sends the game to the right tab.
 | **rlvm** | rlvm (RealLive clone) | Key's RealLive era: Kanon, Air, Clannad, Little Busters, Planetarian | `Gameexe.ini`, `Seen.txt` | [eglaysher/rlvm](https://github.com/eglaysher/rlvm) |
 | **onscripter** | OnscripterYuri (ONScripter fork) | NScripter games: Tsukihime, original Higurashi/Umineko, Narcissu, most doujin VNs | `nscript.dat`, `0.txt`, `00.txt`, `nscr_sec.dat`, `onscript.nt2/nt3` | [YuriSizuku/OnscripterYuri](https://github.com/YuriSizuku/OnscripterYuri) |
 | **umineko** | onscripter-ru | The Umineko Project release | `default.cfg` + `.file` scripts | [umineko-project/onscripter-ru](https://github.com/umineko-project/onscripter-ru) |
-| **ren'py** | Ren'Py official web build (8.5.3 and 7.8.7) | Ren'Py games (Python 3 and Python 2 generations) | `script_version.txt`, `.rpa`, `.rpyc` | [renpy/renpy](https://github.com/renpy/renpy) |
+| **ren'py** | Ren'Py official web build (8.5.3 and 7.8.7) | Ren'Py games (Python 3 and Python 2 generations, back to 6.99 - Doki Doki Literature Club verified) | `script_version.txt`, `.rpa`, `.rpyc` | [renpy/renpy](https://github.com/renpy/renpy) |
 | **kirikiri** | Kirikiroid2 (web build) | KiriKiri 2 / Z games, including commercial ones with plugins (Nekopara verified) | `.xp3` | [fenghengzhi/kirikiroid2-web](https://github.com/fenghengzhi/kirikiroid2-web) |
 | **siglus** | siglus_rs (Rust) | SiglusEngine: Little Busters!, Rewrite+, Summer Pockets, planetarian HD, Steam Clannad/Kanon | `Scene*.pck` | [xmoezzz/siglus_rs](https://github.com/xmoezzz/siglus_rs) |
 | **tyrano** | none needed | TyranoScript / TyranoBuilder games | `tyrano/tyrano.js` | [ShikemokuMK/tyranoscript](https://github.com/ShikemokuMK/tyranoscript) |
+| **rpg maker** | none needed | RPG Maker MV and MZ games (not 2000/2003/XP/VX/VX Ace) | `js/rpg_core.js`, `js/rmmz_core.js` | - |
 | **vnds** | VNDS-LOVE on love.js | VNDS-format novels (Nintendo DS VN ports) | `info.txt` | [ajusa/VNDS-LOVE](https://github.com/ajusa/VNDS-LOVE), [Davidobot/love.js](https://github.com/Davidobot/love.js) |
 | **ps2** | Play! | PlayStation 2 disc images | `.iso`, `.bin`, `.cue`, `.chd`, `.cso` … | [jpd002/Play-](https://github.com/jpd002/Play-) |
 | **wine** | BoxedWine | Windows `.exe` games, as a last resort | `.exe` | [danoon2/Boxedwine](https://github.com/danoon2/Boxedwine) |
 
 
 ### Engine notes
-
-> [!IMPORTANT]
-> All engines that are either eager or lazy loading are being developed to a point where they can be chosen which way to do it in some sort of "settings" popup.
-
 
 - **rlvm** reads the whole game into memory when it boots, so a multi-gigabyte
   game needs that much RAM. Steam re-releases (e.g. Clannad English HD) run, but
@@ -64,7 +61,9 @@ from a folder's file names and sends the game to the right tab.
   reads `game/script_version.txt` and picks the 8.x (Python 3) or 7.x (Python 2)
   runtime. Games are installed file by file rather than as a zip, so memory
   stays at one copy. The whole game still has to fit in memory. Live2D doesn't
-  work, and video is limited to what the browser can play.
+  work, and video is limited to what the browser can play. Older 6.99 games
+  run on the 7.8.7 runtime with a couple of shims; files a game writes next to
+  itself (DDLC's `firstrun`) go to a per-game overlay in IndexedDB.
 - **kirikiri** reads archives on demand through upstream's virtual filesystem,
   so a 5 GB game stages in seconds. It reimplements ~30 of the Windows plugin
   DLLs commercial games call. Google Analytics, a CDN script and the PWA service
@@ -73,6 +72,9 @@ from a folder's file names and sends the game to the right tab.
   upstream (listed in `siglus-runtime/README.md`).
 - **tyrano** needs no engine: a Tyrano game *is* a website. A service worker
   serves the game's files straight from the folder you picked.
+- **rpg maker** works the same way as tyrano (MV and MZ games are websites
+  too). A small shim makes the game fill the window and keeps each game's saves
+  under its own name. Details in `rpgmaker-runtime/README.md`.
 - **ps2** and **wine** are general emulators, included for VNs that only exist
   as console or Windows releases. Both are heavy.
 
@@ -95,20 +97,19 @@ in an `<iframe>`. Every runtime page follows the same contract:
 
 So a runtime doesn't know or even care whether its files came from a folder picker, the downloads library, or a zip that was unpacked in the browser.
 
-### No server
+### (Almost) no server
 
-> [!NOTE]
-> I feel the need to add some sort of "server" for backup, sharing games between devices, and other things. Not sure if it's worth destroying the whole idea of a static site for that in the first place, but maybe I will go that route.
-
-The site is 100% static: HTML, JS, wasm, and a `_headers` file. There are no
-API endpoints and no accounts. Everything a player does stays in their browser:
+The site itself is static: HTML, JS, wasm, and a `_headers` file. There are no
+accounts. The one piece of server code is the small matchmaker for
+[beam](#beam-send-games-between-devices), which only introduces two devices to
+each other. Everything a player does stays in their browser:
 
 | What | Where it's kept |
 |---|---|
 | Linked game folders | A `FileSystemDirectoryHandle` in IndexedDB (`noberu-library`) - nothing copied |
 | Downloaded / copied games | The browser's private file storage (OPFS), under `library/<id>/` |
-| Saves | Per engine: IDBFS databases (`/save`, `/home`, `/home/web_user/.renpy`), OPFS (umineko), `krkr2-space-*` databases (kirikiri) |
-| Theme, tour, welcome notice | `localStorage` |
+| Saves | Per engine: IDBFS databases (`/save`, `/home`, `/home/web_user/.renpy`), OPFS (umineko), `krkr2-space-*` databases (kirikiri), `localStorage` / localforage (rpg maker) |
+| Settings, theme, tour, welcome notice | `localStorage` (`noberu.settings.*` and a few older keys) |
 
 Because storage is tied to the site's address, **saves on one domain don't
 save on another** (ex. `noberu.pages.dev` vs `noberu.kitaaura.com`). The
@@ -152,7 +153,7 @@ overrides a wrong guess.
 ### Saves panel (`assets/saves.js`)
 
 Lists every save every engine has written, grouped by game, with export (zip),
-import and delete. It knows the three storage shapes above.
+import, delete and beam. It knows every storage shape above.
 
 ### Demo tour (`assets/tour.js`)
 
@@ -167,8 +168,9 @@ controls, so people learn the actual flow.
 
 ## Using it
 
-1. Open the site on a desktop browser (Chrome or Edge recommended; folder
-   linking needs the File System Access API).
+1. Open the site. Chrome or Edge on a computer works best: linking a folder
+   needs the File System Access API. Other browsers and phones copy the game in
+   instead (**add file** with a `.zip`, or a web link).
 2. Either open the tab for your game's engine and **choose folder**, or use
    **downloads → add folder** and let it detect the engine, or use the
    **autodetect engine** button on the about page.
@@ -182,6 +184,31 @@ usually fine; the library searches a couple of levels down.
 For every SDL-based engine: move the mouse before clicking. SDL takes a
 click's position from the last mouse movement, so a click without one can land
 in the wrong place.
+
+---
+
+## Phones, controllers and settings
+
+- **Phones and tablets.** The site works as an app: "Add to Home Screen" installs
+  it (it's a PWA, `manifest.webmanifest` + `sw.js`). When a game starts it fills
+  the screen, and a see-through on-screen pad appears (d-pad, enter, esc, a skip
+  latch, right-click; a full pad on the PS2 tab). `?touch` forces the phone
+  controls on a desktop for testing. The wine tab is hidden on phones.
+- **Controllers.** Any standard gamepad is mapped to the keys each engine
+  expects (`assets/gamepad.js`).
+- **Settings** (top bar): sound (master volume), play, controls, controller,
+  display (theme, sharp pixels, CRT overlay, reduce motion, detailed
+  descriptions), beam and storage. Each setting is one `localStorage` key.
+
+## Beam (send games between devices)
+
+Beam sends a game, its saves, or just saves from one browser to another, like
+AirDrop. Both devices open beam, one shows a code (and QR code), the other
+enters it. The data goes straight between the two devices over WebRTC; the
+matchmaker (`beam-worker/`, a Cloudflare Worker at `beam.kitaaura.com`) only
+pairs them. If a direct connection can't be made (strict NATs, some VPNs) it
+falls back to a relay, which is capped at 2 GB per beam and 4 GB per day per
+address.
 
 ---
 ## Running it locally
@@ -236,8 +263,23 @@ rsync -a --no-links --exclude .git --exclude .wrangler --exclude .DS_Store \
 npx wrangler pages deploy /tmp/noberu-deploy --project-name noberu --branch main
 ```
 
-`tools/stage-deploy.sh` does step 1 too (add `--exclude '.wrangler'` to it
-first; it currently copies that folder).
+`tools/stage-deploy.sh` does step 1 too, and also leaves out `beam-worker/`.
+The beam matchmaker is deployed separately (`cd beam-worker && npx wrangler
+deploy`; its TURN keys are Wrangler secrets, never in the repo).
+
+---
+
+## Repository layout
+
+| Path | What |
+|---|---|
+| `index.html` | The app: header, tabs, one adapter per engine |
+| `assets/` | Shared code: library, saves, beam, settings, touch/gamepad input, theme, tour, vendored fflate and qrcode |
+| `*-runtime/` | One folder per engine, each with its own README |
+| `beam-worker/` | The beam matchmaker (Cloudflare Worker) |
+| `tools/` | Deploy staging and asset helpers |
+| `serve-local.mjs` | Local server with production headers |
+| `_headers`, `sw.js`, `manifest.webmanifest` | Pages headers, offline shell, PWA manifest |
 
 ## Rebuilding an engine
 

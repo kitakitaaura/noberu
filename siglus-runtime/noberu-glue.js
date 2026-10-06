@@ -30,6 +30,68 @@
   }
   function status(text) { post("status", { text: text }); }
 
+  // --- touch as a mouse ---------------------------------------------------
+  //
+  // winit reports a touch as its own kind of pointer, and siglus_rs only acts
+  // on mouse buttons: on a phone a tap moved the highlight onto a menu item
+  // and never chose it. So a touch on the game canvas is re-sent as the mouse
+  // doing the same thing - press, drag, release - before winit sees it.
+  // Only the first finger counts, like a mouse has one pointer.
+  //
+  // The engine reads the button once per frame, so a press and release in
+  // the same frame is never seen. A quick tap can be that fast, so the
+  // release is held back until the press has had a few frames.
+
+  const MIN_PRESS_MS = 70;
+  let touchId = null;
+  let pressedAt = 0;
+
+  function asMouse(event) {
+    if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
+    const canvas = document.getElementById(CANVAS_ID);
+    if (!canvas || event.target !== canvas) return;
+    event.stopImmediatePropagation();
+    event.preventDefault();
+    if (event.type === "pointerdown") {
+      if (touchId !== null) return;
+      touchId = event.pointerId;
+    } else if (event.pointerId !== touchId) {
+      return;
+    }
+    const pressed = event.type === "pointerdown" ||
+      (event.type === "pointermove" && touchId !== null);
+    if (event.type === "pointerdown") pressedAt = performance.now();
+    const send = () => canvas.dispatchEvent(new PointerEvent(event.type, {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      screenX: event.screenX,
+      screenY: event.screenY,
+      pointerId: 1,
+      pointerType: "mouse",
+      isPrimary: true,
+      button: event.type === "pointermove" ? -1 : 0,
+      buttons: pressed && event.type !== "pointerup" ? 1 : 0,
+      pressure: pressed ? 0.5 : 0,
+    }));
+    if (event.type === "pointerup" || event.type === "pointercancel") {
+      touchId = null;
+      const wait = MIN_PRESS_MS - (performance.now() - pressedAt);
+      if (wait > 0) {
+        window.setTimeout(send, wait);
+        return;
+      }
+    }
+    send();
+  }
+
+  for (const type of ["pointerdown", "pointermove", "pointerup", "pointercancel",
+    "pointerover", "pointerout"]) {
+    window.addEventListener(type, asMouse, true);
+  }
+
   // --- path index ---------------------------------------------------------
 
   const byPath = new Map();     // normalized path -> File

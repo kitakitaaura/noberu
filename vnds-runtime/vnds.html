@@ -2,6 +2,8 @@
 <html lang="en-us">
 
 <head>
+  <!-- noberu runtime hooks (volume, sharp pixels): before any engine code (assets/runtime.js) -->
+  <script src="../assets/runtime.js"></script>
   <meta charset="utf-8">
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <meta name="viewport"
@@ -30,8 +32,22 @@
       height: 100%;
     }
 
-    #loadingCanvas,
+    #loadingCanvas {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* The game draws at a fixed size (800x600) and the canvas is scaled to fit
+       the frame with that shape kept, centred on black (fitCanvas below).
+       Stretched to the frame instead, a landscape phone squashed it to 2:1. */
+    #gameContainer {
+      position: relative;
+      overflow: hidden;
+      background: #000;
+    }
+
     #canvas {
+      position: absolute;
       width: 100%;
       height: 100%;
     }
@@ -64,6 +80,25 @@
       canvas.width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
       canvas.height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
     }
+
+    // Scale the canvas to the frame without changing its shape. Emscripten
+    // maps clicks and taps through the canvas's on-screen box, so they still
+    // land where they look.
+    function fitCanvas() {
+      var canvas = document.getElementById("canvas");
+      var box = document.getElementById("gameContainer");
+      var boxW = box.clientWidth, boxH = box.clientHeight;
+      if (!canvas.width || !canvas.height || !boxW || !boxH) return;
+      var scale = Math.min(boxW / canvas.width, boxH / canvas.height);
+      var w = Math.round(canvas.width * scale), h = Math.round(canvas.height * scale);
+      canvas.style.width = w + "px";
+      canvas.style.height = h + "px";
+      canvas.style.left = Math.round((boxW - w) / 2) + "px";
+      canvas.style.top = Math.round((boxH - h) / 2) + "px";
+    }
+    window.addEventListener("resize", fitCanvas);
+    new MutationObserver(fitCanvas).observe(document.getElementById("canvas"),
+      { attributes: true, attributeFilter: ["width", "height"] });
 
     function postToHost(type, detail) {
       try {
@@ -158,6 +193,7 @@
 
       document.getElementById("launcher").style.display = "none";
       document.getElementById("gameContainer").style.display = "block";
+      fitCanvas();
       postToHost("booting", {});
 
       try {

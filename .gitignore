@@ -12,3 +12,7 @@ boxedwine.zip
 
 # Wrangler's local cache (account id, temp files)
 .wrangler/
+
+# Dev-only link to a local copy of DDLC (see renpy-runtime/README.md)
+renpy-runtime/testddlc
+renpy-runtime/testddlc_filelist.txt

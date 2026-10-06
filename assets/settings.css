@@ -1,0 +1,365 @@
+/* The settings popup (assets/settings.js). It reuses the downloads popup's
+   frame (.library-backdrop / .library-modal) and adds a tab rail beside the
+   panels, which turns into a row of chips on a phone. */
+
+.settings-modal {
+  width: min(40rem, 100%);
+  /* One height for every tab, so the popup does not jump between them. */
+  height: min(31rem, 100%);
+}
+
+.settings-body {
+  display: grid;
+  grid-template-columns: 9rem 1fr;
+  min-height: 0;
+  flex: 1;
+}
+
+.settings-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 0.5rem;
+  border-right: 1px solid var(--line);
+}
+
+.settings-tabs button {
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-radius: var(--radius-sm, 8px);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-tabs button:hover {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+
+.settings-tabs button[aria-selected="true"] {
+  background: var(--surface-press);
+  color: var(--ink);
+  box-shadow: inset 2px 0 0 var(--gold);
+}
+
+.settings-panels {
+  min-height: 18rem;
+  overflow-y: auto;
+}
+
+.settings-panel {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem 1rem;
+}
+
+.settings-panel[hidden] {
+  display: none;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.settings-row:last-child {
+  border-bottom: 0;
+}
+
+.settings-row.dim .settings-range {
+  opacity: 0.45;
+}
+
+.settings-text {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.settings-text b {
+  font-weight: 600;
+}
+
+.settings-text small,
+.settings-note {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.settings-note {
+  margin: 0.4rem 0;
+}
+
+:root[data-touch="1"] .settings-note.desktop-only {
+  display: none;
+}
+
+/* A slider with its value. */
+.settings-range {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: 0 1 15rem;
+}
+
+.settings-range input {
+  flex: 1;
+  min-width: 6rem;
+  accent-color: var(--gold);
+}
+
+.settings-range output {
+  min-width: 2.8rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* A short text field (the device name). */
+.settings-input {
+  flex: 0 1 14rem;
+  min-width: 0;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.settings-input:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+
+/* An on/off switch, from a plain checkbox. */
+.settings-switch {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  position: relative;
+  width: 2.6rem;
+  height: 1.5rem;
+  margin: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface-press);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.settings-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: calc(1.5rem - 6px);
+  height: calc(1.5rem - 6px);
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.settings-switch:checked {
+  background: var(--gold);
+  border-color: var(--gold);
+}
+
+.settings-switch:checked::after {
+  background: #fff;
+  transform: translateX(1.1rem);
+}
+
+.settings-switch:focus-visible,
+.settings-segments input:focus-visible + span {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* A row of choices, one picked. */
+.settings-segments {
+  display: inline-flex;
+  flex: none;
+  padding: 2px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+}
+
+.settings-segments label {
+  position: relative;
+}
+
+.settings-segments input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.settings-segments span {
+  display: block;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.settings-segments input:checked + span {
+  background: var(--surface-press);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--gold);
+}
+
+/* What the controls will look like, over a plain stand-in for a game. Left-
+   handed puts the d-pad and the key on the other sides. The preview is a size
+   container, so the move can be measured in its own width (cqw). */
+.settings-preview {
+  --pad-w: calc(var(--cell) * 3 + 4px);
+  --key-w: calc(2.6rem * var(--pad-scale, 1));
+  --cell: calc(1.6rem * var(--pad-scale, 1));
+  container-type: inline-size;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  height: 7.5rem;
+  margin: 0.4rem 0;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-sm, 8px);
+  background: #29292f;
+  overflow: hidden;
+}
+
+.settings-preview-pad,
+.settings-preview-key {
+  position: relative;
+  z-index: 1;
+  opacity: var(--pad-opacity, 1);
+}
+
+:root[data-pad-hand="left"] .settings-preview-pad {
+  transform: translateX(calc(100cqw - var(--pad-w)));
+}
+
+:root[data-pad-hand="left"] .settings-preview-key {
+  transform: translateX(calc(var(--key-w) - 100cqw));
+}
+
+.settings-preview-pad {
+  display: grid;
+  grid-template: repeat(3, var(--cell)) / repeat(3, var(--cell));
+  gap: 2px;
+}
+
+.settings-preview-pad i,
+.settings-preview-key {
+  border: 1.5px solid rgba(255, 255, 255, 0.42);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.settings-preview-pad i {
+  border-radius: 0.35rem;
+}
+
+.settings-preview-key {
+  display: grid;
+  place-items: center;
+  width: calc(2.6rem * var(--pad-scale, 1));
+  height: calc(2.6rem * var(--pad-scale, 1));
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+/* What each controller button does. */
+.settings-map {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 0.8rem;
+  margin: 0.6rem 0 0;
+  font-size: 0.85rem;
+}
+
+.settings-map dt {
+  justify-self: start;
+  min-width: 2rem;
+  padding: 0.1rem 0.45rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 0.4rem;
+  text-align: center;
+  font-weight: 600;
+}
+
+.settings-map dd {
+  margin: 0;
+  align-self: center;
+  color: var(--muted);
+}
+
+.settings-danger b {
+  color: var(--red);
+}
+
+/* Phones: the rail becomes chips across the top. */
+@media (max-width: 760px) {
+  /* The phone layout keeps its own short text, so this does nothing there. */
+  .settings-wide-only {
+    display: none;
+  }
+
+  .settings-body {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .settings-tabs {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0.5rem 0.75rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    scrollbar-width: none;
+  }
+
+  .settings-tabs button {
+    flex: none;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    padding: 0.35rem 0.85rem;
+  }
+
+  .settings-tabs button[aria-selected="true"] {
+    box-shadow: none;
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  .settings-modal {
+    height: auto;
+  }
+
+  .settings-panels {
+    min-height: 0;
+  }
+
+  .settings-row.settings-wide {
+    flex-wrap: wrap;
+  }
+
+  .settings-row.settings-wide .settings-range,
+  .settings-row.settings-wide .settings-input {
+    flex: 1 1 100%;
+  }
+}

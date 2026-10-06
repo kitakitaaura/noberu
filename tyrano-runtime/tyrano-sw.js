@@ -18,7 +18,12 @@
 // someone leaves for a minute is enough - and it restarts with nothing. That
 // showed up as every asset 404ing part way into a game.
 
-const DB_NAME = "noberu-tyrano";
+// The rpgmaker tab serves its games the same way, from a worker file of its own
+// (a worker only controls URLs under its own folder) that sets these three and
+// then imports this one: its own IndexedDB, its tab's name for messages, and
+// extra scripts for the game's pages (../rpgmaker-runtime/rpgmaker-sw.js).
+const DB_NAME = self.NOBERU_VFS_DB || "noberu-tyrano";
+const TAB_NAME = self.NOBERU_VFS_TAB || "tyrano";
 const STORE = "games";
 
 self.addEventListener("install", () => self.skipWaiting());
@@ -41,8 +46,7 @@ function openDb() {
   });
 }
 
-async function gameFiles(id) {
-  if (cached.has(id)) return cached.get(id);
+async function storedFiles(id) {
   const db = await openDb();
   const record = await new Promise((resolve, reject) => {
     const query = db.transaction(STORE).objectStore(STORE).get(id);
@@ -50,8 +54,44 @@ async function gameFiles(id) {
     query.onerror = () => reject(query.error);
   });
   db.close();
+  return record ? record.files : null;
+}
+
+// The noberu page that staged the game keeps its file map in memory too
+// (noberu-glue.js) and hands it over when asked. That is the only copy when
+// IndexedDB would not take the files - Safari and Firefox refuse File objects
+// there in private browsing - and it is always the newest. The game's own
+// frame is a client of this worker as well, and never answers, so only pages
+// outside the scope are asked.
+async function pageFiles(id) {
+  if (!self.clients.matchAll) return null;
+  const scope = self.registration.scope;
+  const pages = (await self.clients.matchAll({ includeUncontrolled: true, type: "window" }))
+    .filter((client) => !client.url.startsWith(scope));
+  for (const page of pages) {
+    const files = await new Promise((resolve) => {
+      const channel = new MessageChannel();
+      const timer = setTimeout(() => {
+        channel.port1.close();
+        resolve(null);
+      }, 2000);
+      channel.port1.onmessage = (event) => {
+        clearTimeout(timer);
+        channel.port1.close();
+        resolve(event.data || null);
+      };
+      page.postMessage({ type: "noberu-vfs-files", db: DB_NAME, id }, [channel.port2]);
+    });
+    if (files) return files;
+  }
+  return null;
+}
+
+async function gameFiles(id) {
+  if (cached.has(id)) return cached.get(id);
+  const record = (await pageFiles(id)) || (await storedFiles(id).catch(() => null));
   if (!record) return null;
-  const files = new Map(Object.entries(record.files));
+  const files = new Map(Object.entries(record));
   // Games authored on Windows reference `Data/Image/BG.png` for a file stored as
   // `data/image/bg.png` and nobody notices until it is served by something that
   // cares. A lowercase index is the fallback, and only the fallback: an exact
@@ -90,6 +130,7 @@ const TYPES = {
   mp4: "video/mp4",
   webm: "video/webm",
   ogv: "video/ogg",
+  wasm: "application/wasm",
   ttf: "font/ttf",
   otf: "font/otf",
   woff: "font/woff",
@@ -152,7 +193,7 @@ async function serve(request, url) {
 
   const entry = await gameFiles(id);
   if (!entry) {
-    return plain(503, "noberu: this game is no longer staged. Stage it again in the tyrano tab.");
+    return plain(503, `noberu: this game is no longer staged. Stage it again in the ${TAB_NAME} tab.`);
   }
   const file = entry.files.get(path) || entry.lower.get(path.toLowerCase());
   if (!file) return plain(404, `noberu: ${path} is not in the staged folder`);
@@ -194,8 +235,30 @@ async function serve(request, url) {
     });
   }
 
+  // The game's pages get noberu's runtime hooks (master volume, sharp pixels)
+  // ahead of the engine, the same as every other runtime page
+  // (assets/runtime.js), then any scripts the importing worker added. Only
+  // where the page has a <head> to put them in; anything else is served
+  // untouched.
+  if (/\.html?$/i.test(path)) {
+    const html = await file.text();
+    if (/<head(\s[^>]*)?>/i.test(html)) {
+      const tag = HEAD_SCRIPTS.map((src) => `<script src="${src}"></script>`).join("");
+      return new Response(html.replace(/<head(\s[^>]*)?>/i, (head) => head + tag), {
+        status: 200,
+        headers,
+      });
+    }
+  }
+
   return new Response(file, { status: 200, headers });
 }
+
+const RUNTIME_SCRIPT = new URL("../assets/runtime.js", self.location).pathname;
+const HEAD_SCRIPTS = [
+  RUNTIME_SCRIPT,
+  ...(self.NOBERU_VFS_SCRIPTS || []).map((src) => new URL(src, self.location).pathname),
+];
 
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);

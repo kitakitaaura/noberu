@@ -18,7 +18,8 @@ What it removes, and why:
   * The service worker and web app manifest. This runs in an iframe, its PWA
     cache is not wanted, and the registration failed here anyway.
 
-It also injects the script tag for `noberu-glue.js`, which is ours.
+It also injects the script tag for `noberu-glue.js` and the link to
+`noberu-skin.css` (the loading and error overlays in noberu's look), both ours.
 
 Website furniture in the artifact (sw.js, manifest.webmanifest, pwa/,
 robots.txt, sitemap.xml, the Baidu site-verification page) is simply not
@@ -43,6 +44,10 @@ JSZIP_CDN = (
 JSZIP_LOCAL = '<script src="jszip.min.js"></script>'
 MANIFEST_LINK = "<link href=manifest.webmanifest rel=manifest>"
 GLUE_TAG = '<script src="noberu-glue.js"></script>'
+SAVEDATA_MKDIR = 'preRun:[function(){FS.mkdir("/savedata"),'
+SAVEDATA_MKDIR_GUARDED = 'preRun:[function(){try{FS.mkdir("/savedata")}catch(e){}'
+RUNTIME_TAG = '<script src="../assets/runtime.js"></script>'
+SKIN_TAG = '<link rel="stylesheet" href="noberu-skin.css">'
 
 
 def strip(html: str) -> tuple[str, list[str]]:
@@ -74,6 +79,29 @@ def strip(html: str) -> tuple[str, list[str]]:
     if GLUE_TAG not in html:
         html = html.replace("</body>", GLUE_TAG + "</body>", 1)
         done.append("noberu glue injected")
+
+    # preRun makes /savedata unguarded. When a game already has saves, the
+    # restore (idbRestoreSaves) has created it by then, so the mkdir throws
+    # EEXIST, preRun stops, and the engine sits on "Restoring saves..."
+    # forever - every game's second launch.
+    if SAVEDATA_MKDIR in html:
+        html = html.replace(SAVEDATA_MKDIR, SAVEDATA_MKDIR_GUARDED, 1)
+        done.append("preRun /savedata mkdir guarded")
+    elif SAVEDATA_MKDIR_GUARDED not in html:
+        raise SystemExit("preRun's /savedata mkdir changed upstream; check the restore path")
+
+    # noberu's runtime hooks (master volume, sharp pixels) have to be in
+    # place before the engine makes its AudioContext, so they go first in
+    # <head>.
+    if RUNTIME_TAG not in html:
+        html = html.replace("<head>", "<head>" + RUNTIME_TAG, 1)
+        done.append("runtime hooks injected")
+
+    # noberu's look for the loading and error overlays. It has to come after
+    # upstream's <style> to win, so it goes last in <head>.
+    if SKIN_TAG not in html:
+        html = html.replace("</head>", SKIN_TAG + "</head>", 1)
+        done.append("noberu skin linked")
 
     return html, done
 

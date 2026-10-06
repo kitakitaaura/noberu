@@ -52,3 +52,19 @@ Anything built with TyranoScript or TyranoBuilder, including the Steam releases 
 a Windows `.exe` from TyranoBuilder is usually an NW.js wrapper with this exact
 folder inside it, so stage that inner folder. The tab finds the game's root by
 looking for the shallowest `index.html`, so a wrapper folder is fine.
+
+## Private browsing
+
+Safari and Firefox will not store `File` objects in IndexedDB in private
+browsing. The page that staged the game keeps the same file map in memory, and
+the worker asks it for the map (a `noberu-vfs-files` message over a
+`MessageChannel`) before looking in IndexedDB. The noberu page is always open
+while a game runs in its frame, so this also covers a worker that was killed
+and restarted. IndexedDB is the fallback, not the source of truth.
+
+## Shared with the rpgmaker tab
+
+`../rpgmaker-runtime/rpgmaker-sw.js` sets `NOBERU_VFS_DB`, `NOBERU_VFS_TAB` and
+`NOBERU_VFS_SCRIPTS` and imports `tyrano-sw.js`; the page side uses
+`NoberuVFS(...)`, the factory `TyranoVFS` is made from. A change here changes
+both tabs, and `test-vfs.mjs` covers the shared code.

@@ -89,6 +89,8 @@
   // Each step: the control to ring, what to say, and when it is done. `done`
   // is polled, so it can watch for the result of a press (a download landing,
   // a tab opening) as well as the press.
+  const TOUCH = document.documentElement.dataset.touch === "1";
+
   const STEPS = [
     {
       title: "try a demo",
@@ -164,7 +166,17 @@
       },
       done: () => STEPS[6].pressed,
     },
-    {
+    // Phones and tablets: the game already fills the screen (assets/touch.js),
+    // so the last word is about the on-screen keys instead of ▣.
+    TOUCH ? {
+      title: "controls",
+      text: "The keys on screen work like a keyboard: <b style='display:inline;color:inherit'>enter</b> " +
+        "advances, <b style='display:inline;color:inherit'>esc</b> opens the menu, " +
+        "<b style='display:inline;color:inherit'>ctrl</b> skips (tap to hold, tap again to stop), " +
+        "and ✕ leaves the game. <b style='display:inline;color:inherit'>hide</b> tucks them away.",
+      target: () => document.querySelector(".emulator-maximized > .touch-pad [data-key=Enter]"),
+      last: true,
+    } : {
       title: "fullscreen",
       text: "Press <b style='display:inline;color:inherit'>▣</b> up here to play fullscreen; Esc comes back. " +
         "Any game with a download link works the same way, and folders on this device go in with " +
@@ -310,6 +322,11 @@
   }
 
   function place(target) {
+    // Native fullscreen shows only the fullscreen element's subtree, so the
+    // card and ring follow the game in there (a phone's game view).
+    const host = document.fullscreenElement || document.body;
+    if (card.parentNode !== host) host.append(ring, card);
+
     const cardRect = card.getBoundingClientRect();
     const vw = window.innerWidth;
     const vh = window.innerHeight;
@@ -364,6 +381,8 @@
     start,
     // First visit only, or whenever the URL asks for it with ?tour.
     startIfNew() {
+      // Arriving from a beam QR code: the beam comes first, the tour can wait.
+      if (window.NoberuBeamLink) return;
       if (params.has("tour") || !seen()) start();
     },
   };

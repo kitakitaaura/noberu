@@ -2,6 +2,8 @@
 <html lang="en">
 
 <head>
+  <!-- noberu runtime hooks (volume, sharp pixels): before any engine code (assets/runtime.js) -->
+  <script src="../assets/runtime.js"></script>
   <meta charset="utf-8">
   <title>renpy runtime</title>
   <style>
@@ -211,7 +213,7 @@
       // ours runs alongside them and the engine waits for all of them.
       Module.preRun.push(function () {
         Module.addRunDependency("installGame");
-        NoberuRenPyStage.install(Module.FS || FS, staged, status)
+        NoberuRenPyStage.install(Module.FS || FS, staged, status, root)
           .then(() => Module.removeRunDependency("installGame"))
           .catch((error) => {
             post("error", { message: "Could not install the game: " + error.message });
@@ -229,6 +231,7 @@
           post("running", {});
           canvasEl.focus();
           applyPerformancePreferences();
+          reportSaveDirectory();
         }
       };
 
@@ -250,6 +253,16 @@
         "renpy.game.preferences.gl_powersave = False\n" +
         "renpy.game.preferences.gl_framerate = None\n"
       ).catch((error) => console.warn("[renpy] could not set performance preferences", error));
+    }
+
+    // Ren'Py names a game's save folder after config.save_directory, which
+    // lives in the compiled scripts. Tell the host, so the saves panel and
+    // beam can match the folder to the game.
+    function reportSaveDirectory() {
+      if (typeof window.renpy_exec !== "function") return;
+      window.renpy_exec("result = renpy.config.save_directory or ''")
+        .then((name) => { if (name) post("save-directory", { name: String(name) }); })
+        .catch((error) => console.warn("[renpy] could not read the save directory", error));
     }
 
     function loadScript(src) {

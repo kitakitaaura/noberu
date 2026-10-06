@@ -48,3 +48,15 @@ See `~/VNDS-LOVE/README.md` for the Alfons/LuaRocks build chain. The
 here, and re-apply the `vnds.html` patch described above (it is not part of
 the upstream build and will be overwritten if `index.html` is copied over
 verbatim instead).
+
+## Screen shape
+
+The engine draws at a fixed 800x600. `vnds.html` used to stretch the canvas to
+100% of the frame both ways, which was invisible in the roughly 4:3 desktop
+frame and squashed the game to 2:1 on a landscape phone. `fitCanvas()` now
+sizes it to fit with its shape kept, centred on black, on resize and whenever
+the engine changes the canvas size. Taps still land right: Emscripten maps them
+through the canvas's on-screen box.
+
+Choices are picked with the arrow keys and Enter (the touch pad's d-pad and
+enter on a phone); VNDS-LÖVE does not take clicks or taps on a choice.

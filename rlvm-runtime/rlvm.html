@@ -2,6 +2,8 @@
 <html lang="en">
 
 <head>
+  <!-- noberu runtime hooks (volume, sharp pixels): before any engine code (assets/runtime.js) -->
+  <script src="../assets/runtime.js"></script>
   <meta charset="utf-8">
   <title>rlvm runtime</title>
   <style>
@@ -11,6 +13,15 @@
       height: 100%;
       background: #000;
       overflow: hidden;
+    }
+
+    /* Centred at the game's own shape, black around it; fitCanvas() below
+       sets the size. Never stretched to the frame: a phone's frame is the
+       whole screen, nothing like 4:3 or 16:9. */
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     #canvas {
@@ -34,12 +45,27 @@
     // The host tab stages a game folder and calls the entry point below, same
     // arrangement as ../vnds-runtime/vnds.html:
     //   window.RLVMInstallAndBoot(root, files) - `files` is the FileList from
-    //   the tab's directory picker. The files are read here rather than in the
-    //   host page so a multi-gigabyte game is only ever held in memory once.
+    //   the tab's directory picker. Files are read on demand, only when the
+    //   engine opens them (see stageGameFiles below).
     // Status is reported to the parent with
     // postMessage({ source: "rlvm-runtime", type, ... }).
 
     const canvasEl = document.getElementById("canvas");
+
+    // The largest box of the game's shape (its canvas resolution, which SDL
+    // sets) that fits the frame. SDL maps pointer positions through the
+    // canvas's on-screen box, so resizing the element itself keeps clicks
+    // lined up, where object-fit would not.
+    function fitCanvas() {
+      const w = canvasEl.width;
+      const h = canvasEl.height;
+      if (!w || !h || w === 300 && h === 150) return;  // not sized by SDL yet
+      const scale = Math.min(window.innerWidth / w, window.innerHeight / h);
+      canvasEl.style.width = `${Math.floor(w * scale)}px`;
+      canvasEl.style.height = `${Math.floor(h * scale)}px`;
+    }
+    window.addEventListener("resize", fitCanvas);
+    new MutationObserver(fitCanvas).observe(canvasEl, { attributes: true, attributeFilter: ["width", "height"] });
 
     function post(type, detail) {
       window.parent.postMessage(
@@ -98,29 +124,6 @@
       fallbackFontLoaded = true;
     }
 
-    // Reads go through a small worker pool: firing arrayBuffer() on every File
-    // at once (tens of thousands for a full game) makes Chrome fail reads with
-    // NotReadableError.
-    const READ_CONCURRENCY = 16;
-
-    async function readBlobWithRetry(blob, relative) {
-      for (let attempt = 1; ; attempt++) {
-        try {
-          return new Uint8Array(await blob.arrayBuffer());
-        } catch (error) {
-          if (attempt >= 3) {
-            throw new Error(`Could not read "${relative}": ${error.name} ${error.message}`);
-          }
-          await new Promise((resolve) => setTimeout(resolve, 100 * attempt));
-        }
-      }
-    }
-
-    // Anything past this is copied in pieces: reading a multi-gigabyte archive
-    // (Little Busters' VOICE0.PAK, say) in one call fails with
-    // NotReadableError once the tab is already holding the rest of the game.
-    const CHUNK_SIZE = 32 * 1024 * 1024;
-
     // Filesystem errors carry only an errno, which says nothing about which of
     // several multi-gigabyte files failed or how far in. Name the call, the
     // file and the offset.
@@ -135,68 +138,152 @@
       }
     }
 
-    async function writeFileToFS(Mod, path, file, relative) {
-      const size = file.size;
-      if (size <= CHUNK_SIZE) {
-        const bytes = await readBlobWithRetry(file, relative);
-        fsStep(`writeFile "${relative}" (${size} bytes)`, () => Mod.FS.writeFile(path, bytes));
-        return;
-      }
+    // Game files are loaded on demand (see Noberu/wasm/lazyfs.js). Each picked
+    // file becomes a MEMFS placeholder under /game that reports its real size
+    // (rlvm stat()s files before opening them) but holds no data. Opening one
+    // has lazyFS.loadSync() read that single file in first.
+    //
+    // Loaded files are kept, most recently opened first, up to a budget; past
+    // it, ones that are not open are dropped again and reread when next
+    // opened. A phone's tab is killed long before a 5 GB game would fit.
+    const touch = matchMedia("(hover: none) and (pointer: coarse)").matches;
+    let lazyBudget = (touch ? 256 : 1024) * 1024 * 1024;
 
-      fsStep(`create "${relative}"`, () => Mod.FS.writeFile(path, new Uint8Array(0)));
+    function makeLazyFS(Mod) {
+      const FS = Mod.FS;
+      const loaded = new Map();  // node -> bytes, in order of last use
+      let loadedBytes = 0;
+      let evictions = 0;
 
-      // Sizing the file up front lets the filesystem allocate once instead of
-      // regrowing its buffer on every chunk, but it's only an optimisation: if
-      // the allocation is refused (very large files), fall through and let the
-      // writes below grow the file as they go.
-      try {
-        Mod.FS.truncate(path, size);
-      } catch (error) {
-        console.warn(`Could not preallocate "${relative}" (${size} bytes); growing as we write.`, error);
-      }
-
-      const stream = fsStep(`open "${relative}"`, () => Mod.FS.open(path, "w"));
-      try {
-        for (let offset = 0; offset < size; offset += CHUNK_SIZE) {
-          const end = Math.min(offset + CHUNK_SIZE, size);
-          const chunk = await readBlobWithRetry(file.slice(offset, end), relative);
-          fsStep(`write "${relative}" at ${offset} (${chunk.length} bytes)`,
-            () => Mod.FS.write(stream, chunk, 0, chunk.length, offset));
+      const nodeAt = (path) => {
+        try {
+          return FS.lookupPath(path, { follow: true }).node;
+        } catch (error) {
+          return null;
         }
-      } finally {
-        Mod.FS.close(stream);
+      };
+
+      function touchNode(node) {
+        if (!loaded.has(node)) return;
+        const bytes = loaded.get(node);
+        loaded.delete(node);
+        loaded.set(node, bytes);
       }
+
+      function isOpen(node) {
+        return FS.streams.some((stream) => stream && stream.node === node);
+      }
+
+      // `keep` is the file being opened right now: loaded, but not open yet,
+      // so it would otherwise be the first thing dropped.
+      function evict(keep = null) {
+        for (const [node, bytes] of loaded) {
+          if (loadedBytes <= lazyBudget) break;
+          if (node === keep || isOpen(node)) continue;
+          node.contents = null;
+          node.lazyLoaded = false;
+          loaded.delete(node);
+          loadedBytes -= bytes;
+          evictions++;
+        }
+      }
+
+      // Synchronous, because the engine is mid-open() and cannot wait. A
+      // synchronous XMLHttpRequest of a blob: URL is the one way a page can
+      // read a File without yielding. Such requests may not ask for binary,
+      // so the bytes come back as "x-user-defined" text, where each char code
+      // is one byte (high bytes land at U+F780-U+F7FF; & 0xff recovers them).
+      // Big files go in 8 MB pieces to keep the temporary string small.
+      const SYNC_PIECE = 8 * 1024 * 1024;
+      function readSync(file, relative) {
+        const size = file.size;
+        const bytes = new Uint8Array(size);
+        for (let offset = 0; offset < size; offset += SYNC_PIECE) {
+          const end = Math.min(offset + SYNC_PIECE, size);
+          const url = URL.createObjectURL(file.slice(offset, end));
+          try {
+            const xhr = new XMLHttpRequest();
+            xhr.open("GET", url, false);
+            xhr.overrideMimeType("text/plain; charset=x-user-defined");
+            xhr.send();
+            const text = xhr.responseText;
+            if (xhr.status !== 200 && xhr.status !== 0 || text.length !== end - offset) {
+              throw new Error(`read ${text.length} of ${end - offset} bytes at ${offset}`);
+            }
+            for (let i = 0; i < text.length; i++) bytes[offset + i] = text.charCodeAt(i) & 0xff;
+          } catch (error) {
+            throw new Error(`Could not read "${relative}": ${error.message || error}`);
+          } finally {
+            URL.revokeObjectURL(url);
+          }
+        }
+        return bytes;
+      }
+
+      return {
+        needs(path) {
+          const node = nodeAt(path);
+          return !!(node && node.lazyFile && !node.lazyLoaded);
+        },
+        loadSync(path) {
+          const node = nodeAt(path);
+          if (!node || !node.lazyFile || node.lazyLoaded) return;
+          const bytes = readSync(node.lazyFile, path.replace(/^\/game\//, ""));
+          node.contents = bytes;
+          node.usedBytes = bytes.length;
+          node.lazyLoaded = true;
+          loaded.set(node, bytes.length);
+          loadedBytes += bytes.length;
+          evict(node);
+        },
+        // For debugging and tests.
+        stats() {
+          return { files: loaded.size, bytes: loadedBytes, budget: lazyBudget, evictions };
+        },
+        setBudget(bytes) {
+          lazyBudget = bytes;
+          evict();
+        },
+        opened(stream, flags) {
+          const node = stream.node;
+          if (!node.lazyFile) return;
+          // Written to: it is no longer the picked file, so never drop it.
+          if (flags & 3) {
+            node.lazyFile = null;
+            if (loaded.has(node)) {
+              loadedBytes -= loaded.get(node);
+              loaded.delete(node);
+            }
+            return;
+          }
+          touchNode(node);
+        },
+      };
     }
 
-    // Writes every picked file into MEMFS under /game, preserving the folder's
-    // internal structure but stripping the top-level folder name (rlvm expects
-    // Gameexe.ini etc directly under the game root).
-    async function populateGameFiles(Mod, files) {
+    // Creates /game's placeholders, preserving the folder's internal structure
+    // but stripping the top-level folder name (rlvm expects Gameexe.ini etc
+    // directly under the game root). Nothing is read here.
+    function stageGameFiles(Mod, files) {
+      const FS = Mod.FS;
       const prefix = files[0].webkitRelativePath
         ? files[0].webkitRelativePath.split("/")[0] + "/"
         : "";
-
-      let next = 0;
-      let done = 0;
-      async function worker() {
-        while (next < files.length) {
-          const file = files[next++];
-          let relative = file.webkitRelativePath || file.name;
-          if (prefix && relative.startsWith(prefix)) relative = relative.substring(prefix.length);
-          if (!relative) continue;
-
-          const path = "/game/" + relative;
-          const directory = path.slice(0, path.lastIndexOf("/"));
-          if (directory) Mod.FS.mkdirTree(directory);
-
-          await writeFileToFS(Mod, path, file, relative);
-          if (++done % 500 === 0) {
-            post("status", { text: `copying ${done} / ${files.length} files...` });
-          }
-        }
+      for (const file of files) {
+        let relative = file.webkitRelativePath || file.name;
+        if (prefix && relative.startsWith(prefix)) relative = relative.substring(prefix.length);
+        if (!relative) continue;
+        const path = "/game/" + relative;
+        const directory = path.slice(0, path.lastIndexOf("/"));
+        if (directory) FS.mkdirTree(directory);
+        fsStep(`create "${relative}"`, () => FS.writeFile(path, new Uint8Array(0)));
+        const node = FS.lookupPath(path).node;
+        node.contents = null;
+        node.usedBytes = file.size;
+        node.lazyFile = file;
+        node.lazyLoaded = false;
       }
-
-      await Promise.all(Array.from({ length: READ_CONCURRENCY }, worker));
+      Mod.lazyFS = makeLazyFS(Mod);
     }
 
     let saveSyncIntervalId = null;
@@ -228,11 +315,17 @@
         post("status", { text: "loading the rlvm engine..." });
         const Mod = await loadModule();
 
-        post("status", { text: `copying ${files.length} files...` });
-        await populateGameFiles(Mod, files);
+        post("status", { text: `staging ${files.length} files...` });
+        stageGameFiles(Mod, files);
         await ensureFallbackFont(Mod);
 
         post("booting", {});
+        // The game quit on its own (a title screen's Exit): the engine calls
+        // this instead of tearing itself down. Saves go to IndexedDB now
+        // rather than on the next timer tick, then the tab is told.
+        Mod.onGameExit = () => {
+          Mod.FS.syncfs(false, () => post("exited", {}));
+        };
         Mod.ccall("rlvm_start", null, ["string"], ["/game"]);
         startPeriodicSaveSync(Mod);
         post("running", { root: root || "" });

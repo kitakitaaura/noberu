@@ -2,8 +2,18 @@
 <html lang="en">
 
 <head>
+  <!-- noberu runtime hooks (volume, sharp pixels): before any engine code (assets/runtime.js) -->
+  <script src="assets/runtime.js"></script>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <!-- Installable app: the manifest for Android/desktop, the apple-* tags for
+       iOS "Add to Home Screen", which ignores most of the manifest. -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="noberu" />
   <link rel="icon" href="data:," />
   <title>noberu</title>
   <!-- Frame 1 of the animated favicon (assets/favicon-frames.png), so the still
@@ -1587,145 +1597,11 @@
       display: none;
     }
 
-    /* The runtimes here (PS2/Wine/VNDS) need a real desktop viewport and
-       keyboard input; there's no usable mobile layout to adapt into, so
-       narrow viewports get a blocking screen instead of a squeezed one. */
-    @media (max-width: 760px) {
-
-      .topbar,
-      .shell,
-      .bottom-tabs {
-        display: none !important;
-      }
-
-      /* Same palette as the rest of the app: the old teal/pink wash predates
-         the current theme and read as a different product. */
-      #mobile-block {
-        /* Her height and the card's position are derived from the same two
-           numbers, so the overlap is identical at every viewport size instead
-           of being tuned per device. 0.731 is the fraction of the sprite that
-           is actually drawn - it carries transparent padding above her head. */
-        --mascot-h: 83vh;
-        --mascot-drawn: 0.731;
-        --overlap: 40px;
-
-        display: flex;
-        align-items: flex-end;
-        justify-content: center;
-        position: fixed;
-        inset: 0;
-        z-index: 99999;
-        padding: 2rem 1.25rem 0;
-        overflow: hidden;
-        background:
-          radial-gradient(120% 70% at 50% 0%, var(--scene-glow), transparent 68%),
-          var(--stage-deep);
-      }
-
-      /* Shorter phones: shrink her so the card still fits above her head. */
-      @media (max-height: 700px) {
-        #mobile-block {
-          --mascot-h: 74vh;
-        }
-      }
-
-      @media (max-height: 620px) {
-        #mobile-block {
-          --mascot-h: 58vh;
-        }
-      }
-
-      .mobile-block-card {
-        position: relative;
-        z-index: 1;
-        /* Sits exactly --overlap above the top of her drawn pixels. */
-        margin-bottom: calc(var(--mascot-drawn) * var(--mascot-h) - var(--overlap));
-        width: min(92vw, 420px);
-        border: 1px solid var(--line);
-        border-radius: var(--radius);
-        background: var(--panel);
-        box-shadow: 0 18px 44px var(--drop-shadow);
-        /* Extra room at the bottom so the art can cross the card's edge
-           without landing on the last line of text. */
-        padding: 1.5rem 1.5rem 3.25rem;
-        text-align: center;
-        display: grid;
-        justify-items: center;
-        gap: 0.75rem;
-      }
-
-      .mobile-block-card h1 {
-        margin: 0;
-        font-size: 1.4rem;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-        color: var(--accent);
-      }
-
-      .mobile-block-card p {
-        margin: 0;
-        line-height: 1.55;
-        font-size: 0.95rem;
-        color: var(--muted);
-      }
-
-      /* Sits in the bottom-right corner and rises far enough that her ears and
-         hair cross the card's lower edge. Above the card so the overlap reads
-         as her standing in front of it. */
-      .mobile-block-mascot {
-        position: fixed;
-        bottom: 0;
-        /* The sprite carries its own transparent margins (content is y 291-1080
-           of 1080, x 118-491 of 531), so the box is sized and nudged past the
-           edge to place the *drawn* pixels rather than the file's bounds. */
-        right: -6vw;
-        z-index: 2;
-        height: var(--mascot-h);
-        aspect-ratio: 531 / 1080;
-        /* Referenced only inside this media query, so a desktop visit never
-           downloads it. */
-        background: url("assets/mobile-mascot.png") bottom right / contain no-repeat;
-        pointer-events: none;
-        filter: drop-shadow(0 -6px 18px rgba(0, 0, 0, 0.55));
-      }
-
-      .mobile-block-credit {
-        position: fixed;
-        left: 1rem;
-        bottom: 0.85rem;
-        z-index: 3;
-        margin: 0;
-        max-width: 46vw;
-        font-size: 0.65rem;
-        line-height: 1.4;
-        color: var(--muted);
-        text-align: left;
-      }
-
-      .mobile-block-credit a {
-        color: inherit;
-      }
-
-      /* Short-and-wide screens (a phone on its side) have no room for her to
-         overlap anything without covering the text. */
-      @media (max-height: 460px) {
-        .mobile-block-mascot {
-          display: none;
-        }
-
-        #mobile-block {
-          align-items: center;
-          padding: 1.25rem;
-        }
-
-        .mobile-block-card {
-          margin-bottom: 0;
-        }
-      }
-    }
   </style>
 
   <link rel="stylesheet" href="assets/theme.css">
+  <link rel="stylesheet" href="assets/mobile.css">
+  <link rel="stylesheet" href="assets/settings.css">
 
   <script>
     // Dark unless someone picked light; applied here so the page never
@@ -1735,6 +1611,33 @@
         document.documentElement.dataset.theme = "light";
       }
     } catch (error) { /* private mode: stay dark */ }
+
+    // Short text unless "detailed descriptions" is on in settings
+    // (assets/settings.js); .brief and .verbose elements follow this.
+    try {
+      if (localStorage.getItem("noberu.settings.verbose") === "1") {
+        document.documentElement.dataset.verbose = "1";
+      }
+    } catch (error) { /* private mode: short text */ }
+
+    // Reduced motion: the device's own setting unless one was picked in
+    // settings (assets/settings.js keeps this in step after load).
+    try {
+      const motion = localStorage.getItem("noberu.settings.reduceMotion");
+      if (motion === "1" || (motion !== "0" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches)) {
+        document.documentElement.dataset.reduceMotion = "1";
+      }
+    } catch (error) { /* private mode: the device's setting via CSS alone */ }
+
+    // Touch devices (phones, tablets) get on-screen controls in a game and no
+    // wine tab; set here, before paint, like the theme. ?touch forces it on a
+    // desktop for testing. Layout is separate: it follows the viewport size
+    // in CSS, so rotating a phone re-lays out without any script.
+    if (new URLSearchParams(location.search).has("touch") ||
+        matchMedia("(hover: none) and (pointer: coarse)").matches) {
+      document.documentElement.dataset.touch = "1";
+    }
   </script>
 </head>
 
@@ -1782,6 +1685,16 @@
             fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
         </svg>
       </button>
+      <button class="downloads-chip" type="button" id="settings-button" aria-label="settings">
+        <svg class="downloads-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+          <path d="M2 4h7M13 4h1M2 8h2M8 8h6M2 12h8M14 12h0" fill="none" stroke="currentColor" stroke-width="1.6"
+            stroke-linecap="round" />
+          <circle cx="11" cy="4" r="1.8" fill="none" stroke="currentColor" stroke-width="1.6" />
+          <circle cx="6" cy="8" r="1.8" fill="none" stroke="currentColor" stroke-width="1.6" />
+          <circle cx="12" cy="12" r="1.8" fill="none" stroke="currentColor" stroke-width="1.6" />
+        </svg>
+        <span class="downloads-text">settings</span>
+      </button>
       <button class="downloads-chip" type="button" id="saves-button" aria-label="saves">
         <svg class="downloads-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
           <path d="M2.5 2.5h8.5L13.5 5v8.5h-11z" fill="none" stroke="currentColor" stroke-width="1.6"
@@ -1821,16 +1734,22 @@
             <div class="scene">
               <div class="pixel-sun" aria-hidden="true"></div>
               <div class="hill" aria-hidden="true"></div>
+              <div class="continue-card hidden" id="continue-card">
+                <span class="continue-label">continue</span>
+                <b id="continue-name"></b>
+                <button class="retro-button" type="button" id="continue-play">play</button>
+              </div>
               <div class="autodetect-card">
                 <p class="autodetect-note" id="about-autodetect-note">
-                  Add a game folder: it goes to downloads, its engine is detected, and it opens in
-                  the matching adapter.
+                  <span class="brief">Not sure which tab? Pick your game's folder and noberu finds the right one.</span>
+                  <span class="verbose">Add a game folder: it goes to downloads, its engine is detected, and it opens in
+                  the matching adapter.</span>
                 </p>
                 <button class="retro-button" type="button" id="about-autodetect">autodetect engine</button>
                 <input class="file-input" id="about-autodetect-input" type="file" webkitdirectory multiple />
               </div>
               <div class="caption-box">
-                <h1>Visual novels, packed for the web.</h1>
+                <h1>Visual novels, packed for the web<span class="touch-only">, now on mobile</span>.</h1>
                 <p>
                   Port your favorite visual novels for the web, with no need for a virtual machine.
                 </p>
@@ -1848,7 +1767,8 @@
                 <div class="mini-icon" aria-hidden="true">01</div>
                 <div>
                   <b>Local-first ports</b>
-                  <span>While the whole ports are fully static, through WASM and emscripten, local games can be
+                  <span class="brief">Games run inside your browser. Your files stay on your device.</span>
+                  <span class="verbose">While the whole ports are fully static, through WASM and emscripten, local games can be
                     efficiently and
                     reliably ported to the web.</span>
                 </div>
@@ -1857,15 +1777,48 @@
                 <div class="mini-icon" aria-hidden="true">02</div>
                 <div>
                   <b>Supported runtimes</b>
-                  <span>Supported runtimes so far include PS2, VNDS ported games, and a small beta case of Wine. And
-                    they keep expanding.</span>
+                  <span class="brief">Ren'Py, NScripter, RealLive, KiriKiri, Siglus, TyranoBuilder, RPG Maker MV/MZ, VNDS and PS2, with more on the way.</span>
+                  <span class="verbose">Each tab is a real engine or emulator built for the browser: Ren'Py (8, 7 and 6.99), ONScripter
+                    and onscripter-ru for NScripter games, rlvm for RealLive, Kirikiroid2 for KiriKiri, siglus_rs for
+                    SiglusEngine, TyranoScript and RPG Maker MV/MZ served as-is, VNDS-LÖVE, Play! for PS2, and an early BoxedWine for
+                    Windows builds.</span>
+                  <details class="compat">
+                    <summary>tested games</summary>
+                    <p class="verbose">Games played through on this site, with what is known not to work yet. Other
+                      games on the same engine usually run too; these are the ones checked.</p>
+                    <dl>
+                      <dt>Ren'Py</dt>
+                      <dd>Doki Doki Literature Club</dd>
+                      <dt>NScripter</dt>
+                      <dd>Narcissu, Tsukihime (Mirror Moon)</dd>
+                      <dt>umineko</dt>
+                      <dd>Umineko Project <small>needs a lot of memory</small></dd>
+                      <dt>RealLive</dt>
+                      <dd>Clannad, Kanon (Steam, English)</dd>
+                      <dt>KiriKiri</dt>
+                      <dd>Fate/stay night Réalta Nua <small>English lines can break mid-word</small></dd>
+                      <dt>Siglus</dt>
+                      <dd>Rewrite+ <small>save thumbnails are blank; some older movie formats are skipped</small></dd>
+                      <dt>RPG Maker</dt>
+                      <dd>MV and MZ games <small>not 2000, 2003, XP, VX or VX Ace</small></dd>
+                      <dt>TyranoBuilder</dt>
+                      <dd>TyranoScript and TyranoBuilder games</dd>
+                      <dt>VNDS</dt>
+                      <dd>Higurashi no Naku Koro ni Kai</dd>
+                      <dt>PS2</dt>
+                      <dd><small>early: varies a lot by game</small></dd>
+                      <dt>Windows</dt>
+                      <dd><small>experimental, computers only</small></dd>
+                    </dl>
+                  </details>
                 </div>
               </div>
               <div class="mini-row">
                 <div class="mini-icon" aria-hidden="true">03</div>
                 <div>
                   <b>Legal Notice</b>
-                  <span>This project is intended solely for use with lawfully acquired copies of the original work.
+                  <span class="brief">Only play games you own.</span>
+                  <span class="verbose">This project is intended solely for use with lawfully acquired copies of the original work.
 
                     Consistent with the principle recognized by the U.S. Court of Appeals for the Ninth Circuit in Sony
                     Computer Entertainment, Inc. v. Connectix Corp., 203 F.3d 596 (9th Cir. 2000), software that enables
@@ -1918,9 +1871,10 @@
                   </svg>
                 </div>
                 <h1>PS2 adapter</h1>
-                <p>
+                <p class="verbose">
                   Stage a PS2 image from this device, then boot it through a Play! WASM runtime.
                 </p>
+                <p class="brief">Pick a PS2 game image (.iso) to play it.</p>
                 <input class="file-input" id="rom-input" type="file" accept=".iso,.bin,.cue,.chd,.isz,.cso,.elf" />
                 <div class="button-row">
                   <label class="retro-button" for="rom-input">choose rom</label>
@@ -1950,7 +1904,7 @@
           <aside class="side-panel" aria-label="ps2 upload details">
             <div class="panel-header">
               <h2>ps2</h2>
-              <p>PS2 emulator designed to run most PS2 visual novels.
+              <p class="verbose">PS2 emulator designed to run most PS2 visual novels.
               </p>
             </div>
             <div class="panel-body">
@@ -1992,10 +1946,10 @@
                   <span>Popular visual novels that run on ps2 include Shadow of Memories and
                     fan-translations for Ever17, FSN, Clannad, Kanon, Planetarian.</span>
                 </div>
-                <p class="control-note">Click a button to pulse its matching Play! keyboard control. For actual
+                <p class="control-note verbose">Click a button to pulse its matching Play! keyboard control. For actual
                   gameplay,
                   focus the canvas and use the keyboard.</p>
-                <p class="control-note">This is an edited version of Play! that stores save data into your
+                <p class="control-note verbose">This is an edited version of Play! that stores save data into your
                   brower's IndexedDB. I can't guarantee that it'll work with your game.</p>
                 <table class="keymap-table">
                   <caption>controls</caption>
@@ -2094,10 +2048,11 @@
                   </svg>
                 </div>
                 <h1>boxedwine adapter</h1>
-                <p>
+                <p class="verbose">
                   Stage a zipped Windows build, or a single .exe, from this device, then boot it through an
                   in-browser, tuned BoxedWine runtime. The most ambitious noberu build, but also the least supported.
                 </p>
+                <p class="brief">Pick a Windows game (.zip or .exe). Experimental: many games will not run yet.</p>
                 <input class="file-input" id="wine-rom-input" type="file" accept=".zip,.exe" />
                 <div class="button-row">
                   <label class="retro-button" for="wine-rom-input">choose zip / exe</label>
@@ -2127,10 +2082,10 @@
           <aside class="side-panel" aria-label="boxedwine upload details">
             <div class="panel-header">
               <h2>boxedwine</h2>
-              <p>Runs a zipped Windows build based on a WASM runtime of Wine.</p>
+              <p class="verbose">Runs a zipped Windows build based on a WASM runtime of Wine.</p>
             </div>
             <div class="panel-body">
-              <p class="control-note">Boxedwine as of right now has no OpenGL support, eliminating almost the majority
+              <p class="control-note verbose">Boxedwine as of right now has no OpenGL support, eliminating almost the majority
                 of visual novels after 2010. Also, super ambitious and huge visual novels like Clannad almost never
                 load, and get stuck during loading. This is a proof-of-concept, not a production-ready runtime, and this
                 is the build that's buing improved on the most as well as being the one you should try as a last resort.
@@ -2151,7 +2106,7 @@
                 <div class="field-stack">
                   <div class="field">
                     <b class="field-heading">overlays</b>
-                    <p class="control-note">Reusable redistributable/DLL/font zips layered on top of the root
+                    <p class="control-note verbose">Reusable redistributable/DLL/font zips layered on top of the root
                       filesystem before boot. Updated independently of the game you upload.</p>
                     <ul id="wine-overlay-list" class="option-list">
                       <li class="option-empty">loading overlay list...</li>
@@ -2210,7 +2165,7 @@
                   </div>
                 </div>
               </details>
-              <p class="control-note">Drop a legally owned game .zip above, choose overlays and settings if needed,
+              <p class="control-note verbose">Drop a legally owned game .zip above, choose overlays and settings if needed,
                 then boot. With no executable set, the first non-installer .exe found in the zip is launched
                 automatically.</p>
             </div>
@@ -2238,9 +2193,10 @@
                   </svg>
                 </div>
                 <h1>VNDS-LOVE adapter</h1>
-                <p>
+                <p class="verbose">
                   Stage a VNDS novel folder from this device, then boot it through an in-browser LÖVE runtime.
                 </p>
+                <p class="brief">Pick a VNDS novel folder to play it.</p>
                 <input class="file-input" id="vnds-rom-input" type="file" webkitdirectory multiple />
                 <div class="button-row">
                   <label class="retro-button" for="vnds-rom-input">choose folder</label>
@@ -2270,11 +2226,11 @@
           <aside class="side-panel" aria-label="vnds upload details">
             <div class="panel-header">
               <h2>vnds</h2>
-              <p>Plays VNDS-format novels through an WASM port of VNDS-LÖVE. Upload a
+              <p class="verbose">Plays VNDS-format novels through an WASM port of VNDS-LÖVE. Upload a
                 novel folder, or continue a previously installed one.</p>
             </div>
             <div class="panel-body">
-              <p class="control-note">This does NOT play the original visual novel. It is rather a simple lightweight
+              <p class="control-note verbose">This does NOT play the original visual novel. It is rather a simple lightweight
                 "format" of some sort
                 that easily and quickly runs the basic mechanics of a visual novel. It is not a true replacement or even
                 an adaquate one for multiple visual novels.</p>
@@ -2292,7 +2248,7 @@
                 <button class="retro-button secondary" type="button" id="vnds-continue"
                   style="width:100%;">continue</button>
               </div>
-              <p class="control-note">Novels persist to this browser's IndexedDB once installed - "continue" boots
+              <p class="control-note verbose">Novels persist to this browser's IndexedDB once installed - "continue" boots
                 straight in without re-uploading anything.</p>
             </div>
             <div class="panel-footer">
@@ -2319,9 +2275,10 @@
                   </svg>
                 </div>
                 <h1>rlvm adapter</h1>
-                <p>
+                <p class="verbose">
                   Stage a RealLive game folder from this device, then boot it through an in-browser rlvm runtime.
                 </p>
+                <p class="brief">For Clannad, Kanon, Air and other Key classics. Pick the game's folder.</p>
                 <input class="file-input" id="rlvm-rom-input" type="file" webkitdirectory multiple />
                 <div class="button-row">
                   <label class="retro-button" for="rlvm-rom-input">choose folder</label>
@@ -2351,13 +2308,12 @@
           <aside class="side-panel" aria-label="rlvm upload details">
             <div class="panel-header">
               <h2>rlvm</h2>
-              <p>Plays RealLive-era Key games through a WASM port of rlvm. Upload the game
+              <p class="verbose">Plays RealLive-era Key games through a WASM port of rlvm. Upload the game
                 folder and it runs, art, voices and all.</p>
             </div>
             <div class="panel-body">
-              <p class="control-note">This runs the real game, not a reimplementation: Kanon, Air, Clannad, Little
-                Busters and Planetarian all use RealLive. The whole folder is loaded into memory before the game
-                starts, so a large game takes a moment to stage and then plays without streaming hitches.</p>
+              <p class="control-note verbose">This runs the real game, not a reimplementation: Kanon, Air, Clannad, Little
+                Busters and Planetarian all use RealLive. Files are read from this device only when the game first opens them, so even a 5 GB game stages instantly.</p>
               <div class="file-card" id="rlvm-file-card">
                 <b>No folder selected</b>
                 <span>Choose the folder holding Gameexe.ini and Seen.txt (or its KINETICDATA/REALLIVEDATA
@@ -2368,8 +2324,9 @@
                 <button class="retro-button" type="button" id="rlvm-boot">boot local</button>
                 <button class="retro-button secondary" type="button" id="rlvm-clear">clear</button>
               </div>
-              <p class="control-note">Saves persist to this browser's IndexedDB, so in-game saves survive a reload.
+              <p class="control-note verbose">Saves persist to this browser's IndexedDB, so in-game saves survive a reload.
                 The game folder itself is staged fresh each session and never leaves this device.</p>
+              <p class="control-note brief">Right click opens the game menu. Hold Ctrl to skip.</p>
             </div>
             <div class="panel-footer">
               <p id="rlvm-status">Status: waiting for a folder.</p>
@@ -2395,9 +2352,10 @@
                   </svg>
                 </div>
                 <h1>onscripter adapter</h1>
-                <p>
+                <p class="verbose">
                   Stage an NScripter game folder from this device, then boot it through an in-browser ONScripter runtime.
                 </p>
+                <p class="brief">For Tsukihime, Higurashi, Narcissu and other NScripter games. Pick the game's folder.</p>
                 <input class="file-input" id="ons-rom-input" type="file" webkitdirectory multiple />
                 <div class="button-row">
                   <label class="retro-button" for="ons-rom-input">choose folder</label>
@@ -2427,10 +2385,10 @@
           <aside class="side-panel" aria-label="onscripter upload details">
             <div class="panel-header">
               <h2>onscripter</h2>
-              <p>Plays NScripter games through a WASM build of ONScripter (the OnscripterYuri fork).</p>
+              <p class="verbose">Plays NScripter games through a WASM build of ONScripter (the OnscripterYuri fork).</p>
             </div>
             <div class="panel-body">
-              <p class="control-note">Covers the big NScripter library: Tsukihime, the original Higurashi and
+              <p class="control-note verbose">Covers the big NScripter library: Tsukihime, the original Higurashi and
                 Umineko releases, Narcissu, and most doujin visual novels shipped with nscript.dat or 0.txt plus
                 .nsa/.sar archives. Files are read from this device only when the game first opens them, so
                 staging is instant.</p>
@@ -2450,8 +2408,9 @@
                 <button class="retro-button" type="button" id="ons-boot">boot local</button>
                 <button class="retro-button secondary" type="button" id="ons-clear">clear</button>
               </div>
-              <p class="control-note">Saves persist to this browser's IndexedDB, per game folder name. Esc or a
+              <p class="control-note verbose">Saves persist to this browser's IndexedDB, per game folder name. Esc or a
                 right click opens the game's own menu; hold Ctrl to skip.</p>
+              <p class="control-note brief">Right click opens the game menu. Hold Ctrl to skip.</p>
             </div>
             <div class="panel-footer">
               <p id="ons-status">Status: waiting for a folder.</p>
@@ -2477,9 +2436,10 @@
                   </svg>
                 </div>
                 <h1>onscripter-ru adapter</h1>
-                <p>
+                <p class="verbose">
                   Stage the Umineko Project folder from this device, then boot it through an in-browser onscripter-ru runtime.
                 </p>
+                <p class="brief">For the Umineko Project. Pick its folder.</p>
                 <input class="file-input" id="onsru-rom-input" type="file" webkitdirectory multiple />
                 <div class="button-row">
                   <label class="retro-button" for="onsru-rom-input">choose folder</label>
@@ -2509,10 +2469,10 @@
           <aside class="side-panel" aria-label="onscripter-ru upload details">
             <div class="panel-header">
               <h2>onscripter-ru</h2>
-              <p>Plays the Umineko Project release through a WASM build of onscripter-ru, the Umineko Project's own ONScripter fork.</p>
+              <p class="verbose">Plays the Umineko Project release through a WASM build of onscripter-ru, the Umineko Project's own ONScripter fork.</p>
             </div>
             <div class="panel-body">
-              <p class="control-note">Nothing is copied: the game reads each file straight from this device when it needs it, so even the full 12 GB release stages in seconds. The engine runs on worker threads and draws through WebGL, so it needs a recent Chrome or Edge.</p>
+              <p class="control-note verbose">Nothing is copied: the game reads each file straight from this device when it needs it, so even the full 12 GB release stages in seconds. The engine runs on worker threads and draws through WebGL, so it needs a recent Chrome or Edge.</p>
               <div class="file-card" id="onsru-file-card">
                 <b>No folder selected</b>
                 <span>Choose the Umineko folder (the one holding default.cfg, en.file and game.hash).</span>
@@ -2522,7 +2482,8 @@
                 <button class="retro-button" type="button" id="onsru-boot">boot local</button>
                 <button class="retro-button secondary" type="button" id="onsru-clear">clear</button>
               </div>
-              <p class="control-note">Saves and settings persist in this browser's private storage (OPFS), per game folder name. Right click opens the game menu. The first launch checks every file once, then right click to continue.</p>
+              <p class="control-note verbose">Saves and settings persist in this browser's private storage (OPFS), per game folder name. Right click opens the game menu. The first launch checks every file once, then right click to continue.</p>
+              <p class="control-note brief">Right click opens the game menu. Hold Ctrl to skip.</p>
             </div>
             <div class="panel-footer">
               <p id="onsru-status">Status: waiting for a folder.</p>
@@ -2548,9 +2509,10 @@
                   </svg>
                 </div>
                 <h1>ren'py adapter</h1>
-                <p>
+                <p class="verbose">
                   Stage a Ren'Py game folder from this device, then boot it through an in-browser Ren'Py runtime.
                 </p>
+                <p class="brief">For Ren'Py games like DDLC and Katawa Shoujo. Pick the game's folder.</p>
                 <input class="file-input" id="renpy-rom-input" type="file" webkitdirectory multiple />
                 <div class="button-row">
                   <label class="retro-button" for="renpy-rom-input">choose folder</label>
@@ -2580,10 +2542,10 @@
           <aside class="side-panel" aria-label="ren'py upload details">
             <div class="panel-header">
               <h2>ren'py</h2>
-              <p>Plays Ren'Py games through Ren'Py's own Emscripten build — the engine ships this target itself, so nothing here was ported.</p>
+              <p class="verbose">Plays Ren'Py games through Ren'Py's own Emscripten build — the engine ships this target itself, so nothing here was ported.</p>
             </div>
             <div class="panel-body">
-              <p class="control-note">Ren'Py 8 and Ren'Py 7 games both work. The two split at Python 3 versus Python 2 and cannot read each other's bytecode, so there is a runtime for each; the tab reads the game's version and picks.</p>
+              <p class="control-note verbose">Ren'Py 8, 7 and 6.99 games (DDLC) all work. 8 and 7 split at Python 3 versus Python 2 and cannot read each other's bytecode, so there is a runtime for each; the tab reads the game's version and picks.</p>
               <div class="file-card" id="renpy-file-card">
                 <b>No folder selected</b>
                 <span>Choose the game folder (the one with the .exe and a game/ subfolder), or the game/ folder itself.</span>
@@ -2593,9 +2555,9 @@
                 <button class="retro-button" type="button" id="renpy-boot">boot local</button>
                 <button class="retro-button secondary" type="button" id="renpy-clear">clear</button>
               </div>
-              <p class="control-note field-inline">Render scale &mdash; the engine has no threads here, so a 1080p
+              <p class="control-note field-inline"><span class="brief">Render scale (lower it if the game stutters)</span><span class="verbose">Render scale &mdash; the engine has no threads here, so a 1080p
                 game draws every frame on one thread. Drop this if it stutters; the picture is scaled
-                back up to fill the frame either way.
+                back up to fill the frame either way.</span>
                 <select id="renpy-scale" aria-label="render scale" class="field-select">
                   <option value="1" selected>1&times; (game's own resolution)</option>
                   <option value="0.75">0.75&times;</option>
@@ -2603,7 +2565,8 @@
                   <option value="native">native (sharpest, slowest)</option>
                 </select>
               </p>
-              <p class="control-note">Unlike the other tabs, Ren'Py's web build unpacks the whole game into memory before it starts, so staging takes a moment and games past about 1.2 GB may run out of it. Saves persist in this browser's private storage (IndexedDB), per game.</p>
+              <p class="control-note verbose">Unlike the other tabs, Ren'Py's web build unpacks the whole game into memory before it starts, so staging takes a moment and games past about 1.2 GB may run out of it. Saves persist in this browser's private storage (IndexedDB), per game.</p>
+              <p class="control-note brief">Right click opens the game menu. Hold Ctrl to skip.</p>
             </div>
             <div class="panel-footer">
               <p id="renpy-status">Status: waiting for a folder.</p>
@@ -2629,10 +2592,11 @@
                   </svg>
                 </div>
                 <h1>kirikiri adapter</h1>
-                <p>
+                <p class="verbose">
                   Stage a KiriKiri game folder from this device, then boot it through an in-browser
                   Kirikiroid2 runtime.
                 </p>
+                <p class="brief">For KiriKiri games like Nekopara. Pick the game's folder.</p>
                 <input class="file-input" id="kirikiri-rom-input" type="file" webkitdirectory multiple />
                 <div class="button-row">
                   <label class="retro-button" for="kirikiri-rom-input">choose folder</label>
@@ -2662,11 +2626,11 @@
           <aside class="side-panel" aria-label="kirikiri upload details">
             <div class="panel-header">
               <h2>kirikiri</h2>
-              <p>Plays KiriKiri/KAG games through a WASM build of Kirikiroid2, which reimplements the
+              <p class="verbose">Plays KiriKiri/KAG games through a WASM build of Kirikiroid2, which reimplements the
                 plugins commercial games rely on.</p>
             </div>
             <div class="panel-body">
-              <p class="control-note">Nothing is copied: each .xp3 is read straight from this device when
+              <p class="control-note verbose">Nothing is copied: each .xp3 is read straight from this device when
                 the game opens it, so even a 5 GB release stages in seconds. The engine uses worker
                 threads and WebGL, so it needs a recent Chrome or Edge.</p>
               <div class="file-card" id="kirikiri-file-card">
@@ -2678,9 +2642,10 @@
                 <button class="retro-button" type="button" id="kirikiri-boot">boot local</button>
                 <button class="retro-button secondary" type="button" id="kirikiri-clear">clear</button>
               </div>
-              <p class="control-note">Saves persist in this browser's private storage (IndexedDB), per game
+              <p class="control-note verbose">Saves persist in this browser's private storage (IndexedDB), per game
                 folder name. Games that need plugins Kirikiroid2 does not reimplement will say so rather
-                than start.</p>
+                than start. Esc opens the game's own menu; hold Ctrl to skip.</p>
+              <p class="control-note brief">Esc opens the game menu. Hold Ctrl to skip.</p>
             </div>
             <div class="panel-footer">
               <p id="kirikiri-status">Status: waiting for a folder.</p>
@@ -2706,10 +2671,11 @@
                   </svg>
                 </div>
                 <h1>siglus adapter</h1>
-                <p>
+                <p class="verbose">
                   Stage a SiglusEngine game folder from this device, then boot it through an
                   in-browser build of siglus_rs.
                 </p>
+                <p class="brief">For Rewrite+, Summer Pockets and planetarian HD. Pick the game's folder.</p>
                 <input class="file-input" id="siglus-rom-input" type="file" webkitdirectory multiple />
                 <div class="button-row">
                   <label class="retro-button" for="siglus-rom-input">choose folder</label>
@@ -2739,11 +2705,11 @@
           <aside class="side-panel" aria-label="siglus upload details">
             <div class="panel-header">
               <h2>siglus</h2>
-              <p>Plays SiglusEngine games through a WASM build of siglus_rs: Little Busters!,
+              <p class="verbose">Plays SiglusEngine games through a WASM build of siglus_rs: Little Busters!,
                 Rewrite+, Summer Pockets, planetarian HD and the rest of Key's post-RealLive run.</p>
             </div>
             <div class="panel-body">
-              <p class="control-note">Nothing is copied: each file is read straight from this device
+              <p class="control-note verbose">Nothing is copied: each file is read straight from this device
                 when the game opens it, and movie containers are read in ranges rather than whole, so
                 an 8 GB release stages in seconds.</p>
               <div class="file-card" id="siglus-file-card">
@@ -2755,9 +2721,10 @@
                 <button class="retro-button" type="button" id="siglus-boot">boot local</button>
                 <button class="retro-button secondary" type="button" id="siglus-clear">clear</button>
               </div>
-              <p class="control-note">Localized Steam builds that ship SceneEN.pck and GameexeEN.dat are
+              <p class="control-note verbose">Localized Steam builds that ship SceneEN.pck and GameexeEN.dat are
                 detected automatically. Saves persist in this browser's private storage (IndexedDB),
                 per game folder name.</p>
+              <p class="control-note brief">Right click opens the game menu. Hold Ctrl to skip.</p>
             </div>
             <div class="panel-footer">
               <p id="siglus-status">Status: waiting for a folder.</p>
@@ -2783,10 +2750,11 @@
                   </svg>
                 </div>
                 <h1>tyrano adapter</h1>
-                <p>
+                <p class="verbose">
                   Stage a TyranoScript or TyranoBuilder game folder from this device and play it
                   straight away — it is already a web game, so nothing is emulated.
                 </p>
+                <p class="brief">For TyranoBuilder games. Pick the game's folder.</p>
                 <input class="file-input" id="tyrano-rom-input" type="file" webkitdirectory multiple />
                 <div class="button-row">
                   <label class="retro-button" for="tyrano-rom-input">choose folder</label>
@@ -2817,11 +2785,11 @@
           <aside class="side-panel" aria-label="tyrano upload details">
             <div class="panel-header">
               <h2>tyrano</h2>
-              <p>Plays TyranoScript and TyranoBuilder games: the engine is HTML and JavaScript
+              <p class="verbose">Plays TyranoScript and TyranoBuilder games: the engine is HTML and JavaScript
                 already, so this tab serves the folder rather than emulating anything.</p>
             </div>
             <div class="panel-body">
-              <p class="control-note">A service worker answers the game's own asset requests out of
+              <p class="control-note verbose">A service worker answers the game's own asset requests out of
                 the folder you picked, reading each file only when the game opens it. Nothing is
                 copied and nothing is uploaded.</p>
               <div class="file-card" id="tyrano-file-card">
@@ -2834,12 +2802,95 @@
                 <button class="retro-button" type="button" id="tyrano-boot">boot local</button>
                 <button class="retro-button secondary" type="button" id="tyrano-clear">clear</button>
               </div>
-              <p class="control-note">Saves are the game's own, kept in this browser's storage for
+              <p class="control-note verbose">Saves are the game's own, kept in this browser's storage for
                 this site. A game that shipped as a Windows .exe usually has the same folder inside
                 it — stage that one.</p>
+              <p class="control-note brief">Right click opens the game menu. Hold Ctrl to skip.</p>
             </div>
             <div class="panel-footer">
               <p id="tyrano-status">Status: waiting for a folder.</p>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      <div class="view" id="rpgmaker-view" role="tabpanel" aria-labelledby="rpgmaker-tab">
+        <div class="screen">
+          <div class="viewport" id="rpgmaker-viewport">
+            <div class="static-noise" aria-hidden="true"></div>
+            <div class="scene">
+              <div class="pixel-sun" aria-hidden="true"></div>
+              <div class="hill" aria-hidden="true"></div>
+              <form class="upload-zone" id="rpgmaker-upload-zone">
+                <div class="upload-symbol" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="M4 5.5h16v13H4z" fill="none" stroke="currentColor" stroke-width="1.7"
+                      stroke-linejoin="round" />
+                    <path d="M4 9h16M7 12.5h7M7 15.5h10" fill="none" stroke="currentColor"
+                      stroke-width="1.7" stroke-linecap="round" />
+                  </svg>
+                </div>
+                <h1>rpg maker adapter</h1>
+                <p class="verbose">
+                  Stage an RPG Maker MV or MZ game folder from this device and play it straight
+                  away — it is already a web game, so nothing is emulated.
+                </p>
+                <p class="brief">For RPG Maker MV and MZ games. Pick the game's folder.</p>
+                <input class="file-input" id="rpgmaker-rom-input" type="file" webkitdirectory multiple />
+                <div class="button-row">
+                  <label class="retro-button" for="rpgmaker-rom-input">choose folder</label>
+                  <button class="retro-button secondary" type="button" id="rpgmaker-run">boot local</button>
+                  <button class="retro-button secondary" type="button" data-library="rpgmaker">from library</button>
+                </div>
+              </form>
+            </div>
+            <div class="play-frame-wrap" id="rpgmaker-frame-wrap" aria-label="local rpg maker runtime" data-native-gamepad>
+              <div class="play-runtime">
+                <iframe class="play-canvas" id="rpgmaker-iframe" title="rpg maker runtime"
+                  allow="fullscreen; autoplay"
+                  style="border:2px solid var(--line);background:#000;box-shadow:0 0 24px rgba(53,255,178,0.24);"></iframe>
+                <div class="runtime-overlay" id="rpgmaker-runtime-overlay">
+                  <div class="runtime-card">
+                    <b id="rpgmaker-runtime-title">rpg maker runtime</b>
+                    <p id="rpgmaker-runtime-message">Waiting for a staged game.</p>
+                  </div>
+                </div>
+              </div>
+              <div class="play-frame-toolbar">
+                <span id="rpgmaker-frame-label">rpg maker runtime</span>
+                <button class="tiny-button" type="button" id="rpgmaker-hide">staging</button>
+              </div>
+            </div>
+          </div>
+
+          <aside class="side-panel" aria-label="rpg maker upload details">
+            <div class="panel-header">
+              <h2>rpg maker</h2>
+              <p class="verbose">Plays RPG Maker MV and MZ games: the engine is HTML and JavaScript already,
+                so this tab serves the folder rather than emulating anything. Older RPG Makers (2000, 2003,
+                XP, VX, VX Ace) are a different engine and do not run here.</p>
+            </div>
+            <div class="panel-body">
+              <p class="control-note verbose">A service worker answers the game's own asset requests out of
+                the folder you picked, reading each file only when the game opens it. Nothing is
+                copied and nothing is uploaded.</p>
+              <div class="file-card" id="rpgmaker-file-card">
+                <b>No folder selected</b>
+                <span>Choose the game's folder: the one with its .exe, or with index.html, js/ and
+                  data/.</span>
+                <div class="meter" aria-hidden="true"><span id="rpgmaker-meter-fill"></span></div>
+              </div>
+              <div class="button-row">
+                <button class="retro-button" type="button" id="rpgmaker-boot">boot local</button>
+                <button class="retro-button secondary" type="button" id="rpgmaker-clear">clear</button>
+              </div>
+              <p class="control-note verbose">Saves are the game's own, kept in this browser's storage for
+                this site and separate for each game. Enter or Z chooses, Esc or X opens the menu, Shift
+                runs; clicks and taps work too, and a controller works as it does in the game.</p>
+              <p class="control-note brief">Enter chooses. Esc opens the menu. Shift runs.</p>
+            </div>
+            <div class="panel-footer">
+              <p id="rpgmaker-status">Status: waiting for a folder.</p>
             </div>
           </aside>
         </div>
@@ -3013,6 +3064,11 @@
       <span class="tab-icon" aria-hidden="true">✾</span>
       <span class="tab-label">tyrano</span>
     </button>
+    <button class="tab-button" id="rpgmaker-tab" type="button" role="tab" aria-selected="false"
+      aria-controls="rpgmaker-view" data-tab="rpgmaker">
+      <span class="tab-icon" aria-hidden="true">⚔</span>
+      <span class="tab-label">rpg maker</span>
+    </button>
   </nav>
 
   <script src="assets/vendor/fflate.min.js"></script>
@@ -3022,12 +3078,12 @@
     <div class="library-modal" role="dialog" aria-modal="true" aria-labelledby="welcome-title"
       style="width:min(34rem,100%);">
       <div class="library-bar">
-        <b id="welcome-title">noberu v0.1 — beta</b>
+        <b id="welcome-title">noberu v0.2 — <span class="desktop-only">beta</span><span class="touch-only">alpha</span></b>
       </div>
       <div class="library-add">
         <img src="assets/noberu-card.png" alt="" width="418" height="392"
           style="display:block;width:7rem;height:auto;margin:0 auto 0.3rem;border:2px solid var(--line);border-radius:6px;" />
-        <p class="control-note">This is a <b>BETA</b> release. Things break, games fail to boot, and
+        <p class="control-note">This is <span class="desktop-only">a <b>BETA</b></span><span class="touch-only">an <b>ALPHA</b> test</span> release. Things break, games fail to boot, and
           saves can be lost between updates.</p>
         <p class="control-note">Every tab runs a real engine or emulator in your browser, which asks
           a lot of a machine. On weaker systems expect long loads, stutter, or games that never
@@ -3042,9 +3098,27 @@
   </div>
 
   <script src="tyrano-runtime/noberu-glue.js"></script>
+  <script src="rpgmaker-runtime/noberu-glue.js"></script>
   <script src="assets/library.js"></script>
   <script src="assets/saves.js"></script>
+  <script src="assets/vendor/qrcode.js"></script>
+  <script src="assets/beam.js"></script>
   <script src="assets/tour.js"></script>
+  <script src="assets/settings.js"></script>
+  <script src="assets/input.js"></script>
+  <script src="assets/gamepad.js"></script>
+  <script src="assets/session.js"></script>
+  <script src="assets/touch.js" defer></script>
+  <script>
+    // Installable app and offline shell; see sw.js.
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("sw.js").catch((error) => {
+          console.warn("service worker registration failed", error);
+        });
+      });
+    }
+  </script>
   <script>
     const tabs = [...document.querySelectorAll(".tab-button")];
     const views = {
@@ -3059,6 +3133,7 @@
       kirikiri: document.querySelector("#kirikiri-view"),
       siglus: document.querySelector("#siglus-view"),
       tyrano: document.querySelector("#tyrano-view"),
+      rpgmaker: document.querySelector("#rpgmaker-view"),
       arcade: document.querySelector("#arcade-view"),
       slots: document.querySelector("#slots-view"),
     };
@@ -3192,6 +3267,8 @@
               ? "Channel: siglus / Key staging"
               : tabName === "tyrano"
               ? "Channel: tyrano / TyranoScript staging"
+              : tabName === "rpgmaker"
+              ? "Channel: rpg maker / MV-MZ staging"
               : tabName === "kirikiri"
               ? "Channel: kirikiri / KAG staging"
               : tabName === "arcade"
@@ -3263,6 +3340,9 @@
       if (currentTab === "tyrano") {
         return { frameWrap: tyranoFrameWrap, label: "tyrano runtime", channel: "tyrano / TyranoScript", focusEl: tyranoIframe };
       }
+      if (currentTab === "rpgmaker") {
+        return { frameWrap: rpgmakerFrameWrap, label: "rpg maker runtime", channel: "rpg maker / MV-MZ", focusEl: rpgmakerIframe };
+      }
       if (currentTab === "arcade") {
         return { frameWrap: arcadeViewport, label: "arcade — breakout", channel: "arcade / breakout", focusEl: arcadeViewport };
       }
@@ -3300,6 +3380,17 @@
         await frameWrap.requestFullscreen({ navigationUI: "hide" }).catch(() => { });
       }
     }
+
+    // Settings → play → "fullscreen when a game starts" (assets/session.js):
+    // the ▣ button's job, for a frame that just started, if it is the one on
+    // screen and not already full screen.
+    window.NoberuFullscreenFrame = (frameWrap) => {
+      const runtime = getActiveRuntime();
+      if (!runtime || runtime.frameWrap !== frameWrap) return;
+      if (frameWrap.classList.contains("emulator-maximized") ||
+        document.fullscreenElement === frameWrap) return;
+      toggleEmulatorFullscreen();
+    };
 
     function setRuntimeMessage(title, message, hideOverlay = false) {
       runtimeTitle.textContent = title;
@@ -3352,6 +3443,12 @@
 
     async function bootStagedFile() {
       setTab("ps2");
+      // Nothing to play yet: say so here, before the runtime frame opens (on
+      // a phone that frame takes the whole screen).
+      if (!stagedFile) {
+        ps2Status.textContent = "Status: choose a PS2 image first, then boot local.";
+        return;
+      }
       const bridge = await initLocalPlay();
       if (!bridge) return;
       if (!stagedFile) {
@@ -3730,7 +3827,7 @@
               reject(error);
             }
           });
-          wineIframe.src = "boxedwine-runtime/boxedwine.html";
+          wineIframe.src = "boxedwine-runtime/boxedwine";
         });
       } catch (error) {
         setWineMessage("boot failed", error.message);
@@ -3880,7 +3977,12 @@
           rlvmIframe.removeEventListener("load", onLoad);
           resolve();
         });
-        rlvmIframe.src = "rlvm-runtime/rlvm.html";
+        // Runtime pages are loaded by the address Cloudflare Pages serves them
+        // at, with no ".html": it answers "x.html" with a redirect to "x", and
+        // Safari (every browser on an iPhone) refuses a redirect into a frame
+        // on a cross-origin-isolated page, so the engine never loads there.
+        // serve-local.mjs answers the same addresses.
+        rlvmIframe.src = "rlvm-runtime/rlvm";
       });
       return waitForRlvmReady(rlvmIframe.contentWindow);
     }
@@ -3922,6 +4024,14 @@
         const label = rlvmStagedRoot || "the game";
         setRlvmMessage("rlvm runtime", `Running ${label}`, true);
         rlvmStatus.textContent = `Status: running ${label}`;
+      } else if (data.type === "exited") {
+        // The game quit itself (its title screen's Exit). Its saves are
+        // already written; back to the staging view rather than leave a
+        // black frame, full screen on a phone.
+        if (document.fullscreenElement === rlvmFrameWrap) document.exitFullscreen().catch(() => { });
+        showRlvmStaging();
+        setRlvmMessage("rlvm runtime", "The game was closed. Boot local starts it again.");
+        rlvmStatus.textContent = "Status: game closed. Boot local starts it again.";
       } else if (data.type === "error") {
         setRlvmMessage("runtime error", data.message);
         rlvmStatus.textContent = `Status: ${data.message}`;
@@ -4026,7 +4136,7 @@
           if (typeof onsIframe.contentWindow.ONSInstallAndBoot === "function") resolve();
           else reject(new Error("onscripter runtime did not load."));
         });
-        onsIframe.src = "onscripter-runtime/ons.html";
+        onsIframe.src = "onscripter-runtime/ons";
       });
     }
 
@@ -4174,7 +4284,7 @@
           if (typeof onsRuIframe.contentWindow.ONSRUInstallAndBoot === "function") resolve();
           else reject(new Error("onscripter-ru runtime did not load."));
         });
-        onsRuIframe.src = "onscripter-ru-runtime/onscripter-ru.html";
+        onsRuIframe.src = "onscripter-ru-runtime/onscripter-ru";
       });
     }
 
@@ -4319,26 +4429,35 @@
     }
 
     // Ren'Py 8 runs Python 3 and Ren'Py 7 runs Python 2, and neither can load
-    // the other's compiled bytecode, so there is a runtime for each. Every
-    // Ren'Py game ships game/script_version.txt, which says which to use.
+    // the other's compiled bytecode, so there is a runtime for each. Games from
+    // 7.x on ship game/script_version.txt, which says which to use; older ones
+    // (6.99, e.g. DDLC) do not, and run on the 7 runtime.
     async function renpyRuntimeFor(files) {
-      const marker = files.find((file) => {
-        const path = file.webkitRelativePath || file.name;
-        return path === "script_version.txt" || path.endsWith("/script_version.txt");
+      const find = (test) => files.find((file) => test(file.webkitRelativePath || file.name));
+      const pick = (parts) => ({
+        page: parts[0] < 8 ? "renpy-runtime/renpy7" : "renpy-runtime/renpy",
+        label: `Ren'Py ${parts.join(".")}`,
       });
 
+      const marker = find((path) => path === "script_version.txt" || path.endsWith("/script_version.txt"));
       if (marker) {
         const parts = (await marker.text()).trim().replace(/[()\s]/g, "").split(",").map(Number);
-        if (Number.isFinite(parts[0]) && parts[0] < 8) {
-          return { page: "renpy-runtime/renpy7.html", label: `Ren'Py ${parts.join(".")}` };
-        }
-        if (Number.isFinite(parts[0])) {
-          return { page: "renpy-runtime/renpy.html", label: `Ren'Py ${parts.join(".")}` };
-        }
+        if (Number.isFinite(parts[0])) return pick(parts);
       }
-      // No marker: assume a current game and let the runtime report the real
-      // problem if it is not one.
-      return { page: "renpy-runtime/renpy.html", label: null };
+
+      // The desktop build's own engine, when the whole game folder was picked.
+      const engine = find((path) => /(^|\/)renpy\/__init__\.py$/.test(path));
+      if (engine) {
+        const match = /^version_tuple\s*=\s*\((\d+),\s*(\d+),\s*(\d+)/m.exec(await engine.text());
+        if (match) return pick(match.slice(1).map(Number));
+      }
+
+      // Ren'Py 8 names its bytecode cache after the Python version it ran on.
+      if (find((path) => /(^|\/)cache\/bytecode-3\d+\.rpyb$/.test(path))) {
+        return { page: "renpy-runtime/renpy", label: "Ren'Py 8" };
+      }
+      // No marker at all: an old game.
+      return { page: "renpy-runtime/renpy7", label: "Ren'Py 7 or older" };
     }
 
     function loadRenpyIframe(page, timeoutMs = 30000) {
@@ -4399,6 +4518,8 @@
         setRenpyMessage("ren'py runtime", `Running ${label}`, true);
         renpyStatus.textContent = `Status: running ${label}`;
         renpyIframe.focus();
+      } else if (data.type === "save-directory") {
+        if (renpyStagedRoot && window.NoberuSaves) window.NoberuSaves.name(data.name, renpyStagedRoot);
       } else if (data.type === "warning") {
         // The game booted anyway; this is a heads-up, not a failure.
         renpyStatus.textContent = `Status: ${data.message}`;
@@ -4498,7 +4619,7 @@
           if (typeof siglusIframe.contentWindow.SiglusInstallAndBoot === "function") resolve();
           else reject(new Error("siglus runtime did not load."));
         });
-        siglusIframe.src = "siglus-runtime/noberu.html";
+        siglusIframe.src = "siglus-runtime/noberu";
       });
     }
 
@@ -4690,6 +4811,146 @@
     tyranoBoot.addEventListener("click", bootTyrano);
     tyranoHide.addEventListener("click", showTyranoStaging);
 
+    // --- rpg maker tab -----------------------------------------------------
+    //
+    // RPG Maker MV and MZ games are web games too, served exactly like the
+    // tyrano tab's: the folder is staged into a service worker
+    // (rpgmaker-runtime/, which reuses tyrano-runtime's) and the iframe is
+    // pointed at the game's index.html.
+
+    const rpgmakerRomInput = document.querySelector("#rpgmaker-rom-input");
+    const rpgmakerFileCard = document.querySelector("#rpgmaker-file-card");
+    const rpgmakerStatus = document.querySelector("#rpgmaker-status");
+    const rpgmakerClear = document.querySelector("#rpgmaker-clear");
+    const rpgmakerRun = document.querySelector("#rpgmaker-run");
+    const rpgmakerBoot = document.querySelector("#rpgmaker-boot");
+    const rpgmakerHide = document.querySelector("#rpgmaker-hide");
+    const rpgmakerFrameWrap = document.querySelector("#rpgmaker-frame-wrap");
+    const rpgmakerFrameLabel = document.querySelector("#rpgmaker-frame-label");
+    const rpgmakerIframe = document.querySelector("#rpgmaker-iframe");
+    const rpgmakerRuntimeOverlay = document.querySelector("#rpgmaker-runtime-overlay");
+    const rpgmakerRuntimeTitle = document.querySelector("#rpgmaker-runtime-title");
+    const rpgmakerRuntimeMessage = document.querySelector("#rpgmaker-runtime-message");
+    const rpgmakerEmptyCard = rpgmakerFileCard.innerHTML;
+    let rpgmakerStagedFiles = null;
+    let rpgmakerStagedRoot = null;
+    let rpgmakerBooting = false;
+
+    function setRpgmakerMessage(title, message, hideOverlay = false) {
+      rpgmakerRuntimeTitle.textContent = title;
+      rpgmakerRuntimeMessage.textContent = message;
+      rpgmakerRuntimeOverlay.classList.toggle("hidden", hideOverlay);
+      rpgmakerFrameLabel.textContent = title;
+    }
+
+    function showRpgmakerStaging() {
+      rpgmakerFrameWrap.classList.remove("active", "emulator-maximized");
+      rpgmakerIframe.removeAttribute("src");
+      statusReadout.textContent = "Channel: rpg maker / MV-MZ staging";
+    }
+
+    function setRpgmakerFolder(list) {
+      const files = [...(list || [])];
+      if (files.length === 0) return;
+      const first = files[0].webkitRelativePath || "";
+      if (!first.includes("/")) {
+        rpgmakerStatus.textContent = "Status: choose a folder, not loose files.";
+        return;
+      }
+      const root = first.split("/")[0];
+      const version = RpgMakerVFS.version(files);
+      if (!version) {
+        rpgmakerStatus.textContent =
+          "Status: no RPG Maker MV or MZ game in that folder. Older RPG Makers do not run here.";
+        return;
+      }
+      rpgmakerStagedFiles = files;
+      rpgmakerStagedRoot = root;
+      const bytes = files.reduce((sum, file) => sum + file.size, 0);
+      rpgmakerFileCard.innerHTML = `
+          <b>${escapeHtml(root)}</b>
+          <span>RPG Maker ${version} / ${files.length} files / ${bytesToLabel(bytes)}</span>
+          <div class="meter" aria-hidden="true"><span id="rpgmaker-meter-fill"></span></div>`;
+      const fill = document.querySelector("#rpgmaker-meter-fill");
+      if (fill) fill.style.width = "100%";
+      rpgmakerStatus.textContent = "Status: game staged. Boot local starts it.";
+      rpgmakerFrameLabel.textContent = `rpg maker runtime / staged: ${root}`;
+      setTab("rpgmaker");
+    }
+
+    function loadRpgmakerIframe(url, timeoutMs = 30000) {
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(
+          () => reject(new Error("the game took too long to load.")), timeoutMs);
+        rpgmakerIframe.addEventListener("load", function onLoad() {
+          rpgmakerIframe.removeEventListener("load", onLoad);
+          clearTimeout(timer);
+          resolve();
+        });
+        rpgmakerIframe.src = url;
+      });
+    }
+
+    async function bootRpgmaker() {
+      if (rpgmakerBooting) return;
+      setTab("rpgmaker");
+      if (!rpgmakerStagedFiles) {
+        setRpgmakerMessage("waiting for folder", "Choose an RPG Maker MV or MZ game folder, then boot local.");
+        rpgmakerStatus.textContent = "Status: waiting for a folder.";
+        return;
+      }
+
+      rpgmakerBooting = true;
+      rpgmakerFrameWrap.classList.add("active");
+
+      try {
+        setRpgmakerMessage("staging", "Handing the folder to the service worker...");
+        rpgmakerStatus.textContent = "Status: staging the folder...";
+        const staged = await RpgMakerVFS.stage(rpgmakerStagedFiles);
+        setRpgmakerMessage("starting", `Loading ${staged.root}...`);
+        rpgmakerStatus.textContent = `Status: loading ${staged.root}...`;
+        await loadRpgmakerIframe(staged.url);
+        setRpgmakerMessage("rpg maker runtime", `Running ${staged.root}`, true);
+        rpgmakerStatus.textContent =
+          `Status: running ${staged.root} (${staged.count} files served on demand)`;
+        rpgmakerFrameLabel.textContent = `rpg maker runtime / ${staged.root}`;
+        rpgmakerIframe.focus();
+      } catch (error) {
+        setRpgmakerMessage("boot failed", error.message);
+        rpgmakerStatus.textContent = `Status: ${error.message}`;
+      } finally {
+        rpgmakerBooting = false;
+      }
+    }
+
+    rpgmakerRomInput.addEventListener("change", (event) => {
+      setRpgmakerFolder(event.target.files);
+    });
+
+    rpgmakerClear.addEventListener("click", () => {
+      rpgmakerRomInput.value = "";
+      rpgmakerStagedFiles = null;
+      rpgmakerStagedRoot = null;
+      rpgmakerFileCard.innerHTML = rpgmakerEmptyCard;
+      rpgmakerStatus.textContent = "Status: waiting for a folder.";
+      setRpgmakerMessage("rpg maker runtime", "Waiting for a staged game.");
+      showRpgmakerStaging();
+    });
+
+    // The game page (rpgmaker-runtime/noberu-shim.js) reports what its saves
+    // are called, so the saves panel can file them under this folder.
+    window.addEventListener("message", (event) => {
+      const data = event.data;
+      if (!data || data.source !== "rpgmaker-runtime" || event.source !== rpgmakerIframe.contentWindow) return;
+      if (data.type === "save-name" && rpgmakerStagedRoot && window.NoberuSaves) {
+        window.NoberuSaves.name(data.name, rpgmakerStagedRoot);
+      }
+    });
+
+    rpgmakerRun.addEventListener("click", bootRpgmaker);
+    rpgmakerBoot.addEventListener("click", bootRpgmaker);
+    rpgmakerHide.addEventListener("click", showRpgmakerStaging);
+
     // --- kirikiri tab ------------------------------------------------------
 
     const kirikiriRomInput = document.querySelector("#kirikiri-rom-input");
@@ -4764,7 +5025,7 @@
           if (typeof kirikiriIframe.contentWindow.KrKrInstallAndBoot === "function") resolve();
           else reject(new Error("kirikiri runtime did not load."));
         });
-        kirikiriIframe.src = "kirikiri-runtime/index.html";
+        kirikiriIframe.src = "kirikiri-runtime/";
       });
     }
 
@@ -4923,7 +5184,7 @@
           vndsIframe.removeEventListener("load", onLoad);
           resolve();
         });
-        vndsIframe.src = "vnds-runtime/vnds.html";
+        vndsIframe.src = "vnds-runtime/vnds";
       });
       return waitForLoveReady(vndsIframe.contentWindow);
     }
@@ -5527,8 +5788,18 @@
       startMenu.hidden = true;
       noberuMenuButton.setAttribute("aria-expanded", "false");
     }
+    // Same query as the phone layout in assets/mobile.css: there the arcade
+    // games are left out and the logo is simply the way home.
+    const phoneLayout = matchMedia("(max-width: 760px), (max-height: 520px) and (pointer: coarse)");
+
     noberuMenuButton.addEventListener("click", (event) => {
       event.stopPropagation();
+      if (phoneLayout.matches) {
+        closeStartMenu();
+        setTab("about");
+        window.scrollTo({ top: 0 });
+        return;
+      }
       if (startMenu.hidden) openStartMenu(); else closeStartMenu();
     });
     startMenu.querySelectorAll(".start-menu-item").forEach((item) => {
@@ -5595,6 +5866,8 @@
     // fullscreenchange.
     function escapeMaximized(event) {
       if (event.key !== "Escape" || document.fullscreenElement) return;
+      // The on-screen esc key (assets/touch.js) is meant for the game.
+      if (!event.isTrusted) return;
       if (!document.querySelector(".emulator-maximized")) return;
       clearMaximized();
     }
@@ -5648,18 +5921,33 @@
 
     // assets/library.js hands a picked game to the tab that can play it.
     // Each runtime already accepts the shape a directory <input> produces.
-    window.NoberuLibraryHandoff = (tab, files) => {
+    // With { boot: true } (the about tab's "continue") the game also starts,
+    // as if its tab's boot button had been pressed.
+    const BOOT_BUTTONS = { ps2: "#open-play", boxedwine: "#wine-boot" };
+
+    window.NoberuLibraryHandoff = async (tab, files, options = {}) => {
+      if (tab === "boxedwine" && document.documentElement.dataset.touch === "1") {
+        alert("Windows games need a desktop: the wine runtime is not available on phones and tablets.");
+        return;
+      }
       setTab(tab);
-      if (tab === "rlvm") setRlvmFolder(files);
-      else if (tab === "ons") setOnsFolder(files);
-      else if (tab === "onsru") setOnsRuFolder(files);
-      else if (tab === "renpy") setRenpyFolder(files);
-      else if (tab === "kirikiri") setKirikiriFolder(files);
-      else if (tab === "siglus") setSiglusFolder(files);
-      else if (tab === "tyrano") setTyranoFolder(files);
-      else if (tab === "vnds") setVndsFolder(files);
-      else if (tab === "ps2") setFile(files[0]);
-      else if (tab === "boxedwine") setWineFile(files[0]);
+      let staging;
+      if (tab === "rlvm") staging = setRlvmFolder(files);
+      else if (tab === "ons") staging = setOnsFolder(files);
+      else if (tab === "onsru") staging = setOnsRuFolder(files);
+      else if (tab === "renpy") staging = setRenpyFolder(files);
+      else if (tab === "kirikiri") staging = setKirikiriFolder(files);
+      else if (tab === "siglus") staging = setSiglusFolder(files);
+      else if (tab === "tyrano") staging = setTyranoFolder(files);
+      else if (tab === "rpgmaker") staging = setRpgmakerFolder(files);
+      else if (tab === "vnds") staging = setVndsFolder(files);
+      else if (tab === "ps2") staging = setFile(files[0]);
+      else if (tab === "boxedwine") staging = setWineFile(files[0]);
+      await staging;
+      if (options.boot) {
+        const button = document.querySelector(BOOT_BUTTONS[tab] || `#${tab}-boot`);
+        if (button) button.click();
+      }
     };
 
     // --- about: autodetect engine ------------------------------------------
@@ -5779,6 +6067,10 @@
       window.NoberuSaves.open();
     });
 
+    document.querySelector("#settings-button").addEventListener("click", () => {
+      window.NoberuSettings.open();
+    });
+
     const themeButton = document.querySelector("#theme-button");
 
     function applyTheme(theme) {
@@ -5804,7 +6096,7 @@
     // version, so a later release can say its piece again rather than being
     // silenced by someone having clicked ok on this one.
 
-    const WELCOME_KEY = "noberu.welcome.v0.1";
+    const WELCOME_KEY = "noberu.welcome.v0.2";
     const welcomeBackdrop = document.querySelector("#welcome-backdrop");
     const welcomeOk = document.querySelector("#welcome-ok");
 
@@ -5831,7 +6123,9 @@
       }
     }
 
-    if (!welcomeSeen()) {
+    // A beam link (assets/beam.js) opens straight into the transfer; the notice
+    // is left for the next visit rather than stacked on top of it.
+    if (!welcomeSeen() && !window.NoberuBeamLink) {
       welcomeBackdrop.classList.remove("hidden");
       welcomeOk.focus();
     } else {

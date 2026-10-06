@@ -115,3 +115,51 @@ Range-capable origin, then per archive:
 VLFS.registerRemote("/data.xp3", "/game/data.xp3", sizeInBytes, true);
 startGame();
 ```
+
+## The prelude (noberu-glue.js)
+
+The startup archive (usually `data.xp3`) is handed to the engine with one
+script of ours in front of the game's: a Blob of the original file plus a new
+`startup.tjs` and a rebuilt index, the game's own `startup.tjs` renamed
+`startup_game.tjs`. Nothing is copied. The prelude:
+
+- sets `KIRIKIROID=1`. This engine is Kirikiroid2 but reports osName "Linux",
+  so scripts written for Kirikiroid2 (Fate/stay night Réalta Nua Ultimate
+  Edition uses `@if(KIRIKIROID)`) took their desktop path, which calls
+  functions this build lacks - the UE looped forever on its save-folder check.
+- links `fstat.dll` and makes `Storages.dirlist` also list the picked files.
+  The plugin lists only the engine's in-memory filesystem, so a game that
+  finds its archives by listing its folder (the UE mounts `image.xp3` and
+  every `patch_*.xp3` that way) found none.
+- answers the registry's `LocaleName` with the browser's language, so games
+  that pick their language from it (the UE) start in English, not Japanese.
+
+Verified with Fate/stay night Réalta Nua UE 1.14 (25.7 GB): boots, plays in
+English, game menu on Esc, save, reboot, load. Known issue: English lines
+sometimes break mid-word at the right edge (the UE's word wrap and the
+engine's line width disagree).
+
+`index.html` also gets `preRun`'s `/savedata` mkdir guarded
+(strip-upstream.py): with saves present the restore creates it first, the
+unguarded mkdir threw, and every game's second launch hung on "Restoring
+saves...".
+
+## Look
+
+`noberu-skin.css` re-skins upstream's loading, error and picker overlays in
+noberu's colours (black stage, monospace status, one blue accent) and hides the
+"Kirikiroid2 Web" title. `strip-upstream.py` links it last in `<head>` so it
+wins over upstream's `<style>`. The glue renames the error button to "Reload"
+and makes it only reload the frame: upstream's "Force Update" deletes every
+Cache Storage entry on the origin, which here would be every runtime's.
+
+## Enter
+
+Upstream's web build drops the Enter key: SDL maps Return to cocos
+`KEY_ENTER`, and `CCKeyCodeConv.cpp` maps `KEY_ENTER` to 0 (only `KEY_KP_ENTER`
+becomes `VK_RETURN`, which SDL never produces). Numpad Enter is lost the same
+way. The glue catches Enter in a window capture listener and sends Space in
+its place, which KAG games treat the same (advance text, press the focused
+button). The touch pad's and controllers' A button send Enter, so this is what
+makes them work here. A real fix is a one-line case in `CCKeyCodeConv.cpp` and
+an engine rebuild.
