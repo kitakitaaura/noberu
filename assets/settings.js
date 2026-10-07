@@ -20,7 +20,7 @@
     padOpacity: { key: "noberu.settings.padOpacity", fallback: "100" },
     vibrate: { key: "noberu.settings.vibrate", fallback: "1" },
     leftHanded: { key: "noberu.settings.leftHanded", fallback: "0" },
-    padDesktop: { key: "noberu.settings.padDesktop", fallback: "0" },
+    padDesktop: { key: "noberu.settings.padDesktop", fallback: "1" },
     controller: { key: "noberu.settings.controller", fallback: "1" },
     controllerSwap: { key: "noberu.settings.controllerSwap", fallback: "0" },
     keepAwake: { key: "noberu.settings.keepAwake", fallback: "1" },

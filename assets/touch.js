@@ -13,8 +13,8 @@
  * On touch devices (index.html sets :root[data-touch="1"]) a starting game
  * goes full screen with the pad over it. Anywhere else the pad is only built
  * when a game is made fullscreen, and mobile.css shows it there only while
- * Settings → controls → "show them in fullscreen here too" is on
- * (:root[data-pad-desktop="1"]).
+ * Settings → controls → "show them in fullscreen here too" is on (the default;
+ * :root[data-pad-desktop="1"]).
  */
 (function () {
   "use strict";
