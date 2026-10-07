@@ -387,7 +387,12 @@
   }
 
   async function scanOpfs() {
-    const root = await navigator.storage.getDirectory();
+    let root;
+    try {
+      root = await navigator.storage.getDirectory();
+    } catch (error) {
+      return [];  // private windows have no such storage; list the rest
+    }
     const sets = [];
     for await (const [name, handle] of root.entries()) {
       if (handle.kind !== "directory" || name === LIBRARY_DIR) continue;

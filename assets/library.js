@@ -73,9 +73,17 @@
     });
   }
 
+  // Private windows (Safari, Firefox) refuse this storage with a vague error
+  // such as "UnknownError ... transient reason"; say what to do instead.
   async function storageRoot() {
-    const root = await navigator.storage.getDirectory();
-    return root.getDirectoryHandle(ROOT_DIR, { create: true });
+    try {
+      const root = await navigator.storage.getDirectory();
+      return await root.getDirectoryHandle(ROOT_DIR, { create: true });
+    } catch (e) {
+      if (e && e.name === "AbortError") throw e;
+      throw new Error("This browser won't save games here. " +
+        "If this is a private window, open noberu in a normal one.");
+    }
   }
 
   async function entryDir(entry, create = false) {
