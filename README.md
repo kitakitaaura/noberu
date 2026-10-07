@@ -15,7 +15,7 @@ Questions (not for issues - just file an issue on GitHub)? DM me on Discord - fa
 exception is the demo, *Narcissu*, a freeware title whose authors allow
 unmodified redistribution (see [Demo game](#demo-game)).
 
-Live at **https://noberu.kitaaura.com** (also https://noberu.pages.dev).
+Live at **https://noberu.kitaaura.com** (see update, unstable version https://staging.noberu.pages.dev).
 
 > [!WARNING]
 > Things can break, games fail to boot, and saves can be lost between updates.
@@ -203,7 +203,7 @@ in the wrong place.
 ## Beam (send games between devices)
 
 Beam sends a game, its saves, or just saves from one browser to another, like
-AirDrop. Both devices open beam, one shows a code (and QR code), the other
+some sort of AirDrop. Both devices open beam, one shows a code (and QR code), the other
 enters it. The data goes straight between the two devices over WebRTC; the
 matchmaker (`beam-worker/`, a Cloudflare Worker at `beam.kitaaura.com`) only
 pairs them. If a direct connection can't be made (strict NATs, some VPNs) it
