@@ -199,6 +199,11 @@
         <span class="settings-text"><b>erase everything</b><small>Games, saves and settings stored by noberu in this browser. Folders on your device are not touched.</small></span>
         <button class="retro-button secondary" type="button" data-act="erase">erase</button>
       </div>`,
+
+    // Filled from About → "tested games" in index.html, the one list to keep up to date.
+    tested: `
+      <p class="settings-note">Games checked on noberu. Others on the same engine usually work too.</p>
+      <div class="compat settings-tested" data-show="tested"></div>`,
   };
 
   function build() {
@@ -225,6 +230,9 @@
         <div class="library-foot">noberu v0.2 · settings are kept in this browser.</div>
       </div>`;
     document.body.appendChild(dialog);
+
+    const tested = document.querySelector("details.compat dl");
+    if (tested) dialog.querySelector('[data-show="tested"]').appendChild(tested.cloneNode(true));
 
     dialog.querySelectorAll("[data-tab]").forEach((button) => {
       button.addEventListener("click", () => showPanel(button.dataset.tab));
