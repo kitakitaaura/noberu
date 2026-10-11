@@ -812,7 +812,7 @@ body::after {
   scroll-behavior: auto !important;
 }
 
-/* About → "tested games": the compatibility list, folded away by default. */
+/* Settings → tested: the compatibility list (assets/settings.js). */
 .compat {
   margin-top: 0.5rem;
 }

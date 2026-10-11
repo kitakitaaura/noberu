@@ -200,10 +200,35 @@
         <button class="retro-button secondary" type="button" data-act="erase">erase</button>
       </div>`,
 
-    // Filled from About → "tested games" in index.html, the one list to keep up to date.
+    // The games checked on noberu (the one list; About no longer has it).
     tested: `
       <p class="settings-note">Games checked on noberu. Others on the same engine usually work too.</p>
-      <div class="compat settings-tested" data-show="tested"></div>`,
+      <div class="compat settings-tested">
+        <dl>
+          <dt>Ren'Py</dt>
+          <dd>Doki Doki Literature Club, Katawa Shoujo</dd>
+          <dt>NScripter</dt>
+          <dd>Narcissu, Tsukihime (Mirror Moon)</dd>
+          <dt>umineko</dt>
+          <dd>Umineko Project <small>needs a lot of memory</small></dd>
+          <dt>RealLive</dt>
+          <dd>Clannad, Kanon (Steam, English), Little Busters!</dd>
+          <dt>KiriKiri</dt>
+          <dd>Fate/stay night Réalta Nua, Nekopara Vol. 4 <small>Fate: English lines can break mid-word</small></dd>
+          <dt>Siglus</dt>
+          <dd>Rewrite+ <small>save thumbnails are blank; some older movie formats are skipped</small></dd>
+          <dt>RPG Maker</dt>
+          <dd>MV and MZ games <small>not 2000, 2003, XP, VX or VX Ace</small></dd>
+          <dt>TyranoBuilder</dt>
+          <dd>TyranoScript and TyranoBuilder games</dd>
+          <dt>VNDS</dt>
+          <dd>Higurashi no Naku Koro ni Kai</dd>
+          <dt>PS2</dt>
+          <dd><small>early: varies a lot by game</small></dd>
+          <dt>Windows</dt>
+          <dd><small>experimental, computers only</small></dd>
+        </dl>
+      </div>`,
   };
 
   function build() {
@@ -230,9 +255,6 @@
         <div class="library-foot">noberu v0.2 · settings are kept in this browser.</div>
       </div>`;
     document.body.appendChild(dialog);
-
-    const tested = document.querySelector("details.compat dl");
-    if (tested) dialog.querySelector('[data-show="tested"]').appendChild(tested.cloneNode(true));
 
     dialog.querySelectorAll("[data-tab]").forEach((button) => {
       button.addEventListener("click", () => showPanel(button.dataset.tab));
