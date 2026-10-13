@@ -56,13 +56,35 @@ function createPlayServer() {
       return;
     }
 
-    response.writeHead(200, {
+    const headers = {
       "Content-Type": mimeTypes[extname(filePath)] || "application/octet-stream",
       "Cross-Origin-Opener-Policy": "same-origin",
       "Cross-Origin-Embedder-Policy": "require-corp",
       "Cross-Origin-Resource-Policy": "same-origin",
       "Origin-Agent-Cluster": "?1",
-    });
+      "Accept-Ranges": "bytes",
+    };
+    // Byte ranges let dev autoloads stream multi-GB archives
+    // (ponscripter-runtime) instead of downloading them whole.
+    const size = statSync(filePath).size;
+    const range = /^bytes=(\d+)-(\d*)$/.exec(request.headers.range || "");
+    if (range) {
+      const start = Number(range[1]);
+      const end = Math.min(range[2] ? Number(range[2]) : size - 1, size - 1);
+      if (start > end) {
+        response.writeHead(416, { "Content-Range": `bytes */${size}` });
+        response.end();
+        return;
+      }
+      response.writeHead(206, Object.assign(headers, {
+        "Content-Range": `bytes ${start}-${end}/${size}`,
+        "Content-Length": end - start + 1,
+      }));
+      createReadStream(filePath, { start, end }).pipe(response);
+      return;
+    }
+    headers["Content-Length"] = size;
+    response.writeHead(200, headers);
     createReadStream(filePath).pipe(response);
   });
 }

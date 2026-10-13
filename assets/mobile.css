@@ -374,6 +374,16 @@
   .library-item {
     flex-wrap: wrap;
   }
+
+  /* "fix missing files" is too long for half a row, so it gets a whole one;
+     dense flow pulls "remove" up beside "beam" instead of leaving a hole. */
+  .library-item .button-row {
+    grid-auto-flow: row dense;
+  }
+
+  .library-item .button-row [data-act="patch"] {
+    grid-column: 1 / -1;
+  }
 }
 
 /* A phone on its side: every pixel of height counts. */
@@ -673,5 +683,21 @@
   .continue-card {
     width: 100%;
     margin: 0;
+  }
+}
+
+/* A narrow screen stacks it: label, then the name across the full width (a
+   long one wraps onto a few lines rather than into a sliver beside the
+   button), then play. */
+@media (max-width: 760px) {
+  .continue-card {
+    flex-wrap: wrap;
+    gap: 0.35rem 0.75rem;
+  }
+
+  .continue-label,
+  .continue-card b,
+  .continue-card .retro-button {
+    flex: 1 1 100%;
   }
 }

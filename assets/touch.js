@@ -218,5 +218,28 @@
     }).observe(frameWrap, { attributes: true, attributeFilter: ["class"] });
   }
 
-  document.querySelectorAll(".play-frame-wrap").forEach(watch);
+  // ✕ leaves the full screen view but keeps the game running in its tab; this
+  // button in the frame's toolbar brings the view and its keys back. Touch
+  // devices only: elsewhere the window bar's fullscreen button does it.
+  const EXPAND = `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+  function addReopen(frameWrap) {
+    const toolbar = frameWrap.querySelector(".play-frame-toolbar");
+    if (!TOUCH || !toolbar || toolbar.querySelector(".frame-fullscreen")) return;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "tiny-button frame-fullscreen";
+    button.setAttribute("aria-label", "full screen with controls");
+    button.title = "full screen";
+    button.innerHTML = EXPAND;
+    button.addEventListener("click", () => enter(frameWrap));
+    // Beside the toolbar's own button ("staging"), at the right.
+    const last = toolbar.lastElementChild;
+    toolbar.insertBefore(button, last && last.tagName === "BUTTON" ? last : null);
+  }
+
+  document.querySelectorAll(".play-frame-wrap").forEach((frameWrap) => {
+    watch(frameWrap);
+    addReopen(frameWrap);
+  });
 })();

@@ -770,12 +770,13 @@ body::after {
   letter-spacing: 0.08em;
 }
 
+/* Long folder names ("Ciconia When They Cry - Phase 1 For You, the Replaceable
+   Ones") wrap. Kept on one line, the name set the card's minimum width, and
+   on a phone that pushed the whole page wider than the screen. */
 .continue-card b {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .continue-card .retro-button {
@@ -856,4 +857,103 @@ body::after {
   margin: 0.5rem 0 0;
   font-size: 0.78rem;
   color: var(--muted);
+}
+
+/* --- get the app (assets/install.js) ------------------------------------------ */
+
+/* .downloads-chip sets display, which would otherwise beat the attribute. */
+#app-button[hidden] {
+  display: none;
+}
+
+.install-modal {
+  width: min(26rem, 100%);
+}
+
+/* The numbers are drawn inside the list, in a column of their own: list
+   markers hang outside the text, which put them almost on the popup's edge. */
+.install-steps {
+  margin: 0.2rem 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+  display: grid;
+  gap: 0.55rem;
+  line-height: 1.45;
+}
+
+.install-steps li {
+  display: grid;
+  grid-template-columns: 1.6rem 1fr;
+  counter-increment: step;
+}
+
+.install-steps li::before {
+  content: counter(step) ".";
+  color: var(--muted);
+}
+
+.install-glyph {
+  width: 1.05em;
+  height: 1.05em;
+  vertical-align: -0.15em;
+}
+
+.install-small {
+  font-size: 0.78rem;
+  opacity: 0.8;
+}
+
+.install-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+/* The offline question's choices are long; one per row. */
+#offline-backdrop .install-foot .retro-button {
+  flex: 1 1 100%;
+}
+
+.offline-progress {
+  font-weight: 600;
+}
+
+/* --- offline badge (assets/offline.js) ---------------------------------------- */
+
+.offline-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.6rem;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.offline-badge[hidden] {
+  display: none;
+}
+
+.offline-badge svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+/* No connection: noberu is running from what is stored on this device. */
+.offline-badge[data-state="offline"] {
+  color: var(--gold);
+}
+
+/* Back to full screen after ✕ (assets/touch.js); sits beside "staging". */
+.frame-fullscreen {
+  margin-left: auto;
+  padding: 0 0.55rem;
+}
+
+.frame-fullscreen svg {
+  width: 1rem;
+  height: 1rem;
 }
