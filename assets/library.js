@@ -108,12 +108,225 @@
     return dir;
   }
 
-  async function writeFile(root, path, data) {
+  async function createWritable(root, path) {
     const dir = await ensureDir(root, path);
     const handle = await dir.getFileHandle(path.split("/").pop(), { create: true });
-    const writable = await handle.createWritable();
-    await writable.write(data);
+    return handle.createWritable();
+  }
+
+  // A File goes over in slices: handing a multi-GB one to write() in one go
+  // can make a phone's browser buffer it and run out of memory.
+  const WRITE_SLICE = 16 * 1024 * 1024;
+
+  async function writeFile(root, path, data) {
+    const writable = await createWritable(root, path);
+    if (data instanceof Blob && data.size > WRITE_SLICE) {
+      for (let at = 0; at < data.size; at += WRITE_SLICE) {
+        await writable.write(data.slice(at, at + WRITE_SLICE));
+      }
+    } else {
+      await writable.write(data);
+    }
     await writable.close();
+  }
+
+  // --- zips -----------------------------------------------------------------
+
+  // Unpacks a zip straight from a File (or Blob) into a directory without ever
+  // holding the archive, or any file in it, in memory: the central directory
+  // is read from the end, then each entry is inflated a slice at a time and
+  // written as it comes out. A 4 GB zip on a phone needs a few MB of memory
+  // rather than 8 GB. ZIP64 is understood, which archives that size need.
+
+  const READ_WINDOW = 4 * 1024 * 1024;
+  const INFLATE_SLICE = 1024 * 1024;
+
+  // Random access into a Blob through one cached window, so walking thousands
+  // of small entries is not one disk read per header.
+  function blobReader(blob) {
+    let start = 0;
+    let bytes = new Uint8Array(0);
+    return async function read(pos, len) {
+      if (pos < start || pos + len > start + bytes.length) {
+        start = pos;
+        bytes = new Uint8Array(await blob.slice(pos, Math.min(blob.size, pos + Math.max(len, READ_WINDOW))).arrayBuffer());
+        if (bytes.length < len) throw new Error("That zip is cut short; download it again.");
+      }
+      return bytes.subarray(pos - start, pos - start + len);
+    };
+  }
+
+  const u16 = (b, i) => b[i] | (b[i + 1] << 8);
+  const u32 = (b, i) => (b[i] | (b[i + 1] << 8) | (b[i + 2] << 16) | (b[i + 3] << 24)) >>> 0;
+  const u64 = (b, i) => u32(b, i) + u32(b, i + 4) * 0x100000000;
+
+  // Names are UTF-8 when the zip says so; older Japanese zips are usually
+  // Shift_JIS, which is what the games inside expect their files to be called.
+  const utf8 = new TextDecoder("utf-8", { fatal: true });
+  let sjis = null;
+  function zipName(bytes, flags) {
+    if (flags & 0x800) return new TextDecoder().decode(bytes);
+    try {
+      return utf8.decode(bytes);
+    } catch (e) {
+      sjis = sjis || new TextDecoder("shift_jis");
+      return sjis.decode(bytes);
+    }
+  }
+
+  async function readZipIndex(blob) {
+    const read = blobReader(blob);
+    // The end-of-central-directory record is in the last 22 bytes plus up to
+    // 64 KB of comment.
+    const tailStart = Math.max(0, blob.size - 22 - 0xffff);
+    const tail = new Uint8Array(await blob.slice(tailStart).arrayBuffer());
+    let eocd = -1;
+    for (let i = tail.length - 22; i >= 0; i--) {
+      if (u32(tail, i) === 0x06054b50) {
+        eocd = i;
+        break;
+      }
+    }
+    if (eocd < 0) throw new Error("That file is not a zip, or it is cut short.");
+
+    let count = u16(tail, eocd + 10);
+    let cdSize = u32(tail, eocd + 12);
+    let cdOffset = u32(tail, eocd + 16);
+    // ZIP64: a locator sits just before the record and points at the real one.
+    if (eocd >= 20 && u32(tail, eocd - 20) === 0x07064b50) {
+      const z = await read(u64(tail, eocd - 12), 56);
+      if (u32(z, 0) !== 0x06064b50) throw new Error("That zip's ZIP64 record is damaged.");
+      count = u64(z, 32);
+      cdSize = u64(z, 40);
+      cdOffset = u64(z, 48);
+    }
+
+    const cd = new Uint8Array(await blob.slice(cdOffset, cdOffset + cdSize).arrayBuffer());
+    const entries = [];
+    let p = 0;
+    for (let n = 0; n < count; n++) {
+      if (p + 46 > cd.length || u32(cd, p) !== 0x02014b50) throw new Error("That zip's file list is damaged.");
+      const flags = u16(cd, p + 8);
+      const method = u16(cd, p + 10);
+      let compressed = u32(cd, p + 20);
+      let size = u32(cd, p + 24);
+      const nameLen = u16(cd, p + 28);
+      const extraLen = u16(cd, p + 30);
+      const commentLen = u16(cd, p + 32);
+      let offset = u32(cd, p + 42);
+      const name = zipName(cd.subarray(p + 46, p + 46 + nameLen), flags);
+      // ZIP64 extra field: the 64-bit values, only for fields that overflowed.
+      for (let e = p + 46 + nameLen, end = e + extraLen; e + 4 <= end;) {
+        const id = u16(cd, e);
+        const len = u16(cd, e + 2);
+        if (id === 0x0001) {
+          let q = e + 4;
+          if (size === 0xffffffff) { size = u64(cd, q); q += 8; }
+          if (compressed === 0xffffffff) { compressed = u64(cd, q); q += 8; }
+          if (offset === 0xffffffff) { offset = u64(cd, q); }
+        }
+        e += 4 + len;
+      }
+      entries.push({ name, flags, method, compressed, size, offset });
+      p += 46 + nameLen + extraLen + commentLen;
+    }
+    return { entries, read };
+  }
+
+  // Unpacks `blob` into `dir`, dropping a single wrapping folder so the game
+  // sits at the top. Resolves to { paths, bytes, wrapper }.
+  async function unzipTo(blob, dir, onProgress) {
+    onProgress("reading the zip's file list...");
+    const { entries, read } = await readZipIndex(blob);
+
+    const files = entries.filter((e) => {
+      const name = e.name.replace(/\\/g, "/");
+      e.path = name.split("/").filter((part) => part && part !== ".").join("/");
+      return e.path && !name.endsWith("/") && !/(^|\/)__MACOSX\//.test(name);
+    });
+    if (!files.length) throw new Error("That archive is empty.");
+    for (const e of files) {
+      if (e.path.split("/").includes("..")) throw new Error(`That zip has an unsafe path: ${e.name}`);
+      if (e.flags & 1) throw new Error("That zip is password-protected; unpack it on a computer first.");
+      if (e.method !== 0 && e.method !== 8) {
+        throw new Error(`That zip uses a compression this can't unpack (method ${e.method}); ` +
+          "re-zip it with normal (deflate) compression.");
+      }
+    }
+    const first = files[0].path.split("/")[0];
+    const wrapped = files.every((e) => e.path.startsWith(first + "/"));
+    if (wrapped) for (const e of files) e.path = e.path.slice(first.length + 1);
+
+    const total = files.reduce((sum, e) => sum + e.size, 0);
+    const space = await usage();
+    if (space && space.quota && total > space.quota - space.used) {
+      throw new Error(`Unpacking needs ${bytesLabel(total)}, but this browser only has ` +
+        `${bytesLabel(space.quota - space.used)} free.`);
+    }
+
+    let bytes = 0;
+    let shown = 0;
+    const say = (i, force) => {
+      const now = Date.now();
+      if (!force && now - shown < 250) return;
+      shown = now;
+      onProgress(`unpacking ${i + 1} / ${files.length} files (${bytesLabel(bytes)} / ${bytesLabel(total)})...`);
+    };
+
+    for (let i = 0; i < files.length; i++) {
+      const e = files[i];
+      say(i, i === 0);
+      const header = await read(e.offset, 30);
+      if (u32(header, 0) !== 0x04034b50) throw new Error(`That zip is damaged near ${e.name}.`);
+      let pos = e.offset + 30 + u16(header, 26) + u16(header, 28);
+      const end = pos + e.compressed;
+
+      const writable = await createWritable(dir, e.path);
+      try {
+        if (e.method === 0) {
+          for (; pos < end; pos += INFLATE_SLICE) {
+            const chunk = await read(pos, Math.min(INFLATE_SLICE, end - pos));
+            await writable.write(chunk.slice());
+            bytes += chunk.length;
+            say(i);
+          }
+        } else if (e.compressed > 0) {
+          let out = [];
+          const inflate = new fflate.Inflate();
+          inflate.ondata = (chunk) => out.push(chunk);
+          for (; pos < end; pos += INFLATE_SLICE) {
+            const len = Math.min(INFLATE_SLICE, end - pos);
+            // push() may keep a reference to the input, and the reader's
+            // window is reused, so it gets its own copy.
+            inflate.push((await read(pos, len)).slice(), pos + len >= end);
+            for (const chunk of out) {
+              await writable.write(chunk);
+              bytes += chunk.length;
+            }
+            out = [];
+            say(i);
+          }
+        }
+      } finally {
+        await writable.close();
+      }
+    }
+    say(files.length - 1, true);
+    return { paths: files.map((e) => e.path), bytes, wrapper: wrapped ? first : null };
+  }
+
+  // Keeps the screen on while a long unpack runs: a phone that locks part way
+  // through suspends the page and the unpack with it.
+  async function keepAwake(task) {
+    let lock = null;
+    try {
+      if (navigator.wakeLock) lock = await navigator.wakeLock.request("screen");
+    } catch (e) { /* not allowed here; carry on without it */ }
+    try {
+      return await task();
+    } finally {
+      if (lock) lock.release().catch(() => { });
+    }
   }
 
   // --- engines ------------------------------------------------------------
@@ -266,6 +479,9 @@
   async function addFiles(files, onProgress) {
     const list = [...files];
     if (!list.length) throw new Error("Nothing was selected.");
+    if (list.length === 1 && !list[0].webkitRelativePath && /\.zip$/i.test(list[0].name)) {
+      return addZip(list[0], onProgress);
+    }
     const rootName = (list[0].webkitRelativePath || "").split("/")[0];
     const id = newId();
     const dir = await (await storageRoot()).getDirectoryHandle(id, { create: true });
@@ -291,6 +507,34 @@
       bytes,
       addedAt: Date.now(),
     });
+  }
+
+  // A picked .zip is unpacked straight from where it is, rather than copied in
+  // and unpacked afterwards: that would need room for the zip and the game at
+  // once, and a few GB of zip is often more than a phone has spare.
+  async function addZip(file, onProgress) {
+    const id = newId();
+    const root = await storageRoot();
+    const dir = await root.getDirectoryHandle(id, { create: true });
+    try {
+      const { paths, bytes, wrapper } = await keepAwake(() => unzipTo(file, dir, onProgress));
+      return await dbPut({
+        id,
+        // A Japanese folder name sanitizes to underscores; the zip's own name
+        // is usually more telling then.
+        name: sanitize(wrapper && /[A-Za-z0-9]/.test(sanitize(wrapper)) ? wrapper : file.name.replace(/\.zip$/i, "")),
+        kind: "stored",
+        ...detectEngine(paths),
+        fileCount: paths.length,
+        bytes,
+        addedAt: Date.now(),
+      });
+    } catch (error) {
+      try {
+        await root.removeEntry(id, { recursive: true });
+      } catch (e) { /* nothing to clean up */ }
+      throw error;
+    }
   }
 
   async function addFromUrl(url, onProgress) {
@@ -443,39 +687,17 @@
     }
     if (!archiveName) throw new Error("There is no .zip in that entry.");
 
-    onProgress("reading the archive...");
     const archiveFile = await (await ensureDir(dir, archiveName))
       .getFileHandle(archiveName.split("/").pop())
       .then((h) => h.getFile());
-    const data = new Uint8Array(await archiveFile.arrayBuffer());
-
-    onProgress("unpacking...");
-    const unzipped = await new Promise((resolve, reject) => {
-      fflate.unzip(data, (err, result) => (err ? reject(err) : resolve(result)));
-    });
-
-    const paths = Object.keys(unzipped).filter((p) => !p.endsWith("/"));
-    if (!paths.length) throw new Error("That archive is empty.");
-    // Drop a single wrapping folder, so the game sits at the top.
-    const first = paths[0].split("/")[0];
-    const wrapped = paths.every((p) => p.startsWith(first + "/"));
-
-    let bytes = 0;
-    for (let i = 0; i < paths.length; i++) {
-      const path = wrapped ? paths[i].slice(first.length + 1) : paths[i];
-      if (!path) continue;
-      await writeFile(dir, path, unzipped[paths[i]]);
-      bytes += unzipped[paths[i]].length;
-      if (i % 20 === 0) onProgress(`writing ${i + 1} / ${paths.length} files...`);
-    }
+    const { paths, bytes, wrapper } = await keepAwake(() => unzipTo(archiveFile, dir, onProgress));
     await dir.removeEntry(archiveName.split("/").pop());
 
-    const kept = paths.map((p) => (wrapped ? p.slice(first.length + 1) : p)).filter(Boolean);
     return dbPut({
       ...entry,
-      name: wrapped ? sanitize(first) : entry.name,
-      ...detectEngine(kept),
-      fileCount: kept.length,
+      name: wrapper ? sanitize(wrapper) : entry.name,
+      ...detectEngine(paths),
+      fileCount: paths.length,
       bytes,
     });
   }

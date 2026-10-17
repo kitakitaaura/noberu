@@ -141,12 +141,17 @@ The download icon in the header opens this pop. Three ways:
 
 - **add folder**: links a folder on this computer (Chrome/Edge). Instant, even
   for a 12 GB game, because only a reference is stored.
-- **add file**: copies files (a `.zip`, a disc image) into browser storage.
+- **add file**: copies files (a disc image, say) into browser storage. A single
+  `.zip` is unpacked straight from where it is instead, so the zip itself is
+  never copied in.
 - **web link**: the browser downloads a file straight from a URL into browser
   storage. ***The server has to allow cross-origin reads, or the download fails
   with a message saying so.***
 
-A downloaded `.zip` gets an **unzip** button (via vendored `fflate`). **play**
+A downloaded `.zip` gets an **unzip** button. Both unzip paths stream: the
+zip's file list is read from its end, then each entry is inflated (vendored
+`fflate`) a slice at a time straight into storage, so a 4 GB zip on a phone
+needs a few MB of memory, not 8 GB. ZIP64 and Shift_JIS names work. **play**
 hands the game to the tab for its detected engine - the engine dropdown
 overrides a wrong guess.
 
