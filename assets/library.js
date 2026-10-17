@@ -130,13 +130,14 @@
     await writable.close();
   }
 
-  // --- zips -----------------------------------------------------------------
+  // --- archives -------------------------------------------------------------
 
-  // Unpacks a zip straight from a File (or Blob) into a directory without ever
-  // holding the archive, or any file in it, in memory: the central directory
-  // is read from the end, then each entry is inflated a slice at a time and
-  // written as it comes out. A 4 GB zip on a phone needs a few MB of memory
-  // rather than 8 GB. ZIP64 is understood, which archives that size need.
+  // Unpacks a zip or 7z straight from a File (or Blob) into a directory without
+  // ever holding the archive, or any file in it, in memory. For a zip the
+  // central directory is read from the end, then each entry is inflated a
+  // slice at a time and written as it comes out; 7z works the same way in
+  // assets/sevenzip.js. A 4 GB archive on a phone needs a few MB of memory
+  // rather than 8 GB. ZIP64 is understood, which zips that size need.
 
   const READ_WINDOW = 4 * 1024 * 1024;
   const INFLATE_SLICE = 1024 * 1024;
@@ -187,7 +188,7 @@
         break;
       }
     }
-    if (eocd < 0) throw new Error("That file is not a zip, or it is cut short.");
+    if (eocd < 0) throw new Error("That file is not a zip or 7z, or it is cut short.");
 
     let count = u16(tail, eocd + 10);
     let cdSize = u32(tail, eocd + 12);
@@ -233,25 +234,72 @@
     return { entries, read };
   }
 
-  // Unpacks `blob` into `dir`, dropping a single wrapping folder so the game
-  // sits at the top. Resolves to { paths, bytes, wrapper }.
-  async function unzipTo(blob, dir, onProgress) {
-    onProgress("reading the zip's file list...");
+  // A zip as an archive: { files, extract(files, sink) }, the same shape
+  // assets/sevenzip.js gives a 7z, so unpackTo() below handles either.
+  async function openZip(blob) {
     const { entries, read } = await readZipIndex(blob);
+    return {
+      files: entries,
+      async extract(files, sink) {
+        for (const e of files) {
+          if (e.flags & 1) throw new Error("That zip is password-protected; unpack it on a computer first.");
+          if (e.method !== 0 && e.method !== 8) {
+            throw new Error(`That zip uses a compression this can't unpack (method ${e.method}); ` +
+              "re-zip it with normal (deflate) compression.");
+          }
+        }
+        for (const e of files) {
+          const header = await read(e.offset, 30);
+          if (u32(header, 0) !== 0x04034b50) throw new Error(`That zip is damaged near ${e.name}.`);
+          let pos = e.offset + 30 + u16(header, 26) + u16(header, 28);
+          const end = pos + e.compressed;
+          await sink.start(e);
+          if (e.method === 0) {
+            for (; pos < end; pos += INFLATE_SLICE) {
+              // The reader's window is reused, so each write gets its own copy.
+              await sink.write((await read(pos, Math.min(INFLATE_SLICE, end - pos))).slice());
+            }
+          } else if (e.compressed > 0) {
+            let out = [];
+            const inflate = new fflate.Inflate();
+            inflate.ondata = (chunk) => out.push(chunk);
+            for (; pos < end; pos += INFLATE_SLICE) {
+              const len = Math.min(INFLATE_SLICE, end - pos);
+              // push() may keep a reference to the input, so it gets a copy too.
+              inflate.push((await read(pos, len)).slice(), pos + len >= end);
+              for (const chunk of out) await sink.write(chunk);
+              out = [];
+            }
+          }
+          await sink.end();
+        }
+      },
+    };
+  }
 
-    const files = entries.filter((e) => {
+  async function openArchive(blob) {
+    const magic = new Uint8Array(await blob.slice(0, 8).arrayBuffer());
+    if (window.NoberuSevenZip && NoberuSevenZip.is(magic)) return NoberuSevenZip.open(blob);
+    if (String.fromCharCode(...magic.subarray(0, 4)) === "Rar!") {
+      throw new Error("RAR archives can't be unpacked here; re-pack it as a zip or 7z.");
+    }
+    return openZip(blob);
+  }
+
+  // Unpacks a zip or 7z `blob` into `dir`, dropping a single wrapping folder so
+  // the game sits at the top. Resolves to { paths, bytes, wrapper }.
+  async function unpackTo(blob, dir, onProgress) {
+    onProgress("reading the archive's file list...");
+    const archive = await openArchive(blob);
+
+    const files = archive.files.filter((e) => {
       const name = e.name.replace(/\\/g, "/");
       e.path = name.split("/").filter((part) => part && part !== ".").join("/");
-      return e.path && !name.endsWith("/") && !/(^|\/)__MACOSX\//.test(name);
+      return e.path && !e.dir && !name.endsWith("/") && !/(^|\/)__MACOSX\//.test(name);
     });
     if (!files.length) throw new Error("That archive is empty.");
     for (const e of files) {
-      if (e.path.split("/").includes("..")) throw new Error(`That zip has an unsafe path: ${e.name}`);
-      if (e.flags & 1) throw new Error("That zip is password-protected; unpack it on a computer first.");
-      if (e.method !== 0 && e.method !== 8) {
-        throw new Error(`That zip uses a compression this can't unpack (method ${e.method}); ` +
-          "re-zip it with normal (deflate) compression.");
-      }
+      if (e.path.split("/").includes("..")) throw new Error(`That archive has an unsafe path: ${e.name}`);
     }
     const first = files[0].path.split("/")[0];
     const wrapped = files.every((e) => e.path.startsWith(first + "/"));
@@ -265,53 +313,38 @@
     }
 
     let bytes = 0;
+    let count = 0;
     let shown = 0;
-    const say = (i, force) => {
+    const say = (force) => {
       const now = Date.now();
       if (!force && now - shown < 250) return;
       shown = now;
-      onProgress(`unpacking ${i + 1} / ${files.length} files (${bytesLabel(bytes)} / ${bytesLabel(total)})...`);
+      onProgress(`unpacking ${count} / ${files.length} files (${bytesLabel(bytes)} / ${bytesLabel(total)})...`);
     };
 
-    for (let i = 0; i < files.length; i++) {
-      const e = files[i];
-      say(i, i === 0);
-      const header = await read(e.offset, 30);
-      if (u32(header, 0) !== 0x04034b50) throw new Error(`That zip is damaged near ${e.name}.`);
-      let pos = e.offset + 30 + u16(header, 26) + u16(header, 28);
-      const end = pos + e.compressed;
-
-      const writable = await createWritable(dir, e.path);
-      try {
-        if (e.method === 0) {
-          for (; pos < end; pos += INFLATE_SLICE) {
-            const chunk = await read(pos, Math.min(INFLATE_SLICE, end - pos));
-            await writable.write(chunk.slice());
-            bytes += chunk.length;
-            say(i);
-          }
-        } else if (e.compressed > 0) {
-          let out = [];
-          const inflate = new fflate.Inflate();
-          inflate.ondata = (chunk) => out.push(chunk);
-          for (; pos < end; pos += INFLATE_SLICE) {
-            const len = Math.min(INFLATE_SLICE, end - pos);
-            // push() may keep a reference to the input, and the reader's
-            // window is reused, so it gets its own copy.
-            inflate.push((await read(pos, len)).slice(), pos + len >= end);
-            for (const chunk of out) {
-              await writable.write(chunk);
-              bytes += chunk.length;
-            }
-            out = [];
-            say(i);
-          }
-        }
-      } finally {
-        await writable.close();
-      }
+    let writable = null;
+    try {
+      await archive.extract(files, {
+        async start(e) {
+          count++;
+          say(count === 1);
+          writable = await createWritable(dir, e.path);
+        },
+        async write(chunk) {
+          await writable.write(chunk);
+          bytes += chunk.length;
+          say();
+        },
+        async end() {
+          const done = writable;
+          writable = null;
+          await done.close();
+        },
+      });
+    } finally {
+      if (writable) await writable.abort().catch(() => { });
     }
-    say(files.length - 1, true);
+    say(true);
     return { paths: files.map((e) => e.path), bytes, wrapper: wrapped ? first : null };
   }
 
@@ -479,8 +512,8 @@
   async function addFiles(files, onProgress) {
     const list = [...files];
     if (!list.length) throw new Error("Nothing was selected.");
-    if (list.length === 1 && !list[0].webkitRelativePath && /\.zip$/i.test(list[0].name)) {
-      return addZip(list[0], onProgress);
+    if (list.length === 1 && !list[0].webkitRelativePath && /\.(zip|7z)$/i.test(list[0].name)) {
+      return addArchive(list[0], onProgress);
     }
     const rootName = (list[0].webkitRelativePath || "").split("/")[0];
     const id = newId();
@@ -509,20 +542,20 @@
     });
   }
 
-  // A picked .zip is unpacked straight from where it is, rather than copied in
-  // and unpacked afterwards: that would need room for the zip and the game at
-  // once, and a few GB of zip is often more than a phone has spare.
-  async function addZip(file, onProgress) {
+  // A picked .zip or .7z is unpacked straight from where it is, rather than
+  // copied in and unpacked afterwards: that would need room for the archive
+  // and the game at once, and a few GB is often more than a phone has spare.
+  async function addArchive(file, onProgress) {
     const id = newId();
     const root = await storageRoot();
     const dir = await root.getDirectoryHandle(id, { create: true });
     try {
-      const { paths, bytes, wrapper } = await keepAwake(() => unzipTo(file, dir, onProgress));
+      const { paths, bytes, wrapper } = await keepAwake(() => unpackTo(file, dir, onProgress));
       return await dbPut({
         id,
         // A Japanese folder name sanitizes to underscores; the zip's own name
         // is usually more telling then.
-        name: sanitize(wrapper && /[A-Za-z0-9]/.test(sanitize(wrapper)) ? wrapper : file.name.replace(/\.zip$/i, "")),
+        name: sanitize(wrapper && /[A-Za-z0-9]/.test(sanitize(wrapper)) ? wrapper : file.name.replace(/\.(zip|7z)$/i, "")),
         kind: "stored",
         ...detectEngine(paths),
         fileCount: paths.length,
@@ -680,17 +713,17 @@
     const dir = await entryDir(entry);
     let archiveName = null;
     for await (const { path } of walk(dir)) {
-      if (/\.zip$/i.test(path)) {
+      if (/\.(zip|7z)$/i.test(path)) {
         archiveName = path;
         break;
       }
     }
-    if (!archiveName) throw new Error("There is no .zip in that entry.");
+    if (!archiveName) throw new Error("There is no .zip or .7z in that entry.");
 
     const archiveFile = await (await ensureDir(dir, archiveName))
       .getFileHandle(archiveName.split("/").pop())
       .then((h) => h.getFile());
-    const { paths, bytes, wrapper } = await keepAwake(() => unzipTo(archiveFile, dir, onProgress));
+    const { paths, bytes, wrapper } = await keepAwake(() => unpackTo(archiveFile, dir, onProgress));
     await dir.removeEntry(archiveName.split("/").pop());
 
     return dbPut({
@@ -764,7 +797,7 @@
             <input type="url" id="library-url" placeholder="https://example.com/game.zip" />
             <button class="retro-button" type="submit">download</button>
           </form>
-          <p class="control-note" id="library-note"><span class="brief">Add a game folder, or paste a link to a .zip.</span><span class="verbose">Folders stay where they are; only a reference is kept, so adding one is instant. Downloads and files are copied into this browser.</span></p>
+          <p class="control-note" id="library-note"><span class="brief">Add a game folder, or paste a link to a .zip or .7z.</span><span class="verbose">Folders stay where they are; only a reference is kept, so adding one is instant. Downloads and files are copied into this browser.</span></p>
         </div>
         <div class="library-list" id="library-list"></div>
         <div class="library-foot">
@@ -845,7 +878,7 @@
     }
 
     if (!entries.length) {
-      list.innerHTML = `<p class="control-note">Nothing added yet. Add a game folder from this device, or paste a link to a .zip.</p>`;
+      list.innerHTML = `<p class="control-note">Nothing added yet. Add a game folder from this device, or paste a link to a .zip or .7z.</p>`;
       return;
     }
 

@@ -142,16 +142,21 @@ The download icon in the header opens this pop. Three ways:
 - **add folder**: links a folder on this computer (Chrome/Edge). Instant, even
   for a 12 GB game, because only a reference is stored.
 - **add file**: copies files (a disc image, say) into browser storage. A single
-  `.zip` is unpacked straight from where it is instead, so the zip itself is
-  never copied in.
+  `.zip` or `.7z` is unpacked straight from where it is instead, so the archive
+  itself is never copied in.
 - **web link**: the browser downloads a file straight from a URL into browser
   storage. ***The server has to allow cross-origin reads, or the download fails
   with a message saying so.***
 
-A downloaded `.zip` gets an **unzip** button. Both unzip paths stream: the
-zip's file list is read from its end, then each entry is inflated (vendored
-`fflate`) a slice at a time straight into storage, so a 4 GB zip on a phone
-needs a few MB of memory, not 8 GB. ZIP64 and Shift_JIS names work. **play**
+A downloaded `.zip` or `.7z` gets an **unzip** button. Both unzip paths
+stream: the archive's file list is read first, then each entry is decoded a
+slice at a time straight into storage, so a 4 GB archive on a phone needs a
+few MB of memory (a 7z: about its dictionary size, usually 16-64 MB), not
+8 GB. Zips are inflated with vendored `fflate`; ZIP64 and Shift_JIS names
+work. 7z goes through `assets/sevenzip.js`, a small streaming reader for what
+7-Zip uses on games: LZMA2, LZMA, the BCJ/BCJ2 filters on .exe/.dll, Deflate
+and Copy, solid or not. PPMd, BZip2, ARM filters and passwords are refused
+before anything is written. RAR is not supported. **play**
 hands the game to the tab for its detected engine - the engine dropdown
 overrides a wrong guess.
 
@@ -279,7 +284,7 @@ deploy`; its TURN keys are Wrangler secrets, never in the repo).
 | Path | What |
 |---|---|
 | `index.html` | The app: header, tabs, one adapter per engine |
-| `assets/` | Shared code: library, saves, beam, settings, touch/gamepad input, theme, tour, vendored fflate and qrcode |
+| `assets/` | Shared code: library, 7z reader, saves, beam, settings, touch/gamepad input, theme, tour, vendored fflate and qrcode |
 | `*-runtime/` | One folder per engine, each with its own README |
 | `beam-worker/` | The beam matchmaker (Cloudflare Worker) |
 | `tools/` | Deploy staging and asset helpers |
