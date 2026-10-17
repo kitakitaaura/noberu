@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <!-- noberu runtime hooks (volume, sharp pixels): before any engine code (assets/runtime.js) -->
+  <script src="../assets/runtime.js"></script>
+  <meta charset="utf-8">
+  <title>ponscripter runtime</title>
+  <style>
+    html,
+    body {
+      margin: 0;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #canvas {
+      display: block;
+      background: #000;
+      outline: none;
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+
+  <script>
+    // The page loaded in an iframe by the "ponscripter" tab in ../index.html.
+    // It runs Ponscripter (chronotrig/ponscripter-fork-wh, the engine Ciconia
+    // When They Cry ships with) built to wasm; see ~/Documents/Noberu/ponscripter
+    // for the sources and build.
+    //
+    // Host entry point, same arrangement as ../onscripter-runtime/ons.html:
+    //   window.PonsInstallAndBoot(root, files) - `files` is the FileList from
+    //   the tab's directory picker.
+    // Status goes to the parent as
+    // postMessage({ source: "ponscripter-runtime", type, ... }).
+    //
+    // Game files are never copied into the wasm heap: each becomes an empty
+    // MEMFS placeholder (so the engine's directory scans see it), and the
+    // engine's wrapped fopen (web/webio.c) reads byte ranges from the File
+    // through Module.ponsLookup / Module.ponsFiles.
+
+    const GAME_DIR = "/game";
+    // IDBFS names its database after the mount point. "/save" is the
+    // onscripter tab's, and a sync deletes entries it doesn't know about, so
+    // this runtime keeps its own.
+    const SAVE_DIR = "/pons";
+    const canvasEl = document.getElementById("canvas");
+
+    function post(type, detail) {
+      window.parent.postMessage(
+        Object.assign({ source: "ponscripter-runtime", type: type }, detail || {}), "*");
+    }
+
+    function fitCanvas() {
+      const ratio = canvasEl.width / canvasEl.height;
+      if (!ratio) return;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      if (w / h > ratio) {
+        canvasEl.style.width = Math.floor(h * ratio) + "px";
+        canvasEl.style.height = h + "px";
+      } else {
+        canvasEl.style.width = w + "px";
+        canvasEl.style.height = Math.floor(w / ratio) + "px";
+      }
+    }
+    window.addEventListener("resize", fitCanvas);
+    // SDL sets the canvas size when the game opens its window.
+    new MutationObserver(fitCanvas).observe(canvasEl, { attributes: true, attributeFilter: ["width", "height"] });
+
+    // --- game files -----------------------------------------------------------
+
+    const Mod = {};
+    const filesByPath = new Map();      // absolute path -> id into Mod.ponsFiles
+    const filesByLowerPath = new Map();
+    Mod.ponsFiles = [];
+
+    function normalizePath(path) {
+      if (!path.startsWith("/")) path = Mod.FS.cwd() + "/" + path;
+      const parts = [];
+      for (const part of path.replace(/\\/g, "/").split("/")) {
+        if (!part || part === ".") continue;
+        if (part === "..") parts.pop();
+        else parts.push(part);
+      }
+      return "/" + parts.join("/");
+    }
+
+    Mod.ponsLookup = (rawPath) => {
+      const path = normalizePath(rawPath);
+      if (!path.startsWith(GAME_DIR + "/")) return -1;
+      const id = filesByPath.get(path);
+      if (id !== undefined) return id;
+      const lower = filesByLowerPath.get(path.toLowerCase());
+      return lower === undefined ? -1 : lower;
+    };
+
+    function stageGameFiles(files) {
+      const FS = Mod.FS;
+      const prefix = files[0].webkitRelativePath
+        ? files[0].webkitRelativePath.split("/")[0] + "/"
+        : "";
+      const topLevel = new Map();
+      for (const file of files) {
+        let relative = file.webkitRelativePath || file.name;
+        if (prefix && relative.startsWith(prefix)) relative = relative.substring(prefix.length);
+        // Skip the native builds' own binaries; the engine never opens them.
+        if (!relative || /^(CiconiaPhase\d*\.app|lib64)\//.test(relative)) continue;
+        const path = GAME_DIR + "/" + relative;
+        FS.mkdirTree(path.slice(0, path.lastIndexOf("/")));
+        FS.writeFile(path, new Uint8Array(0));
+        const id = Mod.ponsFiles.push(file) - 1;
+        filesByPath.set(path, id);
+        filesByLowerPath.set(path.toLowerCase(), id);
+        if (!relative.includes("/")) topLevel.set(relative.toLowerCase(), file);
+      }
+      return topLevel;
+    }
+
+    // --- saves ----------------------------------------------------------------
+
+    let syncTimer = 0;
+    function syncSaves() {
+      clearTimeout(syncTimer);
+      syncTimer = 0;
+      Mod.FS.syncfs(false, (err) => {
+        if (err) console.error("IDBFS save sync failed", err);
+      });
+    }
+    // The engine writes several files per save; sync once they're all closed.
+    // A save slot is also followed by globals the script sets right after
+    // `savegame` (Ciconia marks the slot used in a global), so write those
+    // too rather than wait for the page to be hidden: a sync started while
+    // the page unloads doesn't finish.
+    let saveAllTimer = 0;
+    Mod.ponsSaveWritten = (path) => {
+      clearTimeout(syncTimer);
+      syncTimer = setTimeout(syncSaves, 300);
+      // Saves are written to save<N>.dat.tmpfile, then renamed.
+      if (/\/save\d+\.dat(\.tmpfile)?$/.test(path)) {
+        clearTimeout(saveAllTimer);
+        saveAllTimer = setTimeout(saveAll, 1500);
+      }
+    };
+
+    // Global variables, read-text flags and settings are only written when
+    // the game quits, which a closed tab never does. Write them whenever the
+    // page is hidden (tab switch, app switch, closing), and now and then in
+    // case the page is killed without notice.
+    function saveAll() {
+      if (!Mod._pons_save_all) return;
+      try {
+        Mod._pons_save_all();
+      } catch (error) {
+        console.error("save on hide failed", error);
+      }
+      syncSaves();
+    }
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") saveAll();
+    });
+    window.addEventListener("pagehide", saveAll);
+
+    function saveDirFor(root) {
+      const id = (root || "game").replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 64) || "game";
+      return SAVE_DIR + "/" + id;
+    }
+
+    // --- module ---------------------------------------------------------------
+
+    function loadModule(saveDir) {
+      return new Promise((resolve, reject) => {
+        Mod.canvas = canvasEl;
+        Mod.print = (text) => console.log("[pons]", text);
+        Mod.printErr = (text) => console.warn("[pons]", text);
+        Mod.onAbort = (what) => post("error", { message: "engine aborted: " + what });
+        Mod.onExit = (code) => post("exited", { code: code });
+        Mod.preRun = [() => {
+          Mod.FS.mkdir(GAME_DIR);
+          Mod.FS.mkdir(SAVE_DIR);
+          Mod.FS.mount(Mod.IDBFS, {}, SAVE_DIR);
+          Mod.addRunDependency("pons-idbfs-load");
+          Mod.FS.syncfs(true, (err) => {
+            if (err) console.error("IDBFS initial sync failed", err);
+            try { Mod.FS.mkdirTree(saveDir); } catch (e) { }
+            Mod.removeRunDependency("pons-idbfs-load");
+          });
+        }];
+
+        const script = document.createElement("script");
+        script.src = "ponscr.js";
+        script.onerror = () => reject(new Error("Failed to load ponscr.js"));
+        script.onload = () => createPonscripter(Mod).then(resolve, reject);
+        document.body.appendChild(script);
+      });
+    }
+
+    let booted = false;
+
+    window.PonsInstallAndBoot = async function (root, files) {
+      if (booted) return;
+      booted = true;
+      try {
+        if (!files || files.length === 0) throw new Error("No files were staged.");
+
+        post("status", { text: "loading the Ponscripter engine..." });
+        const saveDir = saveDirFor(root);
+        await loadModule(saveDir);
+
+        const topLevel = stageGameFiles(files);
+        if (!topLevel.has("pscript.dat") && !topLevel.has("0.utf") && !topLevel.has("0.txt")) {
+          throw new Error("No Ponscripter script here: pick the folder with pscript.dat.");
+        }
+
+        Mod.FS.chdir(GAME_DIR);
+        const args = ["--root", GAME_DIR, "--save", saveDir];
+        console.log("[pons] args", args);
+        post("booting", {});
+        // callMain returns when the engine first yields (ASYNCIFY).
+        Mod.callMain(args);
+        setInterval(saveAll, 60 * 1000);
+        canvasEl.focus();
+        post("running", { width: canvasEl.width, height: canvasEl.height });
+      } catch (error) {
+        console.error(error);
+        post("error", { message: String((error && error.message) || error) });
+      }
+    };
+
+    // Dev only: pons.html?autoload=testgame boots the folder symlinked at
+    // ./testgame, listed as "<size> <path>" lines in testgame_filelist.txt.
+    // Files are stand-ins that fetch byte ranges (serve-local.mjs supports
+    // Range), so multi-GB archives aren't downloaded up front.
+    (async function autoload() {
+      const name = new URLSearchParams(location.search).get("autoload");
+      if (!name || !/^[\w-]+$/.test(name)) return;
+      const list = await (await fetch(`${name}_filelist.txt`)).text();
+      const files = list.split("\n").filter(Boolean).map((line) => {
+        const space = line.indexOf(" ");
+        const size = Number(line.slice(0, space));
+        const relative = line.slice(space + 1);
+        const url = `${name}/${relative.split("/").map(encodeURIComponent).join("/")}`;
+        const rangeFile = (start, end) => ({
+          size: end - start,
+          slice: (a, b) => rangeFile(start + a, start + Math.min(b, end - start)),
+          arrayBuffer: async () => {
+            if (end <= start) return new ArrayBuffer(0);
+            const response = await fetch(url, { headers: { Range: `bytes=${start}-${end - 1}` } });
+            return response.arrayBuffer();
+          },
+        });
+        return Object.assign(rangeFile(0, size), {
+          name: relative.split("/").pop(),
+          webkitRelativePath: `${name}/${relative}`,
+        });
+      });
+      window.PonsInstallAndBoot(name, files);
+    })();
+  </script>
+</body>
+
+</html>

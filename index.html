@@ -3,7 +3,7 @@
 
 <head>
   <!-- noberu runtime hooks (volume, sharp pixels): before any engine code (assets/runtime.js) -->
-  <script src="assets/runtime.js"></script>
+  <script src="assets/runtime.js?v=20261017a"></script>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <!-- Installable app: the manifest for Android/desktop, the apple-* tags for
@@ -12,7 +12,12 @@
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <!-- Solid, not black-translucent: drawn under the status bar, the iOS home
+       screen app launched with a black strip at the bottom (fixed layers came
+       up short by the bar's height until the first scroll). Measuring and
+       stretching around it didn't help, so the page starts below the bar.
+       iOS can keep the old style until the app is removed and re-added. -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
   <meta name="apple-mobile-web-app-title" content="noberu" />
   <link rel="icon" href="data:," />
   <title>noberu</title>
@@ -1599,9 +1604,9 @@
 
   </style>
 
-  <link rel="stylesheet" href="assets/theme.css">
-  <link rel="stylesheet" href="assets/mobile.css">
-  <link rel="stylesheet" href="assets/settings.css">
+  <link rel="stylesheet" href="assets/theme.css?v=20261017a">
+  <link rel="stylesheet" href="assets/mobile.css?v=20261017a">
+  <link rel="stylesheet" href="assets/settings.css?v=20261017a">
 
   <script>
     // Dark unless someone picked light; applied here so the page never
@@ -1662,6 +1667,13 @@
     <div class="brand-chip">
       <button class="logo-box" id="noberu-menu-button" type="button" aria-haspopup="menu" aria-expanded="false"
         aria-controls="start-menu">noberu</button>
+      <!-- Offline play on (grey) or no connection (orange); assets/offline.js. -->
+      <button class="offline-badge" id="offline-badge" type="button" hidden>
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+          <path d="M8 1.2c.6 0 1 .5 1 1.2v3.9l5.3 3.1v1.5L9 9.4v3.1l1.5 1.1v1.2L8 14.1l-2.5.7v-1.2L7 12.5V9.4l-5.3 1.5V9.4L7 6.3V2.4c0-.7.4-1.2 1-1.2z"
+            fill="currentColor" />
+        </svg>
+      </button>
       <div class="start-menu" id="start-menu" role="menu" aria-label="noberu menu" hidden>
         <button class="start-menu-item" type="button" role="menuitem" data-tab="arcade">
           <span class="tab-icon" aria-hidden="true">⬤</span>
@@ -1674,6 +1686,16 @@
       </div>
     </div>
     <div class="topbar-actions">
+      <!-- Phones and tablets only, until noberu is installed (assets/install.js). -->
+      <button class="downloads-chip" type="button" id="app-button" aria-label="get the app" hidden>
+        <svg class="downloads-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+          <rect x="4" y="1.5" width="8" height="13" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.6" />
+          <path d="M8 4.5v5M6 7.5l2 2 2-2" fill="none" stroke="currentColor" stroke-width="1.6"
+            stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M7 12.3h2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+        </svg>
+        <span class="downloads-text">app</span>
+      </button>
       <button class="downloads-chip theme-chip" type="button" id="theme-button" aria-label="switch theme">
         <svg class="downloads-icon theme-icon-dark" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
           <path d="M13.5 9.6A5.8 5.8 0 0 1 6.4 2.5a5.8 5.8 0 1 0 7.1 7.1z" fill="none" stroke="currentColor"
@@ -1778,8 +1800,8 @@
                 <div>
                   <b>Supported runtimes</b>
                   <span class="brief">Ren'Py, NScripter, RealLive, KiriKiri, Siglus, TyranoBuilder, RPG Maker MV/MZ, VNDS and PS2, with more on the way.</span>
-                  <span class="verbose">Each tab is a real engine or emulator built for the browser: Ren'Py (8, 7 and 6.99), ONScripter
-                    and onscripter-ru for NScripter games, rlvm for RealLive, Kirikiroid2 for KiriKiri, siglus_rs for
+                  <span class="verbose">Each tab is a real engine or emulator built for the browser: Ren'Py (8, 7 and 6.99), ONScripter,
+                    onscripter-ru and Ponscripter for NScripter-style games, rlvm for RealLive, Kirikiroid2 for KiriKiri, siglus_rs for
                     SiglusEngine, TyranoScript and RPG Maker MV/MZ served as-is, VNDS-LÖVE, Play! for PS2, and an early BoxedWine for
                     Windows builds.</span>
                 </div>
@@ -2463,6 +2485,79 @@
         </div>
       </div>
 
+      <div class="view" id="pons-view" role="tabpanel" aria-labelledby="pons-tab">
+        <div class="screen">
+          <div class="viewport" id="pons-drop-surface">
+            <div class="static-noise" aria-hidden="true"></div>
+            <div class="scene">
+              <div class="pixel-sun" aria-hidden="true"></div>
+              <div class="hill" aria-hidden="true"></div>
+              <form class="upload-zone" id="pons-upload-zone">
+                <div class="upload-symbol" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="M12 16V5M8 9l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.7"
+                      stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15" fill="none"
+                      stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                  </svg>
+                </div>
+                <h1>ponscripter adapter</h1>
+                <p class="verbose">
+                  Stage a Ponscripter game folder from this device, then boot it through an in-browser Ponscripter runtime.
+                </p>
+                <p class="brief">For Ponscripter games. Pick the game folder.</p>
+                <input class="file-input" id="pons-rom-input" type="file" webkitdirectory multiple />
+                <div class="button-row">
+                  <label class="retro-button" for="pons-rom-input">choose folder</label>
+                  <button class="retro-button secondary" type="button" id="pons-run">boot local</button>
+                  <button class="retro-button secondary" type="button" data-library="ponscripter">from library</button>
+                </div>
+              </form>
+            </div>
+            <div class="play-frame-wrap" id="pons-frame-wrap" aria-label="local ponscripter runtime">
+              <div class="play-runtime">
+                <iframe class="play-canvas" id="pons-iframe" title="ponscripter runtime"
+                  style="border:2px solid var(--line);background:#000;box-shadow:0 0 24px rgba(53,255,178,0.24);"></iframe>
+                <div class="runtime-overlay" id="pons-runtime-overlay">
+                  <div class="runtime-card">
+                    <b id="pons-runtime-title">ponscripter runtime</b>
+                    <p id="pons-runtime-message">Waiting for a staged game.</p>
+                  </div>
+                </div>
+              </div>
+              <div class="play-frame-toolbar">
+                <span id="pons-frame-label">ponscripter runtime</span>
+                <button class="tiny-button" type="button" id="pons-hide">staging</button>
+              </div>
+            </div>
+          </div>
+
+          <aside class="side-panel" aria-label="ponscripter upload details">
+            <div class="panel-header">
+              <h2>ponscripter</h2>
+              <p class="verbose">Plays Ponscripter games (NScripter-style games with a UTF-8 script) through a WASM build of chronotrig's Ponscripter fork, the one Steam releases ship with.</p>
+            </div>
+            <div class="panel-body">
+              <p class="control-note verbose">Nothing is copied: the game reads each file straight from this device when it needs it, so its multi-gigabyte archives stage in seconds.</p>
+              <div class="file-card" id="pons-file-card">
+                <b>No folder selected</b>
+                <span>Choose the game folder (the one holding pscript.dat and arc.nsa).</span>
+                <div class="meter" aria-hidden="true"><span id="pons-meter-fill"></span></div>
+              </div>
+              <div class="button-row">
+                <button class="retro-button" type="button" id="pons-boot">boot local</button>
+                <button class="retro-button secondary" type="button" id="pons-clear">clear</button>
+              </div>
+              <p class="control-note verbose">Saves and settings persist in this browser's storage, per game folder name. Right click opens the game menu. S toggles skip; Ctrl skips while held.</p>
+              <p class="control-note brief">Right click opens the game menu. Hold Ctrl to skip.</p>
+            </div>
+            <div class="panel-footer">
+              <p id="pons-status">Status: waiting for a folder.</p>
+            </div>
+          </aside>
+        </div>
+      </div>
+
       <div class="view" id="renpy-view" role="tabpanel" aria-labelledby="renpy-tab">
         <div class="screen">
           <div class="viewport" id="renpy-viewport">
@@ -3015,6 +3110,11 @@
       <span class="tab-icon" aria-hidden="true">✦</span>
       <span class="tab-label">umineko</span>
     </button>
+    <button class="tab-button" id="pons-tab" type="button" role="tab" aria-selected="false" aria-controls="pons-view"
+      data-tab="pons">
+      <span class="tab-icon" aria-hidden="true">✧</span>
+      <span class="tab-label">ponscripter</span>
+    </button>
     <button class="tab-button" id="renpy-tab" type="button" role="tab" aria-selected="false" aria-controls="renpy-view"
       data-tab="renpy">
       <span class="tab-icon" aria-hidden="true">❖</span>
@@ -3042,20 +3142,20 @@
     </button>
   </nav>
 
-  <script src="assets/vendor/fflate.min.js"></script>
-  <script src="assets/sevenzip.js"></script>
+  <script src="assets/vendor/fflate.min.js?v=20261017a"></script>
+  <script src="assets/sevenzip.js?v=20261017a"></script>
   <!-- Shown once, on a first visit, and never again after OK. See the welcome
        notice script at the end of this file. -->
   <div class="library-backdrop hidden" id="welcome-backdrop">
     <div class="library-modal" role="dialog" aria-modal="true" aria-labelledby="welcome-title"
       style="width:min(34rem,100%);">
       <div class="library-bar">
-        <b id="welcome-title">noberu v0.2 — <span class="desktop-only">beta</span><span class="touch-only">alpha</span></b>
+        <b id="welcome-title">noberu v0.3 — beta</b>
       </div>
       <div class="library-add">
         <img src="assets/noberu-card.png" alt="" width="418" height="392"
           style="display:block;width:7rem;height:auto;margin:0 auto 0.3rem;border:2px solid var(--line);border-radius:6px;" />
-        <p class="control-note">This is <span class="desktop-only">a <b>BETA</b></span><span class="touch-only">an <b>ALPHA</b> test</span> release. Things break, games fail to boot, and
+        <p class="control-note">This is a <b>BETA</b> release. Things break, games fail to boot, and
           saves can be lost between updates.</p>
         <p class="control-note">Every tab runs a real engine or emulator in your browser, which asks
           a lot of a machine. On weaker systems expect long loads, stutter, or games that never
@@ -3071,16 +3171,18 @@
 
   <script src="tyrano-runtime/noberu-glue.js"></script>
   <script src="rpgmaker-runtime/noberu-glue.js"></script>
-  <script src="assets/library.js"></script>
-  <script src="assets/saves.js"></script>
-  <script src="assets/vendor/qrcode.js"></script>
-  <script src="assets/beam.js"></script>
-  <script src="assets/tour.js"></script>
-  <script src="assets/settings.js"></script>
-  <script src="assets/input.js"></script>
-  <script src="assets/gamepad.js"></script>
-  <script src="assets/session.js"></script>
-  <script src="assets/touch.js" defer></script>
+  <script src="assets/install.js?v=20261017a"></script>
+  <script src="assets/offline.js?v=20261017a"></script>
+  <script src="assets/library.js?v=20261017a"></script>
+  <script src="assets/saves.js?v=20261017a"></script>
+  <script src="assets/vendor/qrcode.js?v=20261017a"></script>
+  <script src="assets/beam.js?v=20261017a"></script>
+  <script src="assets/tour.js?v=20261017a"></script>
+  <script src="assets/settings.js?v=20261017a"></script>
+  <script src="assets/input.js?v=20261017a"></script>
+  <script src="assets/gamepad.js?v=20261017a"></script>
+  <script src="assets/session.js?v=20261017a"></script>
+  <script src="assets/touch.js?v=20261017a" defer></script>
   <script>
     // Installable app and offline shell; see sw.js.
     if ("serviceWorker" in navigator) {
@@ -3101,6 +3203,7 @@
       rlvm: document.querySelector("#rlvm-view"),
       ons: document.querySelector("#ons-view"),
       onsru: document.querySelector("#onsru-view"),
+      pons: document.querySelector("#pons-view"),
       renpy: document.querySelector("#renpy-view"),
       kirikiri: document.querySelector("#kirikiri-view"),
       siglus: document.querySelector("#siglus-view"),
@@ -3233,6 +3336,8 @@
               ? "Channel: onscripter / NScripter staging"
               : tabName === "onsru"
               ? "Channel: umineko / onscripter-ru staging"
+              : tabName === "pons"
+              ? "Channel: ponscripter staging"
               : tabName === "renpy"
               ? "Channel: ren'py staging"
               : tabName === "siglus"
@@ -3299,6 +3404,9 @@
       }
       if (currentTab === "onsru") {
         return { frameWrap: onsRuFrameWrap, label: "onscripter-ru runtime", channel: "umineko / onscripter-ru", focusEl: onsRuIframe };
+      }
+      if (currentTab === "pons") {
+        return { frameWrap: ponsFrameWrap, label: "ponscripter runtime", channel: "ponscripter", focusEl: ponsIframe };
       }
       if (currentTab === "renpy") {
         return { frameWrap: renpyFrameWrap, label: "ren'py runtime", channel: "ren'py / Ren'Py", focusEl: renpyIframe };
@@ -4338,6 +4446,151 @@
     onsRuRun.addEventListener("click", bootOnsRu);
     onsRuBoot.addEventListener("click", bootOnsRu);
     onsRuHide.addEventListener("click", showOnsRuStaging);
+
+    // --- ponscripter tab ---------------------------------------------------
+
+    const ponsRomInput = document.querySelector("#pons-rom-input");
+    const ponsFileCard = document.querySelector("#pons-file-card");
+    const ponsStatus = document.querySelector("#pons-status");
+    const ponsClear = document.querySelector("#pons-clear");
+    const ponsRun = document.querySelector("#pons-run");
+    const ponsBoot = document.querySelector("#pons-boot");
+    const ponsHide = document.querySelector("#pons-hide");
+    const ponsFrameWrap = document.querySelector("#pons-frame-wrap");
+    const ponsFrameLabel = document.querySelector("#pons-frame-label");
+    const ponsIframe = document.querySelector("#pons-iframe");
+    const ponsRuntimeOverlay = document.querySelector("#pons-runtime-overlay");
+    const ponsRuntimeTitle = document.querySelector("#pons-runtime-title");
+    const ponsRuntimeMessage = document.querySelector("#pons-runtime-message");
+    const ponsEmptyCard = ponsFileCard.innerHTML;
+    let ponsStagedRoot = null;
+    let ponsStagedFiles = null;
+    let ponsBooting = false;
+
+    function setPonsMessage(title, message, hideOverlay = false) {
+      ponsRuntimeTitle.textContent = title;
+      ponsRuntimeMessage.textContent = message;
+      ponsRuntimeOverlay.classList.toggle("hidden", hideOverlay);
+      ponsFrameLabel.textContent = title;
+    }
+
+    function showPonsStaging() {
+      ponsFrameWrap.classList.remove("active", "emulator-maximized");
+      ponsIframe.removeAttribute("src");
+      statusReadout.textContent = "Channel: ponscripter staging";
+    }
+
+    // The File objects go to the runtime untouched: it reads byte ranges of
+    // each one as the engine needs them.
+    function setPonsFolder(files) {
+      if (!files || files.length === 0) return;
+      const list = [...files];
+      const root = (list[0].webkitRelativePath || "").split("/")[0];
+      if (!root) {
+        ponsStatus.textContent = "Status: choose a folder, not loose files.";
+        return;
+      }
+
+      const totalSize = list.reduce((sum, file) => sum + file.size, 0);
+      ponsStagedRoot = root;
+      ponsStagedFiles = list;
+
+      ponsFileCard.innerHTML = `
+          <b>${escapeHtml(root)}</b>
+          <span>${list.length} files / ${bytesToLabel(totalSize)} staged</span>
+          <div class="meter" aria-hidden="true"><span id="pons-meter-fill"></span></div>
+        `;
+      const fill = document.querySelector("#pons-meter-fill");
+      window.requestAnimationFrame(() => {
+        fill.style.width = "100%";
+      });
+      ponsStatus.textContent = "Status: game staged. Boot local starts it.";
+      ponsFrameLabel.textContent = `ponscripter runtime / staged: ${root}`;
+      setTab("pons");
+    }
+
+    // The engine can only start once per page, so every boot gets a fresh
+    // iframe document.
+    function loadPonsIframe(timeoutMs = 30000) {
+      return new Promise((resolve, reject) => {
+        const timer = window.setTimeout(
+          () => reject(new Error("ponscripter runtime took too long to load.")), timeoutMs);
+        ponsIframe.addEventListener("load", function onLoad() {
+          ponsIframe.removeEventListener("load", onLoad);
+          window.clearTimeout(timer);
+          if (typeof ponsIframe.contentWindow.PonsInstallAndBoot === "function") resolve();
+          else reject(new Error("ponscripter runtime did not load."));
+        });
+        ponsIframe.src = "ponscripter-runtime/pons";
+      });
+    }
+
+    async function bootPons() {
+      if (ponsBooting) return;
+      setTab("pons");
+      if (!ponsStagedRoot || !ponsStagedFiles) {
+        setPonsMessage("waiting for folder", "Choose your game folder, then boot local.");
+        ponsStatus.textContent = "Status: waiting for a folder.";
+        return;
+      }
+
+      ponsBooting = true;
+      ponsFrameWrap.classList.add("active");
+
+      try {
+        setPonsMessage("booting", "Starting the ponscripter runtime...");
+        ponsStatus.textContent = "Status: starting the ponscripter runtime...";
+        await loadPonsIframe();
+        ponsIframe.contentWindow.PonsInstallAndBoot(ponsStagedRoot, ponsStagedFiles);
+      } catch (error) {
+        setPonsMessage("boot failed", error.message);
+        ponsStatus.textContent = `Status: ${error.message}`;
+      } finally {
+        ponsBooting = false;
+      }
+    }
+
+    window.addEventListener("message", (event) => {
+      const data = event.data;
+      if (!data || data.source !== "ponscripter-runtime") return;
+      if (event.source !== ponsIframe.contentWindow) return;
+      const label = ponsStagedRoot || "the game";
+      if (data.type === "status") {
+        setPonsMessage("ponscripter runtime", data.text || "working...", !!data.transient);
+        ponsStatus.textContent = `Status: ${data.text || "working"}`;
+      } else if (data.type === "booting") {
+        setPonsMessage("booting", "Handing off to ponscripter...");
+        ponsStatus.textContent = "Status: booting...";
+      } else if (data.type === "running") {
+        setPonsMessage("ponscripter runtime", `Running ${label}`, true);
+        ponsStatus.textContent = `Status: running ${label}`;
+        ponsIframe.focus();
+      } else if (data.type === "exited") {
+        setPonsMessage("game ended", `${label} quit. Boot local starts it again.`);
+        ponsStatus.textContent = "Status: game ended.";
+      } else if (data.type === "error") {
+        setPonsMessage("runtime error", data.message);
+        ponsStatus.textContent = `Status: ${data.message}`;
+      }
+    });
+
+    ponsRomInput.addEventListener("change", (event) => {
+      setPonsFolder(event.target.files);
+    });
+
+    ponsClear.addEventListener("click", () => {
+      ponsRomInput.value = "";
+      ponsStagedRoot = null;
+      ponsStagedFiles = null;
+      ponsFileCard.innerHTML = ponsEmptyCard;
+      ponsStatus.textContent = "Status: waiting for a folder.";
+      setPonsMessage("ponscripter runtime", "Waiting for a staged game.");
+      showPonsStaging();
+    });
+
+    ponsRun.addEventListener("click", bootPons);
+    ponsBoot.addEventListener("click", bootPons);
+    ponsHide.addEventListener("click", showPonsStaging);
 
     // --- ren'py tab --------------------------------------------------------
 
@@ -5907,6 +6160,7 @@
       if (tab === "rlvm") staging = setRlvmFolder(files);
       else if (tab === "ons") staging = setOnsFolder(files);
       else if (tab === "onsru") staging = setOnsRuFolder(files);
+      else if (tab === "pons") staging = setPonsFolder(files);
       else if (tab === "renpy") staging = setRenpyFolder(files);
       else if (tab === "kirikiri") staging = setKirikiriFolder(files);
       else if (tab === "siglus") staging = setSiglusFolder(files);
@@ -6068,7 +6322,7 @@
     // version, so a later release can say its piece again rather than being
     // silenced by someone having clicked ok on this one.
 
-    const WELCOME_KEY = "noberu.welcome.v0.2";
+    const WELCOME_KEY = "noberu.welcome.v0.3";
     const welcomeBackdrop = document.querySelector("#welcome-backdrop");
     const welcomeOk = document.querySelector("#welcome-ok");
 
@@ -6097,13 +6351,21 @@
 
     // A beam link (assets/beam.js) opens straight into the transfer; the notice
     // is left for the next visit rather than stacked on top of it.
-    if (!welcomeSeen() && !window.NoberuBeamLink) {
-      welcomeBackdrop.classList.remove("hidden");
-      welcomeOk.focus();
-    } else {
-      // Visitors from before the tour existed get it once too; ?tour replays it.
-      window.NoberuTour.startIfNew();
+    function startWelcome() {
+      if (!welcomeSeen() && !window.NoberuBeamLink) {
+        welcomeBackdrop.classList.remove("hidden");
+        welcomeOk.focus();
+      } else {
+        // Visitors from before the tour existed get it once too; ?tour replays it.
+        window.NoberuTour.startIfNew();
+      }
     }
+
+    // On a phone in the browser, the home screen steps come first (once per
+    // visit); in the home screen app, the offline question (once). The notice
+    // and tour follow. A beam link goes straight to its transfer instead.
+    if (window.NoberuBeamLink) startWelcome();
+    else window.NoberuInstall.firstRun(() => window.NoberuOffline.askOnce(startWelcome));
 
     welcomeOk.addEventListener("click", dismissWelcome);
     // Escape counts as ok. Clicking the backdrop deliberately does NOT: the
@@ -6125,6 +6387,21 @@
       });
     });
 
+  </script>
+  <!-- GoatCounter page views (kita.goatcounter.com), on the main site only:
+       staging and local copies would count as visits otherwise. crossorigin
+       because the page is cross-origin isolated (_headers) and gc.zgo.at sends
+       CORS but no Cross-Origin-Resource-Policy, so only a CORS load is let in.
+       Offline it simply fails to load; nothing waits on it. -->
+  <script>
+    if (location.hostname === "noberu.kitaaura.com") {
+      const counter = document.createElement("script");
+      counter.async = true;
+      counter.crossOrigin = "anonymous";
+      counter.dataset.goatcounter = "https://kita.goatcounter.com/count";
+      counter.src = "https://gc.zgo.at/count.js";
+      document.head.appendChild(counter);
+    }
   </script>
 </body>
 

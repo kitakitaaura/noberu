@@ -7,7 +7,8 @@
  * The runtimes keep saves in three places, so all three are scanned:
  *
  *   IndexedDB - Emscripten's IDBFS, one database per mount point, named with
- *               a leading slash ("/save" for onscripter, "/home" for rlvm).
+ *               a leading slash ("/save" for onscripter, "/pons" for
+ *               ponscripter, "/home" for rlvm).
  *               Its FILE_DATA store is keyed by absolute path, holding
  *               { contents, mode, timestamp }.
  *   OPFS      - onscripter-ru writes through WasmFS, so each game's save
@@ -45,6 +46,7 @@
   //   single - the whole mount is one entry (a disk image, a memory card set)
   const SOURCES = [
     { db: "/save", runtime: "onscripter", mode: "games" },
+    { db: "/pons", runtime: "ponscripter", mode: "games" },
     { db: "/home", runtime: "rlvm", mode: "games", strip: [".rlvm"] },
     // Ren'Py mounts IDBFS at ~/.renpy and gives each game a folder named after
     // its config.save_directory. Its own database, so it does not collide with

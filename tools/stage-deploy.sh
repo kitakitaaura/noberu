@@ -29,6 +29,9 @@ rsync -rptgoD \
   --exclude 'beam-worker' \
   "$SRC"/ "$DST"/ 2>&1 | grep -v '^$' || true
 
+# The engine list for offline use, built from exactly what is being uploaded.
+node "$SRC/tools/offline-manifest.mjs" "$DST"
+
 echo
 echo "staged: $DST"
 echo "  files:   $(find "$DST" -type f | wc -l | tr -d ' ')"

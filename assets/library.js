@@ -86,6 +86,27 @@
     }
   }
 
+  // Chrome's folder-handle API silently skips files whose names it considers
+  // unsafe (control characters, for instance: Umineko ships voice files with a
+  // DEL in the name). Those files are invisible to a linked folder and to a
+  // copy made from one, so "fix missing files" re-reads the folder through the
+  // directory <input>, which has no such filter, and keeps whatever was hidden
+  // here, in the browser's own storage.
+  async function patchDir(entry, create = false) {
+    return (await storageRoot()).getDirectoryHandle(`${entry.id}-patch`, { create });
+  }
+
+  async function patchFiles(entry) {
+    try {
+      const dir = await patchDir(entry);
+      const out = [];
+      for await (const file of walk(dir)) out.push(file);
+      return out;
+    } catch (error) {
+      return []; // no patch for this entry
+    }
+  }
+
   async function entryDir(entry, create = false) {
     return (await storageRoot()).getDirectoryHandle(entry.id, { create });
   }
@@ -368,6 +389,7 @@
     rlvm: { label: "RealLive", tab: "rlvm" },
     onscripter: { label: "NScripter", tab: "ons" },
     "onscripter-ru": { label: "Umineko Project", tab: "onsru" },
+    ponscripter: { label: "Ponscripter", tab: "pons" },
     renpy: { label: "Ren'Py", tab: "renpy" },
     kirikiri: { label: "KiriKiri", tab: "kirikiri" },
     siglus: { label: "SiglusEngine", tab: "siglus" },
@@ -433,6 +455,9 @@
       if (any(/(^|\/)scene[a-z]*\.pck$/i)) return "siglus";
       if (any(/\.xp3$/)) return "kirikiri";
       if (has("gameexe.ini") || has("seen.txt")) return "rlvm";
+      // Ponscripter keeps the NScripter archives but has
+      // its own UTF-8 script: pscript.dat, or 0.utf and up in plain text.
+      if (has("pscript.dat") || any(/^\d+\.utf$/)) return "ponscripter";
       if (has("nscript.dat") || has("0.txt") || has("00.txt") ||
           has("nscr_sec.dat") || has("nscript.___") || has("onscript.nt2") ||
           has("onscript.nt3")) return "onscripter";
@@ -464,6 +489,47 @@
     if (engine !== "renpy") return root;
     if (/^game$/i.test(root)) return "";
     return root.replace(/\/game$/i, "");
+  }
+
+  // The guess is made once, when a game is added, so a game added before its
+  // engine had a tab stays "Windows" (its .exe) or "unknown" for good. Bump
+  // this when detectEngine learns an engine; entries guessed by an older
+  // version get one more look. A runtime picked by hand is stamped with the
+  // current version, so it is never second-guessed.
+  const DETECT_VERSION = 2;  // 2: Ponscripter
+
+  async function redetect(entries) {
+    const out = [];
+    for (const entry of entries) {
+      const stale = (entry.detectVersion || 1) < DETECT_VERSION &&
+        (entry.engine === "wine" || entry.engine === "unknown");
+      if (!stale) {
+        out.push(entry);
+        continue;
+      }
+      try {
+        let dir;
+        if (entry.kind === "linked") {
+          // No permission prompt from a list redraw; try again next time.
+          if ((await entry.handle.queryPermission({ mode: "read" })) !== "granted") {
+            out.push(entry);
+            continue;
+          }
+          dir = entry.handle;
+        } else {
+          dir = await entryDir(entry);
+        }
+        const paths = [];
+        for await (const { path } of walk(dir)) paths.push(path);
+        for (const { path } of await patchFiles(entry)) paths.push(path);
+        const fresh = { ...entry, ...detectEngine(paths), detectVersion: DETECT_VERSION };
+        await dbPut(fresh);
+        out.push({ ...fresh, root: gameRoot(fresh.engine, fresh.root || "") });
+      } catch (error) {
+        out.push(entry);  // files gone or unreadable: leave the old guess
+      }
+    }
+    return out;
   }
 
   // --- adding -------------------------------------------------------------
@@ -687,8 +753,63 @@
       files.push(file);
       if (onProgress && files.length % 2000 === 0) onProgress(`opening ${files.length} files...`);
     }
+    for (const { path, handle } of await patchFiles(entry)) {
+      if (prefix && !path.startsWith(prefix)) continue;
+      const file = await handle.getFile();
+      Object.defineProperty(file, "webkitRelativePath", { value: `${entry.name}/${path.slice(prefix.length)}` });
+      files.push(file);
+    }
     if (!files.length) throw new Error("That game has no files any more.");
     return files;
+  }
+
+  // Copies in the files the folder-handle API cannot see. `files` is the
+  // FileList from a directory <input> pointed at the same folder.
+  async function addMissing(entry, files, onProgress) {
+    const list = [...files];
+    if (!list.length) throw new Error("Nothing was selected.");
+    const rootName = (list[0].webkitRelativePath || "").split("/")[0];
+
+    onProgress("reading what is already here...");
+    const seen = new Set();
+    if (entry.kind === "linked") {
+      if (!(await ensurePermission(entry))) throw new Error("Permission to read that folder was declined.");
+    }
+    const source = entry.kind === "linked" ? entry.handle : await entryDir(entry);
+    for await (const { path } of walk(source)) seen.add(path);
+    for (const { path } of await patchFiles(entry)) seen.add(path);
+
+    const missing = list.filter((file) => {
+      let path = file.webkitRelativePath || file.name;
+      if (rootName && path.startsWith(rootName + "/")) path = path.slice(rootName.length + 1);
+      return path && !seen.has(path);
+    });
+
+    // A folder that shares almost nothing with this entry is the wrong folder.
+    if (missing.length > list.length / 2) {
+      throw new Error(`That folder does not look like "${entry.name}": ${missing.length} of ${list.length} files are new.`);
+    }
+    if (!missing.length) return { entry, added: 0 };
+
+    const dir = await patchDir(entry, true);
+    let bytes = 0;
+    for (let i = 0; i < missing.length; i++) {
+      const file = missing[i];
+      let path = file.webkitRelativePath || file.name;
+      if (rootName && path.startsWith(rootName + "/")) path = path.slice(rootName.length + 1);
+      await writeFile(dir, path, file);
+      bytes += file.size;
+      onProgress(`copying ${i + 1} / ${missing.length} hidden files...`);
+    }
+
+    const updated = await dbPut({
+      ...entry,
+      patchCount: (entry.patchCount || 0) + missing.length,
+      patchBytes: (entry.patchBytes || 0) + bytes,
+      fileCount: entry.fileCount + missing.length,
+      bytes: entry.bytes + bytes,
+    });
+    return { entry: updated, added: missing.length };
   }
 
   async function copyToStorage(entry, onProgress) {
@@ -736,6 +857,9 @@
   }
 
   async function remove(entry) {
+    try {
+      await (await storageRoot()).removeEntry(`${entry.id}-patch`, { recursive: true });
+    } catch (error) { /* no patch */ }
     if (entry.kind === "stored") {
       try {
         await (await storageRoot()).removeEntry(entry.id, { recursive: true });
@@ -797,7 +921,7 @@
             <input type="url" id="library-url" placeholder="https://example.com/game.zip" />
             <button class="retro-button" type="submit">download</button>
           </form>
-          <p class="control-note" id="library-note"><span class="brief">Add a game folder, or paste a link to a .zip or .7z.</span><span class="verbose">Folders stay where they are; only a reference is kept, so adding one is instant. Downloads and files are copied into this browser.</span></p>
+          <p class="control-note" id="library-note">Folders stay where they are; only a reference is kept, so adding one is instant. Downloads and files are copied into this browser. If a game later reports missing files, use "fix missing files": the browser hides files with unusual names from linked folders, and that copies just those back in.</p>
         </div>
         <div class="library-list" id="library-list"></div>
         <div class="library-foot">
@@ -870,7 +994,7 @@
 
   async function render() {
     const list = dialog.querySelector("#library-list");
-    const entries = await dbAll();
+    const entries = await redetect(await dbAll());
     const space = await usage();
     const note = dialog.querySelector("#library-note");
     if (space) {
@@ -908,6 +1032,7 @@
             <button class="retro-button" type="button" data-act="boot">${pickEngine ? (matches ? "use this" : "use anyway") : "play"}</button>`}
             ${pickEngine ? "" : `<button class="retro-button secondary" type="button" data-act="beam">beam</button>`}
             ${entry.kind === "linked" ? `<button class="retro-button secondary" type="button" data-act="copy">make a copy</button>` : ""}
+            ${pickEngine || entry.engine === "archive" ? "" : `<button class="retro-button secondary" type="button" data-act="patch">fix missing files</button>`}
             ${entry.engine === "archive" ? `<button class="retro-button secondary" type="button" data-act="unzip">unzip</button>` : ""}
             <button class="retro-button secondary" type="button" data-act="remove">remove</button>
           </div>
@@ -929,6 +1054,8 @@
             (entry.kind === "stored" ? "\n\nIts copy in this browser is deleted." : "\n\nThe folder on your device is left alone."))) {
             run(() => remove(entry), "Removed.");
           }
+        } else if (act === "patch") {
+          patchIntro(entry);
         } else if (act === "boot") {
           const chosen = button.closest(".library-item").querySelector(".library-engine");
           run(() => boot(entry, chosen ? chosen.value : entry.engine), "Handed to the runtime.");
@@ -937,12 +1064,62 @@
     });
   }
 
+  // Asked before the folder picker opens, because "pick the folder again"
+  // makes no sense without knowing why. The picker is opened straight from
+  // this dialog's button: a file input needs the click to open it.
+  function patchIntro(entry) {
+    const intro = document.createElement("div");
+    intro.className = "library-backdrop library-intro";
+    intro.innerHTML = `
+      <div class="library-modal" role="dialog" aria-modal="true" aria-label="fix missing files">
+        <div class="library-bar">
+          <b>fix missing files</b>
+          <button class="tiny-button" type="button" data-intro="cancel">cancel</button>
+        </div>
+        <div class="library-add">
+          <p class="control-note brief">Your browser hides files with unusual names, so a few of a game's files can be missing. Pick <b>${escapeHtml(entry.name)}</b>'s folder again and noberu copies just those missing files in.</p>
+          <p class="control-note verbose">Chrome does not let a linked folder show files whose names it considers unsafe, such as names containing control characters, so those files never reach the game and it may report them as missing. Choosing the folder again here uses a different picker, one that can see them; noberu compares the two listings and copies only the difference into this browser. The game keeps using your folder for everything else.</p>
+          <p class="control-note">Choose the same folder you added for this game — the folder itself, not a file inside it. Nothing on your device is changed.</p>
+          <div class="button-row">
+            <button class="retro-button" type="button" data-intro="pick">choose folder</button>
+            <button class="retro-button secondary" type="button" data-intro="cancel">cancel</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(intro);
+
+    const close = () => intro.remove();
+    intro.querySelectorAll('[data-intro="cancel"]').forEach((b) => b.addEventListener("click", close));
+    intro.addEventListener("click", (event) => {
+      if (event.target === intro) close();
+    });
+
+    intro.querySelector('[data-intro="pick"]').addEventListener("click", () => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.webkitdirectory = true;
+      input.multiple = true;
+      input.addEventListener("change", () => {
+        close();
+        if (!input.files.length) return;
+        run(async () => {
+          const { added } = await addMissing(entry, input.files, status);
+          status(added
+            ? `recovered ${added} file${added === 1 ? "" : "s"} the browser had hidden`
+            : "nothing was missing");
+        }, "Checked.");
+      });
+      input.addEventListener("cancel", close);
+      input.click();
+    });
+  }
+
   async function boot(entry, engineId) {
     const engine = ENGINES[engineId] || ENGINES[entry.engine] || ENGINES.unknown;
     // A corrected guess is worth keeping, along with the root that engine
     // expects (Ren'Py's is the folder above game/).
     if (engineId && engineId !== entry.engine) {
-      entry = { ...entry, engine: engineId, root: gameRoot(engineId, entry.root || "") };
+      entry = { ...entry, engine: engineId, root: gameRoot(engineId, entry.root || ""), detectVersion: DETECT_VERSION };
       await dbPut(entry);
     }
     status("opening files...");

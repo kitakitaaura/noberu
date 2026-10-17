@@ -16,3 +16,6 @@ boxedwine.zip
 # Dev-only link to a local copy of DDLC (see renpy-runtime/README.md)
 renpy-runtime/testddlc
 renpy-runtime/testddlc_filelist.txt
+
+# Generated on the staged copy by tools/offline-manifest.mjs (tools/stage-deploy.sh)
+offline.json

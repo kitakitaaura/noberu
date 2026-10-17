@@ -382,7 +382,17 @@
 
   async function send(entry, options = {}) {
     const onlySaves = !!options.saveSet;
-    const ui = openDialog(onlySaves ? `beam ${entry.name}'s saves` : `beam ${entry.name}`);
+    const ui = openDialog(
+      onlySaves ? `beam ${entry.name}'s saves` : `beam ${entry.name}`,
+      onlySaves
+        ? {
+            brief: "Sends these saves to another device that already has the game. Open noberu there, choose receive, and enter this code.",
+            verbose: "Sends these saves to another device that already has the game. Open noberu there, choose receive, and enter this code, or scan it. The saves go straight from this device to that one, so keep both pages open until it finishes.",
+          }
+        : {
+            brief: "Sends this game to another device. Open noberu there, choose receive, and enter this code.",
+            verbose: "Sends this game, and its saves, to another device. Open noberu there, choose receive, and enter this code, or scan it. The files go straight from this device to that one, never through a server, so keep both pages open until it finishes.",
+          });
     let sig = null;
     let link = null;
     ui.onCancel(() => {
@@ -524,7 +534,10 @@
   // --- receiving ---------------------------------------------------------------------------
 
   async function receive(initialCode) {
-    const ui = openDialog("receive a beam");
+    const ui = openDialog("receive a beam", {
+      brief: "Gets a game or saves from another device. Enter the code it is showing.",
+      verbose: "Gets a game, or just its saves, from another device running noberu. Enter the code that device is showing, or open its link. The files arrive straight from it, so keep both pages open until it finishes.",
+    });
     let sig = null;
     let link = null;
     let target = null;
@@ -797,6 +810,7 @@
     .beam-qr { width: min(13rem, 60vw); aspect-ratio: 1; background: #fff; border-radius: 10px; padding: 0.5rem; }
     .beam-qr svg { width: 100%; height: 100%; display: block; }
     .beam-note { margin: 0; color: var(--muted); font-size: 0.85rem; line-height: 1.45; }
+    .beam-about { padding-bottom: 0.2rem; }
     .beam-meter { width: 100%; height: 0.55rem; border-radius: 999px; background: var(--line); overflow: hidden; }
     .beam-meter span { display: block; height: 100%; width: 0; background: var(--gold, #f19a38); transition: width 0.2s; }
     .beam-input { width: 10.5ch; font: 900 1.8rem/1.2 inherit; letter-spacing: 0.15em; text-align: center;
@@ -809,7 +823,7 @@
     .beam-hidden { display: none !important; }
   `;
 
-  function openDialog(title) {
+  function openDialog(title, about = null) {
     if (!document.querySelector("#beam-style")) {
       const style = document.createElement("style");
       style.id = "beam-style";
@@ -825,6 +839,7 @@
           <button class="tiny-button" type="button" data-beam="close">cancel</button>
         </div>
         <div class="beam-body">
+          ${about ? `<p class="beam-note beam-about"><span class="brief">${escapeHtml(about.brief)}</span><span class="verbose">${escapeHtml(about.verbose)}</span></p>` : ""}
           <div class="beam-code beam-hidden" data-beam="code"></div>
           <div class="beam-qr beam-hidden" data-beam="qr"></div>
           <form class="beam-actions beam-hidden" data-beam="ask">

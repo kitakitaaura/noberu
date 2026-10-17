@@ -200,6 +200,9 @@
         <button class="retro-button secondary" type="button" data-act="erase">erase</button>
       </div>`,
 
+    // Filled in by assets/offline.js each time the panel opens.
+    offline: `<div data-offline-panel></div>`,
+
     // The games checked on noberu (the one list; About no longer has it).
     tested: `
       <p class="settings-note">Games checked on noberu. Others on the same engine usually work too.</p>
@@ -211,6 +214,8 @@
           <dd>Narcissu, Tsukihime (Mirror Moon)</dd>
           <dt>umineko</dt>
           <dd>Umineko Project <small>needs a lot of memory</small></dd>
+          <dt>ponscripter</dt>
+          <dd>Ciconia When They Cry Phase 1 (Steam)</dd>
           <dt>RealLive</dt>
           <dd>Clannad, Kanon (Steam, English), Little Busters!</dd>
           <dt>KiriKiri</dt>
@@ -252,7 +257,7 @@
               data-panel="${name}" hidden>${PANELS[name]}</section>`).join("")}
           </div>
         </div>
-        <div class="library-foot">noberu v0.2 · settings are kept in this browser.</div>
+        <div class="library-foot">noberu v0.3 beta · settings are kept in this browser.</div>
       </div>`;
     document.body.appendChild(dialog);
 
@@ -298,6 +303,9 @@
       panel.hidden = panel.dataset.panel !== name;
     });
     if (name === "storage") refreshStorage();
+    if (name === "offline" && window.NoberuOffline) {
+      window.NoberuOffline.renderInto(dialog.querySelector("[data-offline-panel]"));
+    }
   }
 
   // Puts every control back in line with what is stored.
