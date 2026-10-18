@@ -6,11 +6,21 @@
 # built with pthreads, and a browser only offers SharedArrayBuffer - which those
 # threads need - on a cross-origin-isolated page.
 #
-# require-corp is safe because the site fetches nothing cross-origin. If that ever
-# changes, the cross-origin response needs a Cross-Origin-Resource-Policy header of
-# its own (or a passing CORS check) or it will be blocked.
+# require-corp blocks any cross-origin response without a Cross-Origin-Resource-Policy
+# header of its own or a passing CORS check. The one cross-origin load is GoatCounter's
+# count.js (index.html), loaded with crossorigin="anonymous" for exactly that reason.
+#
+# Cache-Control: Pages otherwise gives everything but the page itself a 4-hour
+# max-age, so after a deploy a browser could pair the new index.html with
+# yesterday's scripts (a new tab whose engine assets/library.js doesn't know
+# yet), or a rebuilt engine's .js with its old .wasm. Revalidate everything
+# instead: an unchanged file is a 304 with no body.
+#
+# Keep this one block: a second /* block replaces this one rather than adding
+# to it, which silently drops the isolation headers.
 /*
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Embedder-Policy: require-corp
   Cross-Origin-Resource-Policy: same-origin
   Origin-Agent-Cluster: ?1
+  Cache-Control: public, max-age=0, must-revalidate
