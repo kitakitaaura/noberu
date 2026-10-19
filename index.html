@@ -173,140 +173,6 @@
       }
     }
 
-    /* Credit overload: sitewide, not scoped to the slots tab, because the
-       whole point is you can rack up 200 credits on the slots screen and
-       then get punished for it everywhere else on the site too. See
-       applyCreditOverload() — it just toggles this class on <body>. */
-    #glitch-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 99998;
-      pointer-events: none;
-    }
-
-    body.credit-overload #glitch-overlay {
-      display: block;
-      background:
-        repeating-linear-gradient(0deg, rgba(255, 79, 135, 0.14) 0 2px, transparent 2px 4px),
-        repeating-linear-gradient(90deg, rgba(39, 216, 255, 0.14) 0 2px, transparent 2px 4px);
-      mix-blend-mode: screen;
-      animation: overload-flicker 0.11s steps(2) infinite, overload-tear 0.5s steps(1) infinite;
-    }
-
-    @keyframes overload-flicker {
-
-      0%,
-      100% {
-        opacity: 0.45;
-      }
-
-      50% {
-        opacity: 0.95;
-      }
-    }
-
-    @keyframes overload-tear {
-
-      0%,
-      78%,
-      100% {
-        clip-path: inset(0 0 100% 0);
-      }
-
-      80% {
-        clip-path: inset(6% 0 74% 0);
-        transform: translateX(-22px);
-        background-color: rgba(255, 79, 135, 0.22);
-      }
-
-      84% {
-        clip-path: inset(38% 0 32% 0);
-        transform: translateX(18px);
-        background-color: rgba(39, 216, 255, 0.22);
-      }
-
-      88% {
-        clip-path: inset(62% 0 8% 0);
-        transform: translateX(-14px);
-        background-color: rgba(207, 255, 106, 0.2);
-      }
-
-      92% {
-        clip-path: inset(15% 0 55% 0);
-        transform: translateX(10px);
-        background-color: transparent;
-      }
-
-      96%,
-      99% {
-        clip-path: inset(0 0 96% 0);
-        transform: translateX(0);
-      }
-    }
-
-    @keyframes overload-shake {
-
-      0%,
-      100% {
-        transform: translate(0, 0);
-      }
-
-      20% {
-        transform: translate(-3px, 2px);
-      }
-
-      40% {
-        transform: translate(3px, -2px);
-      }
-
-      60% {
-        transform: translate(-2px, -3px);
-      }
-
-      80% {
-        transform: translate(2px, 3px);
-      }
-    }
-
-    /* .bottom-tabs is already centered via `transform: translateX(-50%)`
-       (it sits at left:50%); a shared shake keyframe would clobber that
-       base transform instead of adding to it, since an element can only
-       have one `transform` value at a time. This variant bakes the -50%
-       back in so the bar shakes in place instead of jumping to the right. */
-    @keyframes overload-shake-centered {
-
-      0%,
-      100% {
-        transform: translateX(-50%) translate(0, 0);
-      }
-
-      20% {
-        transform: translateX(-50%) translate(-3px, 2px);
-      }
-
-      40% {
-        transform: translateX(-50%) translate(3px, -2px);
-      }
-
-      60% {
-        transform: translateX(-50%) translate(-2px, -3px);
-      }
-
-      80% {
-        transform: translateX(-50%) translate(2px, 3px);
-      }
-    }
-
-    body.credit-overload .topbar,
-    body.credit-overload .shell {
-      animation: overload-shake 0.15s infinite;
-    }
-
-    body.credit-overload .bottom-tabs {
-      animation: overload-shake-centered 0.15s infinite;
-    }
-
     button,
     input {
       font: inherit;
@@ -521,58 +387,6 @@
       outline: none;
     }
 
-    .start-menu {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      margin-top: 0.4rem;
-      min-width: 13rem;
-      display: grid;
-      border: 2px solid var(--line);
-      border-radius: 0 6px 6px 6px;
-      background: rgba(5, 14, 17, 0.98);
-      box-shadow: 0 0 18px rgba(53, 255, 178, 0.24), 3px 3px 0 rgba(39, 216, 255, 0.16);
-      overflow: hidden;
-      z-index: 20;
-    }
-
-    .start-menu[hidden] {
-      display: none;
-    }
-
-    .start-menu-item {
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-      padding: 0.55rem 0.7rem;
-      border: 0;
-      border-bottom: 1px solid rgba(157, 254, 240, 0.24);
-      background: transparent;
-      color: var(--ink);
-      font: inherit;
-      font-size: 0.85rem;
-      font-weight: 800;
-      text-align: left;
-      white-space: nowrap;
-      cursor: pointer;
-    }
-
-    .start-menu-item:last-child {
-      border-bottom: 0;
-    }
-
-    .start-menu-item:hover,
-    .start-menu-item:focus-visible {
-      background: rgba(53, 255, 178, 0.14);
-      outline: none;
-    }
-
-    .start-menu-item .tab-icon {
-      width: 1.8rem;
-      height: 1.8rem;
-      font-size: 0.95rem;
-    }
-
     .brand-text {
       display: flex;
       align-items: center;
@@ -673,22 +487,6 @@
     .play-frame-wrap:fullscreen .play-canvas {
       width: min(100vw - 2rem, calc((100vh - 7rem) * 1.333));
       max-height: calc(100vh - 7rem);
-    }
-
-    /* Start-menu mini-games (arcade, slots) have no frame-wrap/upload
-       staging step — their canvas already fills the .viewport directly —
-       so the viewport itself is the fullscreen target instead. */
-    #arcade-viewport.emulator-maximized,
-    #arcade-viewport:fullscreen,
-    #slots-viewport.emulator-maximized,
-    #slots-viewport:fullscreen {
-      position: fixed;
-      inset: 0;
-      z-index: 10000;
-      width: 100vw;
-      height: 100vh;
-      border: 0;
-      background: #020807;
     }
 
     .window-title {
@@ -1651,7 +1449,6 @@
 
 <body>
   <div id="bg-art" aria-hidden="true"></div>
-  <div id="glitch-overlay" aria-hidden="true"></div>
   <div id="mobile-block" role="alert">
     <div class="mobile-block-card">
       <div class="logo-box" aria-hidden="true">noberu</div>
@@ -1668,8 +1465,7 @@
   </div>
   <header class="topbar" aria-label="site status">
     <div class="brand-chip">
-      <button class="logo-box wordmark" id="noberu-menu-button" type="button" aria-haspopup="menu" aria-expanded="false"
-        aria-controls="start-menu" aria-label="noberu menu">
+      <button class="logo-box wordmark" id="noberu-menu-button" type="button" aria-label="noberu: your games">
         <svg class="wordmark-glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <rect x="2.5" y="5" width="19" height="13" rx="3.2" fill="none" stroke="currentColor" stroke-width="1.8" />
           <path d="M6.5 9.6h8.5M6.5 13.2h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
@@ -1685,16 +1481,6 @@
             fill="currentColor" />
         </svg>
       </button>
-      <div class="start-menu" id="start-menu" role="menu" aria-label="noberu menu" hidden>
-        <button class="start-menu-item" type="button" role="menuitem" data-tab="arcade">
-          <span class="tab-icon" aria-hidden="true">⬤</span>
-          <span>arcade — breakout</span>
-        </button>
-        <button class="start-menu-item" type="button" role="menuitem" data-tab="slots">
-          <span class="tab-icon" aria-hidden="true">🎰</span>
-          <span>slots — jackpot</span>
-        </button>
-      </div>
     </div>
     <div class="topbar-actions">
       <!-- Phones and tablets only, until noberu is installed (assets/install.js). -->
@@ -3031,111 +2817,6 @@
         </div>
       </div>
 
-      <div class="view" id="arcade-view" role="region" aria-label="arcade">
-        <div class="screen">
-          <div class="viewport" id="arcade-viewport">
-            <div class="static-noise" aria-hidden="true"></div>
-            <canvas id="arcade-canvas" width="640" height="480"
-              style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
-            <div class="runtime-overlay" id="arcade-hint">
-              <div class="runtime-card">
-                <b>hover to play</b>
-                <p>Move your mouse over the screen — the paddle follows your cursor. Break every brick.</p>
-              </div>
-            </div>
-          </div>
-
-          <aside class="side-panel" aria-label="arcade info">
-            <div class="panel-header">
-              <h2>arcade</h2>
-              <p>if your game wont load just play and give up thats what i dox</p>
-            </div>
-            <div class="panel-body">
-              <div class="mini-row">
-                <div class="mini-icon" aria-hidden="true">01</div>
-                <div>
-                  <b>Score</b>
-                  <span id="arcade-score">0</span>
-                </div>
-              </div>
-              <div class="mini-row">
-                <div class="mini-icon" aria-hidden="true">02</div>
-                <div>
-                  <b>Lives</b>
-                  <span id="arcade-lives">3</span>
-                </div>
-              </div>
-              <div class="mini-row">
-                <div class="mini-icon" aria-hidden="true">03</div>
-                <div>
-                  <b>Controls</b>
-                  <span>Move the mouse left/right over the screen to steer. The game pauses whenever your cursor
-                    leaves.</span>
-                </div>
-              </div>
-            </div>
-            <div class="panel-footer">
-              <p id="arcade-status">Status: idle. Hover the screen to play.</p>
-            </div>
-          </aside>
-        </div>
-      </div>
-
-      <div class="view" id="slots-view" role="region" aria-label="slots">
-        <div class="screen">
-          <div class="viewport" id="slots-viewport">
-            <div class="static-noise" aria-hidden="true"></div>
-            <canvas id="slots-canvas" width="640" height="480"
-              style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
-          </div>
-
-          <aside class="side-panel" aria-label="slots info">
-            <div class="panel-header">
-              <h2>slots</h2>
-              <p>A tiny slot machine.</p>
-            </div>
-            <div class="panel-body">
-              <div class="mini-row">
-                <div class="mini-icon" aria-hidden="true">01</div>
-                <div>
-                  <b>Credits</b>
-                  <span id="slots-credits">100</span>
-                </div>
-              </div>
-              <div class="mini-row">
-                <div class="mini-icon" aria-hidden="true">02</div>
-                <div>
-                  <b>Last result</b>
-                  <span id="slots-result">—</span>
-                </div>
-              </div>
-              <div class="mini-row">
-                <div class="mini-icon" aria-hidden="true">03</div>
-                <div>
-                  <b>Free credits</b>
-                  <span id="slots-claim-note">+20 available now — hit claim.</span>
-                </div>
-              </div>
-              <div class="mini-row">
-                <div class="mini-icon" aria-hidden="true">04</div>
-                <div>
-                  <b>Payouts</b>
-                  <span>Three of a kind pays big (more for rarer symbols). Two adjacent matches pay a little.
-                    Each spin costs 10 credits.</span>
-                </div>
-              </div>
-              <div class="button-row">
-                <button class="retro-button" type="button" id="slots-spin">spin (10 credits)</button>
-                <button class="retro-button secondary" type="button" id="slots-claim">claim +20</button>
-              </div>
-            </div>
-            <div class="panel-footer">
-              <p id="slots-status">Status: ready. Hit spin.</p>
-            </div>
-          </aside>
-        </div>
-      </div>
-
       <div class="status-strip">
         <div class="status-readout" id="status-readout">Channel: games / shelf</div>
         <div class="status-live"><span class="live-dot" aria-hidden="true"></span> LOCAL</div>
@@ -3293,8 +2974,6 @@
       siglus: document.querySelector("#siglus-view"),
       tyrano: document.querySelector("#tyrano-view"),
       rpgmaker: document.querySelector("#rpgmaker-view"),
-      arcade: document.querySelector("#arcade-view"),
-      slots: document.querySelector("#slots-view"),
     };
     const statusReadout = document.querySelector("#status-readout");
     const romInput = document.querySelector("#rom-input");
@@ -3365,10 +3044,7 @@
     let vndsStagedEntries = null;
     let vndsBooting = false;
     let stagedFile = null;
-    const arcadeViewport = document.querySelector("#arcade-viewport");
-    const slotsViewport = document.querySelector("#slots-viewport");
     const noberuMenuButton = document.querySelector("#noberu-menu-button");
-    const startMenu = document.querySelector("#start-menu");
     let currentTab = "shelf";
     let playBridgePromise = null;
     let runtimeReady = false;
@@ -3434,10 +3110,6 @@
               ? "Channel: rpg maker / MV-MZ staging"
               : tabName === "kirikiri"
               ? "Channel: kirikiri / KAG staging"
-              : tabName === "arcade"
-              ? "Channel: arcade / breakout"
-              : tabName === "slots"
-                ? "Channel: slots / jackpot"
                 : "Channel: ps2 / Play! staging";
     }
 
@@ -3508,12 +3180,6 @@
       }
       if (currentTab === "rpgmaker") {
         return { frameWrap: rpgmakerFrameWrap, label: "rpg maker runtime", channel: "rpg maker / MV-MZ", focusEl: rpgmakerIframe };
-      }
-      if (currentTab === "arcade") {
-        return { frameWrap: arcadeViewport, label: "arcade — breakout", channel: "arcade / breakout", focusEl: arcadeViewport };
-      }
-      if (currentTab === "slots") {
-        return { frameWrap: slotsViewport, label: "slots — jackpot", channel: "slots / jackpot", focusEl: slotsViewport };
       }
       return null;
     }
@@ -5637,496 +5303,16 @@
 
     // --- end vnds tab ------------------------------------------------------
 
-    // --- arcade tab: glitchy breakout, hover to play ----------------------
-    (function initArcade() {
-      const canvas = document.querySelector("#arcade-canvas");
-      const viewport = document.querySelector("#arcade-viewport");
-      const hint = document.querySelector("#arcade-hint");
-      const statusEl = document.querySelector("#arcade-status");
-      const scoreEl = document.querySelector("#arcade-score");
-      const livesEl = document.querySelector("#arcade-lives");
-      if (!canvas) return;
-      const ctx = canvas.getContext("2d");
-      const W = canvas.width, H = canvas.height;
-
-      const brickColors = ["#35ffb2", "#27d8ff", "#cfff6a", "#ff4f87", "#5a7dff"];
-      const rows = 5, cols = 10;
-      const brickW = 52, brickH = 16, brickGap = 6, brickTop = 40;
-      const brickLeft = (W - (cols * (brickW + brickGap) - brickGap)) / 2;
-
-      let bricks, paddleX, paddleW, paddleH, targetX;
-      let ballX, ballY, ballVX, ballVY, ballR;
-      let score, lives, running, glitchUntil;
-
-      function resetBall() {
-        ballX = W / 2;
-        ballY = H - 60;
-        const angle = Math.random() * 0.6 + 0.2; // 0.2–0.8 radians off vertical
-        const dir = Math.random() < 0.5 ? -1 : 1;
-        ballVX = dir * 4 * Math.sin(angle);
-        ballVY = -4 * Math.cos(angle);
-        ballR = 6;
-      }
-
-      function resetGame() {
-        bricks = [];
-        for (let r = 0; r < rows; r++) {
-          for (let c = 0; c < cols; c++) {
-            bricks.push({
-              x: brickLeft + c * (brickW + brickGap),
-              y: brickTop + r * (brickH + brickGap),
-              alive: true,
-              color: brickColors[r % brickColors.length],
-            });
-          }
-        }
-        paddleW = 90;
-        paddleH = 12;
-        paddleX = W / 2 - paddleW / 2;
-        targetX = W / 2;
-        score = 0;
-        lives = 3;
-        resetBall();
-        updateHud();
-      }
-
-      function updateHud() {
-        if (scoreEl) scoreEl.textContent = String(score);
-        if (livesEl) livesEl.textContent = String(lives);
-      }
-
-      function ballHits(bx, by, bw, bh) {
-        return ballX + ballR > bx && ballX - ballR < bx + bw &&
-          ballY + ballR > by && ballY - ballR < by + bh;
-      }
-
-      function triggerGlitch() {
-        glitchUntil = performance.now() + 140;
-      }
-
-      function step() {
-        paddleX += (targetX - paddleW / 2 - paddleX) * 0.25;
-        paddleX = Math.max(0, Math.min(W - paddleW, paddleX));
-
-        ballX += ballVX;
-        ballY += ballVY;
-
-        if (ballX - ballR < 0 || ballX + ballR > W) ballVX *= -1;
-        if (ballY - ballR < 0) ballVY *= -1;
-
-        if (ballVY > 0 && ballHits(paddleX, H - 24, paddleW, paddleH)) {
-          const hitPos = Math.max(-1, Math.min(1, (ballX - (paddleX + paddleW / 2)) / (paddleW / 2)));
-          const speed = Math.hypot(ballVX, ballVY);
-          const angle = hitPos * (Math.PI / 3); // up to 60° off vertical
-          ballVX = speed * Math.sin(angle);
-          ballVY = -Math.abs(speed * Math.cos(angle));
-        }
-
-        for (const brick of bricks) {
-          if (!brick.alive) continue;
-          if (ballHits(brick.x, brick.y, brickW, brickH)) {
-            brick.alive = false;
-            ballVY *= -1;
-            score += 10;
-            updateHud();
-            if (Math.random() < 0.2) triggerGlitch();
-            break;
-          }
-        }
-
-        if (ballY - ballR > H) {
-          lives -= 1;
-          updateHud();
-          if (lives <= 0) {
-            statusEl.textContent = "Status: game over — hover to try again.";
-            resetGame();
-          } else {
-            triggerGlitch();
-            resetBall();
-          }
-        }
-
-        if (bricks.every((brick) => !brick.alive)) {
-          statusEl.textContent = "Status: cleared! restarting...";
-          triggerGlitch();
-          resetGame();
-        }
-      }
-
-      function draw() {
-        ctx.fillStyle = "#020807";
-        ctx.fillRect(0, 0, W, H);
-
-        ctx.strokeStyle = "rgba(53,255,178,0.08)";
-        ctx.lineWidth = 1;
-        for (let x = 0; x < W; x += 16) {
-          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-        }
-        for (let y = 0; y < H; y += 16) {
-          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
-        }
-
-        for (const brick of bricks) {
-          if (!brick.alive) continue;
-          ctx.fillStyle = brick.color;
-          ctx.shadowColor = brick.color;
-          ctx.shadowBlur = 6;
-          ctx.fillRect(brick.x, brick.y, brickW, brickH);
-        }
-        ctx.shadowBlur = 0;
-
-        ctx.fillStyle = "#35ffb2";
-        ctx.shadowColor = "#35ffb2";
-        ctx.shadowBlur = 10;
-        ctx.fillRect(paddleX, H - 24, paddleW, paddleH);
-
-        ctx.fillStyle = "#d9fff4";
-        ctx.shadowColor = "#27d8ff";
-        ctx.shadowBlur = 12;
-        ctx.beginPath();
-        ctx.arc(ballX, ballY, ballR, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-
-        ctx.font = "bold 16px 'Courier New', monospace";
-        ctx.fillStyle = "rgba(217,255,244,0.85)";
-        ctx.textAlign = "left";
-        ctx.fillText("SCORE " + score, 12, 22);
-        ctx.textAlign = "right";
-        ctx.fillText("LIVES " + lives, W - 12, 22);
-
-        // Chromatic-aberration-style glitch burst: a few horizontal bands of
-        // the canvas copied onto themselves with a random x-offset, plus a
-        // brief color-tinted flash. Cheap, no offscreen buffer needed since
-        // canvas can be its own drawImage source.
-        if (glitchUntil && performance.now() < glitchUntil) {
-          const bands = 2 + Math.floor(Math.random() * 3);
-          for (let i = 0; i < bands; i++) {
-            const sy = Math.random() * H;
-            const sh = 6 + Math.random() * 20;
-            const dx = (Math.random() - 0.5) * 28;
-            ctx.drawImage(canvas, 0, sy, W, sh, dx, sy, W, sh);
-          }
-          ctx.globalAlpha = 0.12;
-          ctx.fillStyle = Math.random() < 0.5 ? "#ff4f87" : "#27d8ff";
-          ctx.fillRect(0, 0, W, H);
-          ctx.globalAlpha = 1;
-        } else if (Math.random() < 0.006) {
-          triggerGlitch();
-        }
-      }
-
-      function loop() {
-        if (!running) return;
-        step();
-        draw();
-        requestAnimationFrame(loop);
-      }
-
-      function startArcade() {
-        if (running) return;
-        running = true;
-        hint.classList.add("hidden");
-        statusEl.textContent = "Status: playing — move the mouse to steer the paddle.";
-        requestAnimationFrame(loop);
-      }
-
-      function stopArcade() {
-        running = false;
-        hint.classList.remove("hidden");
-        statusEl.textContent = "Status: idle. Hover the screen to play.";
-      }
-
-      viewport.addEventListener("mouseenter", startArcade);
-      viewport.addEventListener("mouseleave", stopArcade);
-      viewport.addEventListener("mousemove", (event) => {
-        const rect = canvas.getBoundingClientRect();
-        targetX = (event.clientX - rect.left) * (W / rect.width);
-      });
-
-      resetGame();
-      draw();
-    })();
-
-    // --- end arcade tab ----------------------------------------------------
-
-    // --- slots tab: glitchy slot machine -----------------------------------
-    // Credits state lives in localStorage (this is a static site, no
-    // backend) so it survives reloads and persists across tabs. Overload
-    // state is applied at load time too, before any tab is even opened —
-    // if you left the site sitting at 200+ credits, it should already be
-    // glitching the moment the page comes back, not just once you revisit
-    // the slots tab.
-    const CREDITS_STORAGE_KEY = "noberu-slots-state-v1";
-    const CLAIM_INTERVAL_MS = 4 * 60 * 60 * 1000;
-    const CLAIM_AMOUNT = 20;
-    const OVERLOAD_THRESHOLD = 200;
-
-    function loadCreditsState() {
-      try {
-        const raw = JSON.parse(localStorage.getItem(CREDITS_STORAGE_KEY));
-        if (raw && typeof raw.credits === "number" && typeof raw.nextClaimAt === "number") {
-          return raw;
-        }
-      } catch (e) { /* corrupt/missing, fall through to default */ }
-      return { credits: 100, nextClaimAt: Date.now() };
-    }
-
-    function saveCreditsState(state) {
-      try {
-        localStorage.setItem(CREDITS_STORAGE_KEY, JSON.stringify(state));
-      } catch (e) { /* storage unavailable (private mode, quota) — glitch state just won't persist */ }
-      applyCreditOverload(state.credits);
-    }
-
-    function applyCreditOverload(credits) {
-      document.body.classList.toggle("credit-overload", credits >= OVERLOAD_THRESHOLD);
-    }
-
-    function formatClaimCountdown(msRemaining) {
-      if (msRemaining <= 0) return "now";
-      const totalMinutes = Math.ceil(msRemaining / 60000);
-      const hours = Math.floor(totalMinutes / 60);
-      const minutes = totalMinutes % 60;
-      return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-    }
-
-    applyCreditOverload(loadCreditsState().credits);
-
-    (function initSlots() {
-      const canvas = document.querySelector("#slots-canvas");
-      const spinBtn = document.querySelector("#slots-spin");
-      const claimBtn = document.querySelector("#slots-claim");
-      const claimNoteEl = document.querySelector("#slots-claim-note");
-      const statusEl = document.querySelector("#slots-status");
-      const creditsEl = document.querySelector("#slots-credits");
-      const resultEl = document.querySelector("#slots-result");
-      if (!canvas) return;
-      const ctx = canvas.getContext("2d");
-      const W = canvas.width, H = canvas.height;
-
-      // Rarer symbols pay more. Weight controls how often a symbol is
-      // picked (higher = more common); payout is per-credit-staked.
-      const symbols = [
-        { glyph: "♥", weight: 10, payout: 2 },
-        { glyph: "◆", weight: 8, payout: 3 },
-        { glyph: "★", weight: 6, payout: 5 },
-        { glyph: "▣", weight: 4, payout: 10 },
-        { glyph: "✦", weight: 2, payout: 25 },
-        { glyph: "⬤", weight: 1, payout: 50 },
-      ];
-      const weightedPool = symbols.flatMap((s) => Array(s.weight).fill(s));
-      const spinCost = 10;
-
-      const reelCount = 3;
-      const reelW = 150, reelH = 150, reelGap = 24;
-      const reelsLeft = (W - (reelCount * reelW + (reelCount - 1) * reelGap)) / 2;
-      const reelTop = (H - reelH) / 2;
-
-      const initialState = loadCreditsState();
-      let credits = initialState.credits;
-      let nextClaimAt = initialState.nextClaimAt;
-      let reels = [symbols[0], symbols[0], symbols[0]];
-      let spinning = false;
-      let glitchUntil = 0;
-
-      function persist() {
-        saveCreditsState({ credits, nextClaimAt });
-      }
-
-      function randomSymbol() {
-        return weightedPool[Math.floor(Math.random() * weightedPool.length)];
-      }
-
-      function updateHud() {
-        creditsEl.textContent = String(credits);
-        spinBtn.disabled = credits < spinCost || spinning;
-        spinBtn.textContent = spinning ? "spinning..." : `spin (${spinCost} credits)`;
-
-        const claimReady = Date.now() >= nextClaimAt;
-        claimBtn.disabled = !claimReady;
-        claimBtn.textContent = claimReady ? `claim +${CLAIM_AMOUNT}` : "claimed";
-        claimNoteEl.textContent = claimReady
-          ? `+${CLAIM_AMOUNT} available now — hit claim.`
-          : `next +${CLAIM_AMOUNT} in ${formatClaimCountdown(nextClaimAt - Date.now())}.`;
-      }
-
-      function triggerGlitch() {
-        glitchUntil = performance.now() + 220;
-      }
-
-      function draw() {
-        ctx.fillStyle = "#020807";
-        ctx.fillRect(0, 0, W, H);
-
-        ctx.strokeStyle = "rgba(53,255,178,0.08)";
-        ctx.lineWidth = 1;
-        for (let x = 0; x < W; x += 16) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
-        for (let y = 0; y < H; y += 16) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
-
-        for (let i = 0; i < reelCount; i++) {
-          const x = reelsLeft + i * (reelW + reelGap);
-          ctx.strokeStyle = "#9dfef0";
-          ctx.lineWidth = 2;
-          ctx.strokeRect(x, reelTop, reelW, reelH);
-          ctx.fillStyle = "rgba(4, 14, 15, 0.9)";
-          ctx.fillRect(x, reelTop, reelW, reelH);
-
-          ctx.font = "bold 72px 'Courier New', monospace";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillStyle = "#d9fff4";
-          ctx.shadowColor = "#27d8ff";
-          ctx.shadowBlur = 14;
-          ctx.fillText(reels[i].glyph, x + reelW / 2, reelTop + reelH / 2);
-          ctx.shadowBlur = 0;
-        }
-
-        ctx.font = "bold 16px 'Courier New', monospace";
-        ctx.textAlign = "left";
-        ctx.textBaseline = "alphabetic";
-        ctx.fillStyle = "rgba(217,255,244,0.85)";
-        ctx.fillText("CREDITS " + credits, 12, 22);
-
-        if (glitchUntil && performance.now() < glitchUntil) {
-          const bands = 2 + Math.floor(Math.random() * 3);
-          for (let i = 0; i < bands; i++) {
-            const sy = Math.random() * H;
-            const sh = 8 + Math.random() * 26;
-            const dx = (Math.random() - 0.5) * 34;
-            ctx.drawImage(canvas, 0, sy, W, sh, dx, sy, W, sh);
-          }
-          ctx.globalAlpha = 0.14;
-          ctx.fillStyle = Math.random() < 0.5 ? "#cfff6a" : "#ff4f87";
-          ctx.fillRect(0, 0, W, H);
-          ctx.globalAlpha = 1;
-          requestAnimationFrame(draw);
-        }
-      }
-
-      function spinReel(index, duration) {
-        return new Promise((resolve) => {
-          const start = performance.now();
-          (function tick() {
-            const elapsed = performance.now() - start;
-            reels[index] = randomSymbol();
-            draw();
-            if (elapsed < duration) {
-              window.setTimeout(tick, 60);
-            } else {
-              resolve();
-            }
-          })();
-        });
-      }
-
-      async function spin() {
-        if (spinning || credits < spinCost) return;
-        spinning = true;
-        credits -= spinCost;
-        resultEl.textContent = "spinning...";
-        statusEl.textContent = "Status: spinning...";
-        updateHud();
-
-        // Cascading stop, like a real machine: reel 1 stops first.
-        await Promise.all([
-          spinReel(0, 500),
-          spinReel(1, 850),
-          spinReel(2, 1200),
-        ]);
-
-        const [a, b, c] = reels;
-        let winnings = 0;
-        let message;
-        if (a.glyph === b.glyph && b.glyph === c.glyph) {
-          winnings = spinCost * a.payout;
-          message = `${a.glyph}${a.glyph}${a.glyph} — jackpot! +${winnings}`;
-          triggerGlitch();
-        } else if (a.glyph === b.glyph || b.glyph === c.glyph) {
-          const pair = a.glyph === b.glyph ? a : b;
-          winnings = Math.round((spinCost * pair.payout) / 4);
-          message = `pair of ${pair.glyph} — +${winnings}`;
-          triggerGlitch();
-        } else {
-          message = "no match";
-        }
-
-        credits += winnings;
-        resultEl.textContent = message;
-        statusEl.textContent = credits >= OVERLOAD_THRESHOLD
-          ? "Status: 200+ credits — the whole site is glitching until you spend some."
-          : credits < spinCost
-            ? "Status: out of credits — claim your free 20 when it's ready."
-            : "Status: ready. Hit spin.";
-        spinning = false;
-        persist();
-        updateHud();
-        draw();
-      }
-
-      function claim() {
-        if (Date.now() < nextClaimAt) return;
-        credits += CLAIM_AMOUNT;
-        nextClaimAt = Date.now() + CLAIM_INTERVAL_MS;
-        resultEl.textContent = `claimed +${CLAIM_AMOUNT} free credits`;
-        statusEl.textContent = credits >= OVERLOAD_THRESHOLD
-          ? "Status: 200+ credits — the whole site is glitching until you spend some."
-          : "Status: ready. Hit spin.";
-        persist();
-        updateHud();
-        draw();
-      }
-
-      spinBtn.addEventListener("click", spin);
-      claimBtn.addEventListener("click", claim);
-
-      // Countdown ticks even if you just leave this tab open, so "claim"
-      // enables itself without needing a reload.
-      window.setInterval(updateHud, 1000);
-
-      updateHud();
-      draw();
-    })();
-
-    // --- end slots tab -------------------------------------------------
-
-    // --- start menu (noberu button → arcade / slots) ------------------
-    function openStartMenu() {
-      startMenu.hidden = false;
-      noberuMenuButton.setAttribute("aria-expanded", "true");
-    }
-    function closeStartMenu() {
-      startMenu.hidden = true;
-      noberuMenuButton.setAttribute("aria-expanded", "false");
-    }
-    // Same query as the phone layout in assets/mobile.css: there the arcade
-    // games are left out and the logo is simply the way home.
-    const phoneLayout = matchMedia("(max-width: 760px), (max-height: 520px) and (pointer: coarse)");
-
-    noberuMenuButton.addEventListener("click", (event) => {
-      event.stopPropagation();
-      if (phoneLayout.matches) {
-        closeStartMenu();
-        setTab("shelf");
-        window.scrollTo({ top: 0 });
-        return;
-      }
-      if (startMenu.hidden) openStartMenu(); else closeStartMenu();
+    // --- the logo: home, to your games ---------------------------------------
+    noberuMenuButton.addEventListener("click", () => {
+      setTab("shelf");
+      window.scrollTo({ top: 0 });
     });
-    startMenu.querySelectorAll(".start-menu-item").forEach((item) => {
-      item.addEventListener("click", () => {
-        closeStartMenu();
-        setTab(item.dataset.tab);
-      });
-    });
-    document.addEventListener("click", (event) => {
-      if (startMenu.hidden) return;
-      if (event.target === noberuMenuButton || startMenu.contains(event.target)) return;
-      closeStartMenu();
-    });
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && !startMenu.hidden) closeStartMenu();
-    });
+
+    // The arcade and slots mini-games are gone; so is what they kept.
+    try {
+      localStorage.removeItem("noberu-slots-state-v1");
+    } catch (error) { /* private mode */ }
 
     tabs.forEach((tab) => {
       tab.addEventListener("click", () => setTab(tab.dataset.tab));
@@ -6151,11 +5337,7 @@
     // button label resets once nothing is fullscreen. Collected from the page
     // rather than listed, so a new tab's frame-wrap is covered too — leaving
     // one out kept it maximized after Escape.
-    const allFrameWraps = () => [
-      ...document.querySelectorAll(".play-frame-wrap"),
-      arcadeViewport,
-      slotsViewport,
-    ];
+    const allFrameWraps = () => [...document.querySelectorAll(".play-frame-wrap")];
 
     function clearMaximized() {
       allFrameWraps().forEach((frameWrap) => {

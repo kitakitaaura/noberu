@@ -1,8 +1,8 @@
 // noberu's hooks for every runtime page: the master volume, sharp pixels and
 // hiding an idle cursor.
 //
-// Loaded first in each runtime page (and in index.html, where Play! and the
-// arcade run), before any engine code. Nothing engine-specific: it catches
+// Loaded first in each runtime page (and in index.html, where Play! runs),
+// before any engine code. Nothing engine-specific: it catches
 // sound where every engine has to send it, and styles every game canvas.
 //
 // Master volume:

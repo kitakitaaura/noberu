@@ -308,30 +308,6 @@ body::after {
   text-transform: none;
 }
 
-/* --- start menu --- */
-
-.start-menu {
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--panel-soft);
-  box-shadow: 0 12px 32px var(--drop-shadow);
-  overflow: hidden;
-}
-
-.start-menu-item {
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  font-weight: 500;
-  text-transform: none;
-}
-
-.start-menu-item:hover,
-.start-menu-item:focus-visible {
-  background: var(--surface-hover);
-  outline: none;
-}
-
 /* --- window --- */
 
 .window {
