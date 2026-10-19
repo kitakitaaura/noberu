@@ -122,6 +122,47 @@
       "  return global.noberu_regvalue_original(...);",
       "};",
       'Scripts.execStorage("startup_game.tjs");',
+      // Text for noberu's reading tools (assets/text.js): KAG's own tag
+      // handlers are wrapped, so each line is printed, marked, when the game
+      // waits for a click. A game that is not KAG just goes without.
+      "try {",
+      '  global.noberu_text = "";',
+      '  global.noberu_name = "";',
+      "  global.noberu_flush = function() {",
+      '    if (global.noberu_text == "") return;',
+      '    [global.noberu_name, global.noberu_text].save(System.dataPath + "noberu-say.txt");',
+      '    global.noberu_text = "";',
+      '    if (typeof global.noberu_wrap_all == "Object") global.noberu_wrap_all();',
+      "  };",
+      '  if (typeof global.kag == "Object" && typeof kag.tagHandlers == "Object") {',
+      "    var h = kag.tagHandlers;",
+      // Every visible message layer's processCh: KAG's [ch] tag ends up
+      // there, and so do games with their own text tags (Nekopara). Layers
+      // added later ([laycount]) are picked up at the next line.
+      "    global.noberu_wrap = function(layer) {",
+      '      if (layer === void || typeof layer.noberu_pc != "undefined") return;',
+      "      layer.noberu_pc = layer.processCh;",
+      "      layer.processCh = function(ch) {",
+      "        if (this.visible) global.noberu_text += ch;",
+      "        return this.noberu_pc(...);",
+      "      } incontextof layer;",
+      "    };",
+      "    global.noberu_wrap_all = function() {",
+      "      for (var i = 0; i < kag.fore.messages.count; i++) global.noberu_wrap(kag.fore.messages[i]);",
+      "      for (var i = 0; i < kag.back.messages.count; i++) global.noberu_wrap(kag.back.messages[i]);",
+      "    };",
+      "    global.noberu_wrap_all();",
+      '    if (h.r !== void) { global.noberu_h_r = h.r; h.r = function(elm) { global.noberu_text += "\\\\n"; return global.noberu_h_r(...); }; }',
+      "    if (h.l !== void) { global.noberu_h_l = h.l; h.l = function(elm) { global.noberu_flush(); return global.noberu_h_l(...); }; }",
+      '    if (h.p !== void) { global.noberu_h_p = h.p; h.p = function(elm) { global.noberu_flush(); global.noberu_name = ""; return global.noberu_h_p(...); }; }',
+      '    if (h.cm !== void) { global.noberu_h_cm = h.cm; h.cm = function(elm) { global.noberu_flush(); global.noberu_name = ""; return global.noberu_h_cm(...); }; }',
+      '    ["@hook", "on"].save(System.dataPath + "noberu-say.txt");',
+      "  } else {",
+      '    ["@hook", "off: no KAG (" + typeof global.kag + ")"].save(System.dataPath + "noberu-say.txt");',
+      "  }",
+      "} catch (e) {",
+      '  ["@hook", "error: " + e.message].save(System.dataPath + "noberu-say.txt");',
+      "}",
       "",
     ].join("\n");
   }
@@ -268,7 +309,33 @@
 
   let started = false;
 
+  // Text for noberu's reading tools: the prelude's KAG hook saves each line
+  // (name, then text) as noberu-say.txt, and it is taken out here as the
+  // engine closes the file, never kept as a save. Array.save writes UTF-16
+  // with a byte-order mark; anything else is read as UTF-8.
+  function watchSay() {
+    if (!window.VLFS || VLFS.__noberuSay) return;
+    VLFS.__noberuSay = true;
+    const close = VLFS.close.bind(VLFS);
+    VLFS.close = function (fd) {
+      const f = this._fds && this._fds.get(fd);
+      if (!f || f.mode !== 1 || !/(^|\/)noberu-say\.txt$/i.test(f.path)) return close(fd);
+      this._fds.delete(fd);
+      const bytes = f.entry.data.subarray(0, f.entry.size);
+      this._entries.delete(f.path);
+      const utf16 = bytes[0] === 0xff && bytes[1] === 0xfe;
+      const text = new TextDecoder(utf16 ? "utf-16le" : "utf-8").decode(utf16 ? bytes.subarray(2) : bytes);
+      const lines = text.replace(/\r/g, "").split("\n");
+      const name = lines.shift() || "";
+      const body = lines.join("\n").replace(/\\n/g, "\n").trim();
+      if (name === "@hook") console.info("[noberu] KiriKiri text hook:", body);
+      else if (body && window.NoberuSay) window.NoberuSay({ name, text: body, kind: "line" });
+      return 0;
+    };
+  }
+
   window.KrKrInstallAndBoot = async function (root, fileList) {
+    watchSay();
     try {
       if (started) return;
       started = true;

@@ -19,3 +19,8 @@ renpy-runtime/testddlc_filelist.txt
 
 # Generated on the staged copy by tools/offline-manifest.mjs (tools/stage-deploy.sh)
 offline.json
+
+# The reading tools' dictionary, built by tools/build-dict.mjs from
+# jmdict-simplified's JSON (kept in ~/Documents/noberu-assets/dict-src);
+# tools/stage-deploy.sh builds it when it is missing.
+dict/

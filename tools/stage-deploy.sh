@@ -18,6 +18,18 @@ set -eu
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
 DST="${1:-/tmp/noberu-deploy}"
 
+# The reading tools' dictionary (dict/) is generated, not committed.
+if [ ! -f "$SRC/dict/ja-en/meta.json" ]; then
+  DICT_SRC="${DICT_SRC:-$HOME/Documents/noberu-assets/dict-src}"
+  JM="$(ls "$DICT_SRC"/jmdict-eng-*.json 2>/dev/null | head -1)"
+  KD="$(ls "$DICT_SRC"/kanjidic2-en-*.json 2>/dev/null | head -1)"
+  if [ -n "$JM" ] && [ -n "$KD" ]; then
+    node "$SRC/tools/build-dict.mjs" "$JM" "$KD"
+  else
+    echo "warning: no dict/ and no dictionary sources in $DICT_SRC; the reading tools' dictionary won't work" >&2
+  fi
+fi
+
 rm -rf "$DST"
 mkdir -p "$DST"
 rsync -rptgoD \

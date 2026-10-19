@@ -1,0 +1,329 @@
+/* The noberu menu over a running game (assets/menu.js), and its toasts. */
+
+/* --- the toolbar button, and the corner handle in full screen ---------------- */
+
+.nb-menu-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+
+.nb-menu-button svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.nb-menu-button + button,
+.nb-menu-button ~ .frame-fullscreen {
+  margin-left: 0.35rem;
+}
+
+.nb-handle {
+  display: none;
+}
+
+.play-frame-wrap.emulator-maximized > .nb-handle,
+.play-frame-wrap:fullscreen > .nb-handle {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  background: rgba(11, 12, 13, 0.55);
+  color: #e9edef;
+  opacity: 0.35;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: opacity 0.18s ease;
+}
+
+.nb-handle:hover,
+.nb-handle:focus-visible {
+  opacity: 1;
+}
+
+.nb-handle svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* The touch pad has its own menu key. */
+:root[data-touch="1"] .play-frame-wrap > .nb-handle,
+:root[data-pad-desktop="1"] .play-frame-wrap.emulator-maximized:has(> .touch-pad:not(.tp-hidden)) > .nb-handle,
+:root[data-pad-desktop="1"] .play-frame-wrap:fullscreen:has(> .touch-pad:not(.tp-hidden)) > .nb-handle {
+  display: none;
+}
+
+/* --- the menu ------------------------------------------------------------------- */
+
+.nb-menu {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(5, 6, 7, 0.62);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  font-family: var(--mono);
+  animation: nb-fade 0.14s ease;
+}
+
+@keyframes nb-fade {
+  from { opacity: 0; }
+}
+
+.nb-menu-card {
+  width: min(32rem, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-box, 20px);
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
+}
+
+.nb-menu-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.nb-menu-head b {
+  display: block;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.nb-menu-head span {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.nb-menu-head kbd {
+  padding: 0.1rem 0.45rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.75rem;
+}
+
+.nb-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.45rem;
+}
+
+.nb-menu-grid button {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 0.3rem;
+  min-height: 5.2rem;
+  padding: 0.6rem 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius, 16px);
+  background: var(--panel-soft);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.74rem;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.nb-menu-grid button:hover,
+.nb-menu-grid button:focus-visible {
+  border-color: var(--line-strong);
+  background: var(--surface);
+  outline: none;
+}
+
+.nb-menu-grid button:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.nb-menu-grid button.primary {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.nb-menu-grid button.danger svg {
+  color: var(--red);
+}
+
+.nb-menu-grid button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.nb-menu-grid svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.nb-menu-grid small {
+  color: var(--muted);
+  font-size: 0.62rem;
+  line-height: 1.2;
+}
+
+.nb-menu-grid button.primary small {
+  color: inherit;
+}
+
+.nb-menu-volume {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.85rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm, 12px);
+  background: var(--panel-soft);
+}
+
+.nb-menu-volume button {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.nb-menu-volume button[aria-pressed="true"] {
+  color: var(--muted);
+}
+
+.nb-menu-volume svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.nb-menu-volume input {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.nb-menu-volume output {
+  min-width: 3.4rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-align: right;
+}
+
+.nb-menu-note {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.nb-menu-note:empty {
+  display: none;
+}
+
+/* --- screenshot flash and toasts -------------------------------------------------- */
+
+.nb-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  background: #fff;
+  pointer-events: none;
+  animation: nb-flash 0.42s ease forwards;
+}
+
+@keyframes nb-flash {
+  from { opacity: 0.55; }
+  to { opacity: 0; }
+}
+
+.nb-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 1rem;
+  z-index: 46;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: calc(100% - 2rem);
+  padding: 0.5rem 0.55rem 0.5rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill, 999px);
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  transform: translateX(-50%);
+  animation: nb-fade 0.14s ease;
+}
+
+.nb-toast span {
+  padding-right: 0.3rem;
+  white-space: nowrap;
+}
+
+.nb-toast button {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill, 999px);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.nb-toast button:hover {
+  background: var(--surface-hover);
+}
+
+/* Phones (and short landscape screens): smaller tiles, three across. */
+@media (max-width: 760px), (max-height: 520px) and (pointer: coarse) {
+  .nb-menu-card {
+    padding: 0.8rem;
+  }
+
+  .nb-menu-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .nb-menu-grid button {
+    min-height: 4.2rem;
+    font-size: 0.68rem;
+  }
+
+  .nb-menu-grid small {
+    display: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .nb-menu-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

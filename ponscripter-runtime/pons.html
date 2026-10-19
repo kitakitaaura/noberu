@@ -226,6 +226,12 @@
         const args = ["--root", GAME_DIR, "--save", saveDir];
         console.log("[pons] args", args);
         post("booting", {});
+        // Each line the engine shows (UTF-8), for noberu's reading tools
+        // (assets/text.js).
+        const decoder = new TextDecoder("utf-8");
+        Mod.noberuText = (bytes) => {
+          if (window.NoberuSay) window.NoberuSay({ text: decoder.decode(bytes), kind: "line" });
+        };
         // callMain returns when the engine first yields (ASYNCIFY).
         Mod.callMain(args);
         setInterval(saveAll, 60 * 1000);

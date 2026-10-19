@@ -40,6 +40,11 @@
     });
   }
 
+  // The game shelf (assets/shelf.js) redraws on this.
+  function changed() {
+    window.dispatchEvent(new CustomEvent("noberu-library-change"));
+  }
+
   async function dbAll() {
     const db = await openDb();
     return new Promise((resolve, reject) => {
@@ -58,7 +63,10 @@
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE, "readwrite");
       tx.objectStore(STORE).put(entry);
-      tx.oncomplete = () => resolve(entry);
+      tx.oncomplete = () => {
+        changed();
+        resolve(entry);
+      };
       tx.onerror = () => reject(tx.error);
     });
   }
@@ -68,7 +76,10 @@
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE, "readwrite");
       tx.objectStore(STORE).delete(id);
-      tx.oncomplete = () => resolve();
+      tx.oncomplete = () => {
+        changed();
+        resolve();
+      };
       tx.onerror = () => reject(tx.error);
     });
   }
@@ -558,6 +569,12 @@
       throw new Error("This browser cannot link folders; use Chrome or Edge, or add a .zip instead.");
     }
     const dir = await window.showDirectoryPicker({ mode: "read", id: "noberu-library" });
+    return addHandle(dir, onProgress);
+  }
+
+  // A folder handle from the picker, or from a folder dropped on the page
+  // (DataTransferItem.getAsFileSystemHandle): linked, nothing copied.
+  async function addHandle(dir, onProgress = () => { }) {
     onProgress("scanning folder...");
     const { paths, bytes } = await scanHandle(dir, onProgress);
     if (!paths.length) throw new Error("That folder is empty.");
@@ -1184,8 +1201,35 @@
     // the library and stages it in one step rather than making the two trips.
     addFolder,
     addFiles,
+    addHandle,
+    addFromUrl,
     getFiles,
     play,
+    // For the game shelf's detail panel (assets/shelf.js): the same actions
+    // the downloads popup has, without the popup.
+    remove,
+    copyToStorage,
+    unzip,
+    ensurePermission,
+    async update(id, changes) {
+      const entry = (await dbAll()).find((e) => e.id === id);
+      if (!entry) throw new Error("That game is no longer in downloads.");
+      const next = { ...entry, ...changes };
+      if (changes.engine && changes.engine !== entry.engine) {
+        next.root = gameRoot(changes.engine, entry.root || "");
+        next.detectVersion = DETECT_VERSION;
+      }
+      return dbPut(next);
+    },
+    fixMissing(entry) {
+      if (!dialog) build();
+      pickEngine = null;
+      open("downloads");
+      patchIntro(entry);
+    },
+    runtimes() {
+      return Object.entries(ENGINES).filter(([, e]) => e.tab).map(([id, e]) => ({ id, label: e.label }));
+    },
     createStored,
     list: dbAll,
     // Redraws the popup if it is open (a beam just landed, say).

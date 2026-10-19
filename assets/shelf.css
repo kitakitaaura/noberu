@@ -1,0 +1,951 @@
+/* The game shelf (assets/shelf.js): the home screen's grid of covers and the
+   detail panel beside it. Sits in the same window and side panel as every
+   engine tab; only what is inside them is new. */
+
+.touch-show {
+  display: none;
+}
+
+:root[data-touch="1"] .touch-show {
+  display: block;
+}
+
+:root[data-touch="1"] .touch-hide {
+  display: none;
+}
+
+/* --- the left side: head, grid --------------------------------------------- */
+
+.shelf-viewport {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--panel);
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.shelf-head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem 1rem;
+  padding: 1rem 1.1rem 0.85rem;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+
+.shelf-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.shelf-heading h1 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.shelf-count {
+  color: var(--muted);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.shelf-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.shelf-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.shelf-search svg {
+  position: absolute;
+  left: 0.65rem;
+  width: 0.9rem;
+  height: 0.9rem;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.shelf-search input,
+.shelf-sort,
+.shelf-field select,
+.shelf-vndb-search input {
+  height: 2.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.82rem;
+}
+
+.shelf-search input {
+  width: 10.5rem;
+  padding: 0 0.7rem 0 2rem;
+}
+
+.shelf-search input::placeholder {
+  color: var(--muted);
+}
+
+.shelf-search input:focus,
+.shelf-sort:focus,
+.shelf-field select:focus {
+  border-color: var(--line-strong);
+  outline: none;
+}
+
+.shelf-sort {
+  padding: 0 0.5rem;
+}
+
+.shelf-add-wrap {
+  position: relative;
+}
+
+#shelf-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.25rem;
+  white-space: nowrap;
+}
+
+#shelf-add svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.shelf-menu {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  width: 15.5rem;
+  padding: 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-soft);
+  box-shadow: 0 10px 32px var(--drop-shadow);
+}
+
+.shelf-menu[hidden] {
+  display: none;
+}
+
+.shelf-menu button {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.55rem 0.7rem;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.shelf-menu button:hover,
+.shelf-menu button:focus-visible {
+  background: var(--surface);
+  outline: none;
+}
+
+.shelf-menu b {
+  font-size: 0.84rem;
+  font-weight: 500;
+}
+
+.shelf-menu small {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.shelf-progress {
+  margin: 0.75rem 1.1rem 0;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 0.8rem;
+}
+
+.shelf-progress[hidden] {
+  display: none;
+}
+
+.shelf-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+  gap: 1rem 0.85rem;
+  padding: 1rem 1.1rem 1.4rem;
+  align-content: start;
+}
+
+.shelf-grid[hidden] {
+  display: none;
+}
+
+.shelf-none {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.shelf-card {
+  position: relative;
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.4rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--fast) ease, border-color var(--fast) ease;
+}
+
+.shelf-card:hover {
+  background: var(--surface);
+}
+
+.shelf-card.selected {
+  border-color: var(--line-strong);
+  background: var(--surface);
+}
+
+.shelf-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.shelf-card-text {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0 0.2rem 0.15rem;
+  min-width: 0;
+}
+
+.shelf-name {
+  overflow: hidden;
+  font-size: 0.82rem;
+  font-weight: 500;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+}
+
+.shelf-meta {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.7rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.shelf-badge {
+  position: absolute;
+  top: 0.85rem;
+  left: 0.85rem;
+  z-index: 2;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 0.66rem;
+  font-weight: 600;
+}
+
+/* --- covers -------------------------------------------------------------------- */
+
+.shelf-cover {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background:
+    radial-gradient(120% 90% at 85% 0%, hsl(var(--h) 45% 32% / 0.85), transparent 60%),
+    linear-gradient(160deg, hsl(var(--h) 30% 16%), hsl(calc(var(--h) + 40) 25% 9%));
+}
+
+:root[data-theme="light"] .shelf-cover {
+  background:
+    radial-gradient(120% 90% at 85% 0%, hsl(var(--h) 60% 80% / 0.9), transparent 60%),
+    linear-gradient(160deg, hsl(var(--h) 45% 90%), hsl(calc(var(--h) + 40) 35% 82%));
+}
+
+.shelf-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.shelf-cover-blur {
+  position: absolute;
+  inset: -20%;
+  width: 140% !important;
+  height: 140% !important;
+  filter: blur(22px) saturate(1.3);
+  opacity: 0.7;
+}
+
+.shelf-cover .shelf-cover-icon {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 42%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.45));
+}
+
+.shelf-cover-name {
+  position: absolute;
+  inset: auto 0.7rem 0.6rem;
+  color: #fff;
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+:root[data-theme="light"] .shelf-cover-name {
+  color: var(--ink);
+  text-shadow: none;
+}
+
+.shelf-cover.big {
+  border-radius: var(--radius);
+}
+
+.shelf-cover.big .shelf-cover-name {
+  font-size: 1.2rem;
+}
+
+/* --- empty ------------------------------------------------------------------------ */
+
+.shelf-empty {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 0.4rem;
+  flex: 1;
+  padding: 2rem 1.5rem 2.5rem;
+  margin: 1rem 1.1rem 1.4rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-box);
+  text-align: center;
+}
+
+.shelf-empty[hidden] {
+  display: none;
+}
+
+.shelf-empty-art {
+  display: grid;
+  place-items: center;
+  width: 3.4rem;
+  height: 3.4rem;
+  margin-bottom: 0.5rem;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.shelf-empty-art svg {
+  width: 1.9rem;
+  height: 1.9rem;
+}
+
+.shelf-empty h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.shelf-empty p {
+  max-width: 26rem;
+  margin: 0 0 0.6rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.shelf-empty .button-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+/* --- the right side: details ------------------------------------------------------- */
+
+.shelf-detail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* A column of fixed-size blocks: in a grid, the cover (an aspect-ratio box
+   that clips) has no minimum height and gets squashed under its neighbours. */
+.shelf-detail-scroll {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  flex: 1;
+  min-height: 0;
+  padding: 1rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.shelf-sheet-close {
+  display: none;
+}
+
+.shelf-detail-head h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.shelf-alt {
+  margin: 0.15rem 0 0;
+  color: var(--ink-2);
+  font-family: var(--jp);
+  font-size: 0.82rem;
+}
+
+.shelf-sub {
+  margin: 0.3rem 0 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.shelf-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+  margin: 0;
+}
+
+.shelf-stats div {
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel-soft);
+}
+
+.shelf-stats dt {
+  color: var(--muted);
+  font-size: 0.66rem;
+}
+
+.shelf-stats dd {
+  margin: 0.1rem 0 0;
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.shelf-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 2.75rem !important;
+  font-size: 0.92rem !important;
+}
+
+.shelf-play svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.shelf-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.shelf-field select {
+  flex: 1;
+  max-width: 12rem;
+  padding: 0 0.5rem;
+}
+
+.shelf-actions {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.35rem;
+}
+
+.shelf-actions .retro-button {
+  min-height: 2.2rem;
+  padding: 0 0.3rem;
+  font-size: 0.76rem;
+}
+
+.shelf-actions .retro-button[aria-expanded="true"] {
+  border-color: var(--line-strong);
+  background: var(--surface);
+}
+
+.shelf-drawer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel-soft);
+}
+
+.shelf-drawer[hidden] {
+  display: none;
+}
+
+.shelf-drawer .tiny-button {
+  min-height: 2rem;
+  padding: 0 0.65rem;
+  border-radius: var(--radius-xs);
+}
+
+.tiny-button.danger {
+  color: var(--red);
+}
+
+.shelf-hint {
+  flex-basis: 100%;
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.shelf-vndb {
+  flex-basis: 100%;
+}
+
+.shelf-vndb:empty {
+  display: none;
+}
+
+.shelf-vndb-search {
+  display: flex;
+  gap: 0.35rem;
+  margin: 0.3rem 0 0.5rem;
+}
+
+.shelf-vndb-search input {
+  flex: 1;
+  min-width: 0;
+  height: 2rem;
+  padding: 0 0.6rem;
+}
+
+.shelf-vndb-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+}
+
+.shelf-vndb-pick {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.shelf-vndb-pick:hover {
+  border-color: var(--accent);
+}
+
+.shelf-vndb-pick img {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--surface-press);
+}
+
+.shelf-vndb-pick span {
+  font-size: 0.68rem;
+  line-height: 1.2;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.shelf-vndb-pick small {
+  color: var(--muted);
+  font-size: 0.64rem;
+}
+
+.shelf-shots h3 {
+  margin: 0 0 0.45rem;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 500;
+}
+
+.shelf-shots h3 span {
+  color: var(--ink-2);
+}
+
+.shelf-shot-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+}
+
+.shelf-shot {
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  overflow: hidden;
+  cursor: zoom-in;
+}
+
+.shelf-shot img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+}
+
+.shelf-status {
+  margin: 0;
+  padding: 0.55rem 1rem;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.75rem;
+  min-height: 2.2rem;
+}
+
+.shelf-status:empty::before {
+  content: "Status: ready.";
+}
+
+.shelf-summary {
+  display: grid;
+  align-content: start;
+  gap: 0.2rem;
+}
+
+/* --- drop anywhere -------------------------------------------------------------- */
+
+.shelf-drop {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: var(--backdrop);
+  pointer-events: none;
+}
+
+.shelf-drop[hidden] {
+  display: none;
+}
+
+.shelf-drop div {
+  display: grid;
+  gap: 0.3rem;
+  padding: 2.2rem 2.8rem;
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius-box);
+  background: var(--panel);
+  text-align: center;
+}
+
+.shelf-drop b {
+  color: var(--ink);
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.shelf-drop span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+/* --- a screenshot, opened ------------------------------------------------------- */
+
+.shelf-shot-view .library-modal {
+  width: min(64rem, 100%);
+  max-height: 100%;
+}
+
+.shelf-shot-view img {
+  display: block;
+  width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  background: #000;
+}
+
+.shelf-shot-view .library-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+/* --- phones: covers in two columns, details as a sheet from the bottom ------------- */
+
+@media (max-width: 760px), (max-height: 520px) and (pointer: coarse) {
+  #shelf-view .viewport {
+    min-height: 60dvh;
+    overflow: visible;
+  }
+
+  .shelf-head {
+    position: static;
+    padding: 0.9rem 0.9rem 0.75rem;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .shelf-tools {
+    width: 100%;
+  }
+
+  .shelf-search {
+    flex: 1;
+  }
+
+  .shelf-search input {
+    width: 100%;
+  }
+
+  #shelf-add {
+    padding: 0 0.8rem;
+  }
+
+  .shelf-grid {
+    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+    gap: 0.6rem 0.5rem;
+    padding: 0.75rem 0.6rem 1rem;
+  }
+
+  .shelf-empty .button-row {
+    display: flex;
+  }
+
+  .shelf-empty .button-row > * {
+    width: auto;
+  }
+
+  #shelf-view .side-panel.shelf-detail {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    max-height: 86dvh;
+    border: 1px solid var(--line);
+    border-bottom: 0;
+    border-radius: var(--radius-box) var(--radius-box) 0 0;
+    background: var(--panel);
+    box-shadow: 0 -10px 40px var(--drop-shadow);
+    transform: translateY(105%);
+    transition: transform var(--med) ease;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  #shelf-view .side-panel.shelf-detail[data-open] {
+    transform: none;
+  }
+
+  #shelf-view .side-panel.shelf-detail .panel-header,
+  #shelf-view .side-panel.shelf-detail .panel-body,
+  #shelf-view .side-panel.shelf-detail .panel-footer {
+    display: none;
+  }
+
+  :root[data-sheet="1"] body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 59;
+    display: block;
+    background: var(--backdrop);
+    opacity: 1;
+    mix-blend-mode: normal;
+    clip-path: none;
+    transform: none;
+    animation: none;
+  }
+
+  /* The header is full on a phone; the reading under the name goes. */
+  .wordmark-sub {
+    display: none;
+  }
+
+  .shelf-sheet-close {
+    position: absolute;
+    top: 0.6rem;
+    right: 0.6rem;
+    z-index: 3;
+    display: grid;
+    place-items: center;
+    width: 2.2rem;
+    height: 2.2rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    background: var(--panel-soft);
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  .shelf-sheet-close svg {
+    width: 0.9rem;
+    height: 0.9rem;
+  }
+
+  .shelf-detail-scroll {
+    padding: 0.9rem 0.9rem 1.2rem;
+  }
+
+  .shelf-detail .shelf-cover.big {
+    max-height: 32dvh;
+    aspect-ratio: 16 / 9;
+  }
+
+  .shelf-actions .retro-button {
+    min-height: 2.6rem;
+  }
+}
+
+.shelf-detail-scroll > * {
+  flex: none;
+}
+
+/* --- report a problem (assets/report.js) --------------------------------------- */
+
+.report-modal {
+  width: min(34rem, 100%);
+}
+
+.report-field {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--ink);
+  font-size: 0.85rem;
+}
+
+.report-field textarea {
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.85rem;
+  resize: vertical;
+}
+
+.report-field textarea:focus {
+  border-color: var(--line-strong);
+  outline: none;
+}
+
+.report-check {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.report-check input {
+  accent-color: var(--accent);
+}
+
+.report-details summary {
+  color: var(--muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.report-details pre {
+  max-height: 14rem;
+  margin: 0.4rem 0 0;
+  padding: 0.6rem;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  background: var(--panel-soft);
+  color: var(--ink-2);
+  font-size: 0.7rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}
+
+.report-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.report-foot span {
+  flex: 1;
+  color: var(--muted);
+  font-size: 0.78rem;
+}

@@ -107,6 +107,7 @@
     </form>
   </div>
 
+  <script src="noberu-text-hook.js"></script>
   <script src="stage.js"></script>
   <script src="dev.js"></script>
   <script>
@@ -231,6 +232,7 @@
           post("running", {});
           canvasEl.focus();
           applyPerformancePreferences();
+          installTextHook();
           reportSaveDirectory();
         }
       };
@@ -253,6 +255,14 @@
         "renpy.game.preferences.gl_powersave = False\n" +
         "renpy.game.preferences.gl_framerate = None\n"
       ).catch((error) => console.warn("[renpy] could not set performance preferences", error));
+    }
+
+    // Each line of dialogue and each menu, for noberu's reading tools
+    // (noberu-text-hook.js).
+    function installTextHook() {
+      if (typeof window.renpy_exec !== "function" || !window.NOBERU_RENPY_TEXT_HOOK) return;
+      window.renpy_exec(window.NOBERU_RENPY_TEXT_HOOK)
+        .catch((error) => console.warn("[renpy] could not hook the text", error));
     }
 
     // Ren'Py names a game's save folder after config.save_directory, which

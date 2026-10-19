@@ -729,6 +729,7 @@
     window.setFullscreen = setFullscreen;
 
     </script>
+    <script src="noberu-text-hook.js"></script>
     <script src="stage.js"></script>
     <script src="dev.js"></script>
     <script>
@@ -828,6 +829,7 @@
           post("running", {});
           document.getElementById("canvas").focus();
           applyPerformancePreferences();
+          installTextHook();
           reportSaveDirectory();
         }
       };
@@ -845,6 +847,17 @@
           if (name) post("save-directory", { name: name });
         } catch (error) {
           console.warn("[renpy] could not read the save directory", error);
+        }
+      }
+
+      // Each line of dialogue and each menu, for noberu's reading tools
+      // (noberu-text-hook.js). This build has no renpy_exec either.
+      function installTextHook() {
+        if (!window.NOBERU_RENPY_TEXT_HOOK) return;
+        try {
+          Module.ccall("PyRun_SimpleString", "number", ["string"], [window.NOBERU_RENPY_TEXT_HOOK]);
+        } catch (error) {
+          console.warn("[renpy] could not hook the text", error);
         }
       }
 

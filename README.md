@@ -100,9 +100,11 @@ So a runtime doesn't know or even care whether its files came from a folder pick
 ### (Almost) no server
 
 The site itself is static: HTML, JS, wasm, and a `_headers` file. There are no
-accounts. The one piece of server code is the small matchmaker for
-[beam](#beam-send-games-between-devices), which only introduces two devices to
-each other. Everything a player does stays in their browser:
+accounts. The one piece of server code is `beam-worker/`: the small matchmaker
+for [beam](#beam-send-games-between-devices), which only introduces two devices
+to each other, plus a pass-through for vndb.org cover images and the encrypted
+store behind [save sync](#save-sync). Everything else a player does stays in
+their browser:
 
 | What | Where it's kept |
 |---|---|
@@ -110,6 +112,8 @@ each other. Everything a player does stays in their browser:
 | Downloaded / copied games | The browser's private file storage (OPFS), under `library/<id>/` |
 | Saves | Per engine: IDBFS databases (`/save`, `/home`, `/home/web_user/.renpy`), OPFS (umineko), `krkr2-space-*` databases (kirikiri), `localStorage` / localforage (rpg maker) |
 | Settings, theme, tour, welcome notice | `localStorage` (`noberu.settings.*` and a few older keys) |
+| Covers and screenshots | IndexedDB (`noberu-shelf`) |
+| Play time, saved words, sync key | `localStorage` (`noberu.stats`, `noberu.words`, `noberu.sync`) |
 
 Because storage is tied to the site's address, **saves on one domain don't
 save on another** (ex. `noberu.pages.dev` vs `noberu.kitaaura.com`). The
@@ -180,12 +184,14 @@ controls, so people learn the actual flow.
 
 1. Open the site. Chrome or Edge on a computer works best: linking a folder
    needs the File System Access API. Other browsers and phones copy the game in
-   instead (**add file** with a `.zip`, or a web link).
-2. Either open the tab for your game's engine and **choose folder**, or use
-   **downloads → add folder** and let it detect the engine, or use the
-   **autodetect engine** button on the about page.
-3. Press **boot local**.
-4. Press **▣** in the window bar for fullscreen; Esc comes back.
+   instead (a `.zip`, or a web link).
+2. On **games** (the home screen), press **add a game** or drop the game's
+   folder or `.zip` anywhere on the page. noberu works out the engine.
+3. Press **play**. (The engine tabs still work the old way: **choose folder**,
+   then **boot local**.)
+4. Press **▣** in the window bar for fullscreen; Esc comes back. Press **`**
+   (or a controller's back button, or **menu** on the touch pad) for the
+   noberu menu.
 
 Pick the folder that holds the game's data files (the one with `nscript.dat`,
 `Gameexe.ini`, `data.xp3`, and so on). A wrapper folder one level above is
@@ -209,6 +215,57 @@ in the wrong place.
 - **Settings** (top bar): sound (master volume), play, controls, controller,
   display (theme, sharp pixels, CRT overlay, reduce motion, detailed
   descriptions), beam and storage. Each setting is one `localStorage` key.
+
+## The shelf, the menu and the reading tools
+
+- **Games** (`assets/shelf.js`, `covers.js`): every game in downloads as a
+  cover, with play time and last played. Covers come from the game's own files
+  (RPG Maker's title image, decrypted if need be; Ren'Py's main menu; Tyrano's
+  title background; the `.exe`'s icon), from a capture of its title screen while
+  it runs, from vndb.org ("find it online", through the Worker's `/cover`), or
+  from an image the player picks.
+- **The noberu menu** (`assets/menu.js`): screenshot (kept on the shelf, can be
+  the cover), the game's own save/load menu, skip, reading tools, volume,
+  fullscreen, report a problem, quit to games. It sits inside the running
+  frame, so it works in fullscreen too.
+- **Reading tools** (`assets/text.js`, `deinflect.js`, `text-hooks.js`): each
+  line a game shows, in a bar over it. Point at (or tap) a word for its
+  dictionary entry, with conjugations undone and each kanji explained;
+  translate the line on the device (Chrome's built-in Translator API; elsewhere
+  a Google Translate link); keep a backlog; save words with their sentence and
+  export them for Anki or as CSV; or send lines to a texthooker (clipboard or
+  WebSocket). How each engine hands its text over:
+
+  | Engine | Hook |
+  |---|---|
+  | Ren'Py 7/8 | Python run at the first frame (`renpy-runtime/noberu-text-hook.js`) |
+  | TyranoScript, RPG Maker | wraps the engine's own JS (`assets/text-hooks.js`) |
+  | NScripter, Ponscripter, umineko, RealLive, Siglus | a few lines in the engine, `Module.noberuText` / `window.NoberuSay` (patches in each engine's tree) |
+  | KiriKiri (KAG games) | a TJS prelude wraps the message layers; lines come out through a file write the glue catches |
+  | VNDS | a `print` in VNDS-LOVE's `main.moon`, caught from the console |
+
+  Games with their own text systems (Nekopara on KiriKiri, some Siglus
+  scenes) don't share their text; the reader says so.
+- **Dictionary**: JMdict and KANJIDIC2 (EDRDG, CC BY-SA 4.0), built into
+  1,024 small shards under `dict/` by `tools/build-dict.mjs` from
+  [jmdict-simplified](https://github.com/scriptin/jmdict-simplified)'s JSON.
+  `dict/` is generated (gitignored); `tools/stage-deploy.sh` builds it from
+  `~/Documents/noberu-assets/dict-src/` when it's missing.
+- **Report a problem** (`assets/report.js`): the player's note, the browser,
+  the engine and the errors every frame logged, as a GitHub issue to post or
+  text to copy. noberu sends nothing itself.
+
+## Save sync
+
+Settings → sync makes a key (eight groups of four); entering it on another
+device joins it. Saves are encrypted in the browser (AES-GCM, key from HKDF of
+the sync key) before they go to the Worker's `/sync`, an R2 bucket, under a room
+named by a hash of the key: the server sees sizes and times only. Per save set,
+the latest change wins; nothing is ever deleted by a sync, and saves wait while
+a game is running. Limits: 64 MB per game's saves, 512 MB per player.
+
+Setting it up on the Worker (once): `npx wrangler r2 bucket create
+noberu-sync`, then deploy `beam-worker/`.
 
 ## Beam (send games between devices)
 
@@ -284,9 +341,10 @@ deploy`; its TURN keys are Wrangler secrets, never in the repo).
 | Path | What |
 |---|---|
 | `index.html` | The app: header, tabs, one adapter per engine |
-| `assets/` | Shared code: library, 7z reader, saves, beam, settings, touch/gamepad input, theme, tour, vendored fflate and qrcode |
+| `assets/` | Shared code: shelf and covers, the noberu menu, reading tools, sync, report, library, 7z reader, saves, beam, settings, touch/gamepad input, theme (IBM Plex Mono in `assets/fonts`, SIL OFL), tour, vendored fflate and qrcode |
+| `dict/` | Generated dictionary shards for the reading tools (`tools/build-dict.mjs`, not committed) |
 | `*-runtime/` | One folder per engine, each with its own README |
-| `beam-worker/` | The beam matchmaker (Cloudflare Worker) |
+| `beam-worker/` | The beam matchmaker, vndb cover pass-through and save sync store (Cloudflare Worker) |
 | `tools/` | Deploy staging and asset helpers |
 | `serve-local.mjs` | Local server with production headers |
 | `_headers`, `sw.js`, `manifest.webmanifest` | Pages headers, offline shell, PWA manifest |

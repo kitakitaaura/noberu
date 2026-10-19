@@ -92,6 +92,10 @@
       }));
     } catch (error) { /* private mode */ }
     showContinue();
+    // The shelf (play time, covers) and the in-game menu follow this.
+    window.dispatchEvent(new CustomEvent("noberu-game-start", {
+      detail: { id: entry.id, name: entry.name, engine: engine || entry.engine },
+    }));
   }
 
   const card = document.querySelector("#continue-card");

@@ -35,8 +35,9 @@
     4: "PageUp",
     5: "PageDown",
     7: "Control",
-    8: "Escape",
+    8: "menu",      // back / view / select: the noberu menu (assets/menu.js)
     9: "Escape",
+    16: "menu",     // home / guide, where the browser lets it through
     12: "ArrowUp",
     13: "ArrowDown",
     14: "ArrowLeft",
@@ -54,6 +55,7 @@
     7: "Key9",      // R2
     8: "Backspace", // select
     9: "Enter",     // start
+    16: "menu",     // home / guide: the noberu menu
     12: "ArrowUp",
     13: "ArrowDown",
     14: "ArrowLeft",
@@ -91,6 +93,15 @@
   }
 
   function press(id, frame, action) {
+    // The noberu menu takes the controller while it is open; nothing held
+    // reaches the game.
+    const menu = window.NoberuMenu;
+    if (menu && (action === "menu" || menu.isOpen())) {
+      held.set(id, { frame, action: null, since: performance.now(), repeated: 0 });
+      if (action === "menu") menu.toggle(frame);
+      else menu.gamepad(action);
+      return;
+    }
     held.set(id, { frame, action, since: performance.now(), repeated: 0 });
     if (action === "rclick") rightClick(frame);
     else sendKey(frame, action, true, ctrlHeld());
@@ -100,7 +111,7 @@
     const hold = held.get(id);
     if (!hold) return;
     held.delete(id);
-    if (hold.action !== "rclick") sendKey(hold.frame, hold.action, false, ctrlHeld());
+    if (hold.action && hold.action !== "rclick") sendKey(hold.frame, hold.action, false, ctrlHeld());
   }
 
   function poll() {

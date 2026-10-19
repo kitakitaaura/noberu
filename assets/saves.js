@@ -965,6 +965,9 @@
 
   window.NoberuSaves = {
     forGame: savesForGame,
+    // Every save set in this browser (assets/sync.js); system sets included,
+    // marked `system`.
+    list: () => scan(),
     name: nameSaves,
     pack: packSet,
     restore: restoreSaves,

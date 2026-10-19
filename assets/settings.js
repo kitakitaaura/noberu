@@ -35,7 +35,25 @@
     theme: { key: "noberu-theme", fallback: "dark" },
     verbose: { key: "noberu.settings.verbose", fallback: "0" },
     beamSaves: { key: "noberu.beam.includeSaves", fallback: "1" },
+    // Reading tools (assets/text.js).
+    textOpen: { key: "noberu.settings.textOpen", fallback: "0" },
+    textAuto: { key: "noberu.settings.textAuto", fallback: "1" },
+    textTarget: { key: "noberu.settings.textTarget", fallback: "" },
+    textPos: { key: "noberu.settings.textPos", fallback: "top" },
+    textSize: { key: "noberu.settings.textSize", fallback: "medium" },
+    textPopup: { key: "noberu.settings.textPopup", fallback: "hover" },
+    textClipboard: { key: "noberu.settings.textClipboard", fallback: "0" },
+    textSocket: { key: "noberu.settings.textSocket", fallback: "" },
   };
+
+  // Languages the browser's own translator offers (Chrome's Translator API).
+  const LANGUAGES = [
+    ["", "this device's language"], ["en", "English"], ["es", "Spanish"], ["pt", "Portuguese"],
+    ["fr", "French"], ["de", "German"], ["it", "Italian"], ["nl", "Dutch"], ["pl", "Polish"],
+    ["ru", "Russian"], ["uk", "Ukrainian"], ["tr", "Turkish"], ["ar", "Arabic"], ["hi", "Hindi"],
+    ["bn", "Bengali"], ["id", "Indonesian"], ["vi", "Vietnamese"], ["th", "Thai"], ["zh", "Chinese"],
+    ["zh-Hant", "Chinese (traditional)"], ["ko", "Korean"], ["ja", "Japanese"],
+  ];
 
   const PAD_SCALE = { small: 0.82, medium: 1, large: 1.22 };
 
@@ -183,6 +201,9 @@
       </label>
       ${toggle("beamSaves", "send saves with a game", "Beaming a game also brings its saves. Saves can always be beamed on their own from the saves panel.")}`,
 
+    // Filled in by assets/sync.js each time the panel opens.
+    sync: `<div data-sync-panel></div>`,
+
     storage: `
       <div class="settings-row settings-wide">
         <span class="settings-text"><b>space used</b><small data-show="usage">checking...</small></span>
@@ -199,6 +220,55 @@
         <span class="settings-text"><b>erase everything</b><small>Games, saves and settings stored by noberu in this browser. Folders on your device are not touched.</small></span>
         <button class="retro-button secondary" type="button" data-act="erase">erase</button>
       </div>`,
+
+    reading: `
+      <p class="settings-note">In a game, open the noberu menu ( \` ) and pick reading tools. Each line shows over the game: point at a word for its meaning, or translate the line.</p>
+      <label class="settings-row settings-wide">
+        <span class="settings-text"><b>translate to</b><small>Done by your browser, on this device. Chrome on a computer has it.</small></span>
+        <select class="settings-input" data-setting="textTarget" aria-label="translate to">
+          ${LANGUAGES.map(([code, name]) => `<option value="${code}">${name}</option>`).join("")}
+        </select>
+      </label>
+      ${toggle("textAuto", "translate every line", "Shows a translation under each line.")}
+      ${toggle("textOpen", "open reading tools with every game", "Instead of from the menu each time.")}
+      <div class="settings-row settings-wide">
+        <span class="settings-text"><b>where</b></span>
+        <span class="settings-segments" role="radiogroup" aria-label="reader position">
+          <label><input type="radio" name="settings-text-pos" value="top" data-setting="textPos" /><span>top</span></label>
+          <label><input type="radio" name="settings-text-pos" value="bottom" data-setting="textPos" /><span>bottom</span></label>
+        </span>
+      </div>
+      <div class="settings-row settings-wide">
+        <span class="settings-text"><b>text size</b></span>
+        <span class="settings-segments" role="radiogroup" aria-label="reader text size">
+          <label><input type="radio" name="settings-text-size" value="small" data-setting="textSize" /><span>small</span></label>
+          <label><input type="radio" name="settings-text-size" value="medium" data-setting="textSize" /><span>medium</span></label>
+          <label><input type="radio" name="settings-text-size" value="large" data-setting="textSize" /><span>large</span></label>
+        </span>
+      </div>
+      <div class="settings-row settings-wide desktop-only">
+        <span class="settings-text"><b>look words up</b></span>
+        <span class="settings-segments" role="radiogroup" aria-label="dictionary">
+          <label><input type="radio" name="settings-text-popup" value="hover" data-setting="textPopup" /><span>on hover</span></label>
+          <label><input type="radio" name="settings-text-popup" value="click" data-setting="textPopup" /><span>on click</span></label>
+        </span>
+      </div>
+      <div class="settings-row settings-wide">
+        <span class="settings-text"><b>saved words</b><small data-show="words">none yet</small></span>
+        <span class="settings-buttons">
+          <button class="retro-button secondary" type="button" data-act="words-anki">for Anki</button>
+          <button class="retro-button secondary" type="button" data-act="words-csv">CSV</button>
+        </span>
+      </div>
+      <details class="settings-more">
+        <summary>for text hookers</summary>
+        ${toggle("textClipboard", "copy each line", "For a texthooker page or Yomitan's clipboard monitor. Only while noberu is in front.")}
+        <label class="settings-row settings-wide">
+          <span class="settings-text"><b>send lines to</b><small>A WebSocket, e.g. ws://localhost:6677 for texthooker-ui. Empty is off.</small></span>
+          <input class="settings-input" type="text" maxlength="200" data-setting="textSocket" placeholder="ws://localhost:6677" autocomplete="off" spellcheck="false" />
+        </label>
+      </details>
+      <p class="settings-note">Dictionary: JMdict and KANJIDIC2 by the Electronic Dictionary Research and Development Group, <a href="https://www.edrdg.org/edrdg/licence.html" target="_blank" rel="noopener noreferrer">CC BY-SA 4.0</a>.</p>`,
 
     // Filled in by assets/offline.js each time the panel opens.
     offline: `<div data-offline-panel></div>`,
@@ -265,10 +335,11 @@
       button.addEventListener("click", () => showPanel(button.dataset.tab));
     });
 
-    dialog.querySelectorAll("input[data-setting]").forEach((input) => {
+    dialog.querySelectorAll("input[data-setting], select[data-setting]").forEach((input) => {
       const name = input.dataset.setting;
       const handler = () => {
-        if (input.type === "checkbox") set(name, input.checked ? "1" : "0");
+        if (input.tagName === "SELECT") set(name, input.value);
+        else if (input.type === "checkbox") set(name, input.checked ? "1" : "0");
         else if (input.type === "text") set(name, input.value.trim());
         else if (input.type === "radio") {
           if (!input.checked) return;
@@ -277,7 +348,7 @@
         } else set(name, input.value);
         sync();
       };
-      input.addEventListener(input.type === "range" ? "input" : "change", handler);
+      input.addEventListener(input.type === "range" ? "input" : input.type === "text" ? "change" : "change", handler);
     });
 
     dialog.querySelector('[data-act="close"]').addEventListener("click", close);
@@ -287,6 +358,12 @@
       if (window.NoberuTour) window.NoberuTour.start();
     });
     dialog.querySelector('[data-act="erase"]').addEventListener("click", eraseEverything);
+    dialog.querySelector('[data-act="words-anki"]').addEventListener("click", () => {
+      if (window.NoberuText) window.NoberuText.exportWords("tsv");
+    });
+    dialog.querySelector('[data-act="words-csv"]').addEventListener("click", () => {
+      if (window.NoberuText) window.NoberuText.exportWords("csv");
+    });
     dialog.addEventListener("click", (event) => {
       if (event.target === dialog) close();
     });
@@ -303,6 +380,10 @@
       panel.hidden = panel.dataset.panel !== name;
     });
     if (name === "storage") refreshStorage();
+    if (name === "reading") sync();
+    if (name === "sync" && window.NoberuSync) {
+      window.NoberuSync.renderInto(dialog.querySelector("[data-sync-panel]"));
+    }
     if (name === "offline" && window.NoberuOffline) {
       window.NoberuOffline.renderInto(dialog.querySelector("[data-offline-panel]"));
     }
@@ -310,7 +391,7 @@
 
   // Puts every control back in line with what is stored.
   function sync() {
-    dialog.querySelectorAll("input[data-setting]").forEach((input) => {
+    dialog.querySelectorAll("input[data-setting], select[data-setting]").forEach((input) => {
       const name = input.dataset.setting;
       const value = get(name);
       if (name === "reduceMotion") input.checked = reducedMotion();
@@ -330,6 +411,10 @@
       nameInput.placeholder = window.NoberuBeam.autoDeviceName();
     }
     showPads();
+    const words = window.NoberuText ? window.NoberuText.words().length : 0;
+    dialog.querySelector('[data-show="words"]').textContent = words
+      ? `${words} word${words === 1 ? "" : "s"}, with the sentence each came from`
+      : "Star a word in its dictionary card to keep it.";
   }
 
   // Which controllers the browser has revealed (assets/gamepad.js).

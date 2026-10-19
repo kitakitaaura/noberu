@@ -1,0 +1,440 @@
+/* Reading tools over a running game (assets/text.js): the line bar, its
+   backlog and saved words, and the dictionary card. */
+
+.nb-reader {
+  position: absolute;
+  left: 50%;
+  z-index: 35;
+  display: grid;
+  gap: 0.35rem;
+  width: min(56rem, calc(100% - 1.5rem));
+  max-height: calc(100% - 1.5rem);
+  padding: 0.55rem 0.75rem 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  background: rgba(11, 12, 13, 0.86);
+  color: #e9edef;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
+  font-family: var(--mono);
+  transform: translateX(-50%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.nb-reader[data-pos="top"] {
+  top: 0.75rem;
+}
+
+.nb-reader[data-pos="bottom"] {
+  bottom: 0.75rem;
+}
+
+/* Clear of the full screen corner handle (assets/menu.css). */
+.emulator-maximized > .nb-reader[data-pos="top"],
+:fullscreen > .nb-reader[data-pos="top"] {
+  width: min(56rem, calc(100% - 7rem));
+}
+
+.nb-reader-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 1.9rem;
+}
+
+.nb-reader-name {
+  overflow: hidden;
+  color: #e891ad;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.nb-reader-tools {
+  display: flex;
+  flex: none;
+  gap: 0.2rem;
+}
+
+.nb-reader-tools button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  height: 1.9rem;
+  min-width: 1.9rem;
+  padding: 0 0.45rem;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: #b8c1c6;
+  font: inherit;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+.nb-reader-tools button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e9edef;
+}
+
+.nb-reader-tools button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.nb-reader-tools button[aria-pressed="true"] {
+  border-color: rgba(232, 145, 173, 0.45);
+  background: rgba(232, 145, 173, 0.14);
+  color: #f3c3d3;
+}
+
+.nb-reader-tools button.done {
+  color: #6cc08b;
+}
+
+.nb-reader-tools svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.nb-reader-body {
+  display: grid;
+  gap: 0.3rem;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.nb-reader-text {
+  margin: 0;
+  font-family: var(--jp), var(--mono);
+  font-size: 1.15rem;
+  line-height: 1.75;
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+}
+
+.nb-reader[data-size="small"] .nb-reader-text {
+  font-size: 0.95rem;
+}
+
+.nb-reader[data-size="large"] .nb-reader-text {
+  font-size: 1.45rem;
+}
+
+.nb-reader-text span[data-i] {
+  border-radius: 3px;
+  cursor: help;
+}
+
+.nb-reader-text span.hit {
+  background: rgba(232, 145, 173, 0.32);
+  box-shadow: 0 2px 0 #e891ad;
+}
+
+.nb-reader-wait {
+  color: #808b91;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+}
+
+.nb-reader-tr {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.6rem;
+  margin: 0;
+  padding-top: 0.35rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: #b8c1c6;
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.nb-reader-tr[hidden] {
+  display: none;
+}
+
+.nb-reader-tr.pending {
+  color: #808b91;
+}
+
+.nb-reader-tr small {
+  flex-basis: 100%;
+  color: #808b91;
+  font-size: 0.7rem;
+}
+
+.nb-reader-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #f3c3d3;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* --- backlog and saved words --------------------------------------------------- */
+
+.nb-reader-log {
+  max-height: 40vh;
+  overflow-y: auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 0.45rem;
+}
+
+.nb-reader-log[hidden] {
+  display: none;
+}
+
+.nb-log-head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-bottom: 0.4rem;
+  background: rgba(11, 12, 13, 0.96);
+  font-size: 0.74rem;
+}
+
+.nb-log-head span {
+  flex: 1;
+  color: #808b91;
+}
+
+.nb-log-head button {
+  padding: 0.2rem 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: transparent;
+  color: #e9edef;
+  font: inherit;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+.nb-reader-log ol {
+  display: grid;
+  gap: 0.15rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nb-reader-log li {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.nb-reader-log li span {
+  font-family: var(--jp), var(--mono);
+}
+
+.nb-reader-log li:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.nb-reader-log li.current {
+  background: rgba(232, 145, 173, 0.12);
+}
+
+.nb-reader-log li b {
+  color: #e891ad;
+  font-size: 0.7rem;
+}
+
+.nb-words li {
+  cursor: default;
+}
+
+.nb-words li b {
+  color: #e9edef;
+  font-size: 0.95rem;
+  font-family: var(--jp), var(--mono);
+}
+
+.nb-words li small {
+  color: #808b91;
+  font-size: 0.7rem;
+}
+
+.nb-reader-empty {
+  margin: 0.3rem 0;
+  color: #808b91;
+  font-size: 0.78rem;
+}
+
+/* --- the dictionary card ------------------------------------------------------------ */
+
+.nb-dict {
+  position: absolute;
+  z-index: 38;
+  display: grid;
+  gap: 0.6rem;
+  overflow-y: auto;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  background: #141617;
+  color: #e9edef;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  animation: nb-fade 0.1s ease;
+}
+
+.nb-dict-entry + .nb-dict-entry {
+  padding-top: 0.55rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.nb-dict-entry header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.55rem;
+}
+
+.nb-dict-entry header b {
+  font-family: var(--jp), var(--mono);
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.nb-dict-entry header span {
+  color: #f3c3d3;
+  font-family: var(--jp), var(--mono);
+  font-size: 0.9rem;
+}
+
+.nb-common {
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: rgba(108, 192, 139, 0.16);
+  color: #8fd3a8;
+  font-size: 0.62rem;
+  font-style: normal;
+}
+
+.nb-save {
+  margin-left: auto;
+  padding: 0.15rem 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: transparent;
+  color: #b8c1c6;
+  font: inherit;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+.nb-save:hover,
+.nb-save.saved {
+  border-color: #e891ad;
+  color: #f3c3d3;
+}
+
+.nb-reasons {
+  margin: 0.15rem 0 0;
+  color: #d8b25a;
+  font-size: 0.68rem;
+}
+
+.nb-dict-entry ol {
+  margin: 0.35rem 0 0;
+  padding-left: 1.2rem;
+}
+
+.nb-dict-entry li + li {
+  margin-top: 0.15rem;
+}
+
+.nb-dict-entry em {
+  margin-right: 0.3rem;
+  color: #808b91;
+  font-size: 0.66rem;
+  font-style: normal;
+}
+
+.nb-dict-entry small {
+  color: #808b91;
+  font-size: 0.66rem;
+}
+
+.nb-dict-kanji {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.nb-dict-kanji:empty {
+  display: none;
+}
+
+.nb-dict-kanji div {
+  display: grid;
+  grid-template-columns: 2rem 1fr;
+  column-gap: 0.55rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.nb-dict-kanji b {
+  grid-row: span 2;
+  align-self: center;
+  font-family: var(--jp), var(--mono);
+  font-size: 1.5rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+.nb-dict-kanji span {
+  font-size: 0.74rem;
+}
+
+.nb-dict-kanji small {
+  color: #808b91;
+  font-family: var(--jp), var(--mono);
+  font-size: 0.68rem;
+}
+
+.nb-dict-credit {
+  margin: 0;
+  color: #5f6b72;
+  font-size: 0.6rem;
+  text-align: right;
+}
+
+/* Phones: the bar spans the screen, tools shrink to icons. */
+@media (max-width: 760px), (max-height: 520px) and (pointer: coarse) {
+  .nb-reader {
+    width: calc(100% - 1rem);
+    padding: 0.45rem 0.55rem 0.55rem;
+  }
+
+  .nb-reader[data-pos="top"] {
+    top: calc(0.5rem + env(safe-area-inset-top));
+  }
+
+  .nb-reader-tools button span {
+    display: none;
+  }
+
+  .nb-reader-text {
+    font-size: 1rem;
+  }
+
+  .nb-dict {
+    max-width: calc(100% - 1rem);
+  }
+}

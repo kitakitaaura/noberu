@@ -358,6 +358,15 @@
         const args = ["--root", GAME_DIR, "--font", fontPath, "--save-dir", saveDir,
           "--enc:" + encoding];
         if (englishMenu) args.push("--english-menu");
+        // Each line the engine shows, for noberu's reading tools
+        // (assets/text.js): it hands over the script's own bytes.
+        const decoder = new TextDecoder(encoding === "sjis" ? "shift_jis" : encoding === "gbk" ? "gbk" : "utf-8");
+        Mod.noberuText = (bytes) => {
+          if (!window.NoberuSay) return;
+          // ONScripter-EN marks single-byte text with backticks.
+          const text = decoder.decode(bytes).replace(/`/g, "");
+          window.NoberuSay({ text, kind: "line" });
+        };
         console.log("[ons] args", args);
         post("booting", { encoding: encoding });
         window.addEventListener("beforeunload", flush_save);

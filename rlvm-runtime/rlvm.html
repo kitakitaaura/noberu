@@ -85,6 +85,13 @@
           print: (text) => console.log("[rlvm]", text),
           printErr: (text) => console.error("[rlvm]", text),
           onAbort: (what) => reject(new Error("rlvm aborted: " + what)),
+          // Each line, and who said it, at every click wait (UTF-8), for
+          // noberu's reading tools (assets/text.js).
+          noberuText: (text, name) => {
+            if (!window.NoberuSay) return;
+            const decoder = new TextDecoder("utf-8");
+            window.NoberuSay({ text: decoder.decode(text), name: decoder.decode(name), kind: "line" });
+          },
           preRun: [
             function setUpVirtualFilesystem() {
               // Free identifiers inside the Emscripten module closure

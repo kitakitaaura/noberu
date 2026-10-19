@@ -139,6 +139,14 @@
 
       const Mod = await createOnscripterRu({
         canvas: canvasEl,
+        // Each dialogue and its speaker (UTF-8), for noberu's reading tools
+        // (assets/text.js). Inline [commands] and {tags} are not text.
+        noberuText: (text, name) => {
+          if (!window.NoberuSay) return;
+          const decoder = new TextDecoder("utf-8");
+          const clean = decoder.decode(text).replace(/\[[^\]]*\]/g, "").replace(/\{[^}]*\}/g, "");
+          window.NoberuSay({ text: clean, name: decoder.decode(name), kind: "line" });
+        },
         print: (text) => console.log("[ons-ru]", text),
         printErr: (text) => console.warn("[ons-ru]", text),
         onAbort: (what) => post("error", { message: "engine aborted: " + what }),

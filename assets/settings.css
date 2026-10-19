@@ -374,3 +374,99 @@
 .settings-tested small {
   font-size: 0.78rem;
 }
+
+/* Reading panel (assets/text.js). */
+.settings-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: flex-end;
+}
+
+.settings-more {
+  margin: 0.4rem 0;
+  border-top: 1px solid var(--line);
+  padding-top: 0.5rem;
+}
+
+.settings-more > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.82rem;
+  width: fit-content;
+}
+
+.settings-more[open] > summary {
+  color: var(--ink);
+  margin-bottom: 0.3rem;
+}
+
+select.settings-input {
+  padding-right: 0.4rem;
+}
+
+/* Sync panel (assets/sync.js). */
+.sync-join-field,
+.sync-key {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.sync-join-field input {
+  width: 15rem;
+  font-family: var(--mono);
+  text-transform: uppercase;
+}
+
+.sync-key code {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  background: var(--panel-soft);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  user-select: all;
+}
+
+.sync-qr {
+  width: 9rem;
+  margin: 0.2rem 0 0.6rem auto;
+  padding: 0.4rem;
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+
+.sync-qr[hidden] {
+  display: none;
+}
+
+.sync-qr svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+@media (max-width: 760px) {
+  .sync-join-field input {
+    width: 100%;
+  }
+
+  .sync-key {
+    flex-wrap: wrap;
+  }
+}
+
+.settings-row.sync-key-row {
+  flex-wrap: wrap;
+}
+
+.sync-key-row .sync-key {
+  flex-basis: 100%;
+  justify-content: flex-end;
+}
+
+.sync-key code {
+  white-space: nowrap;
+}

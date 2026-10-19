@@ -12,6 +12,15 @@
  *   POST /turn  { bytes }              Relay (TURN) credentials, for when a
  *                                      direct connection is impossible. Capped:
  *                                      see RELAY_* in wrangler.jsonc.
+ *   GET  /cover?u=<vndb image url>     A vndb.org cover image, passed through
+ *                                      with the headers the cross-origin
+ *                                      isolated site needs (the shelf's
+ *                                      "find it online").
+ *   GET|PUT|DELETE /sync/<room>[/<id>] Save sync (assets/sync.js): encrypted
+ *                                      blobs in R2. The room is a hash of a
+ *                                      key only the player's devices hold;
+ *                                      names and saves are encrypted in the
+ *                                      browser, so this sees sizes and times.
  *
  * Direct connections use Cloudflare's free, unlimited STUN and are never
  * capped. The relay costs money past Cloudflare's free allowance, so it is
@@ -52,6 +61,17 @@ export default {
       return relayCredentials(request, env, origin);
     }
 
+    if (url.pathname === "/cover" && request.method === "GET") {
+      return cover(url, origin, allowed);
+    }
+
+    const sync = url.pathname.match(/^\/sync\/([0-9a-f]{64})(?:\/([0-9a-f]{32}))?$/);
+    if (sync) {
+      if (!allowed) return json({ error: "origin not allowed" }, 403, origin, false);
+      if (!env.SYNC) return json({ error: "sync-unavailable" }, 503, origin);
+      return syncRoute(request, env, origin, sync[1], sync[2]);
+    }
+
     if (url.pathname === "/") {
       return new Response("noberu beam matchmaker\n", { headers: { "Content-Type": "text/plain" } });
     }
@@ -82,8 +102,9 @@ function cors(origin, allowed) {
   return allowed
     ? {
       "Access-Control-Allow-Origin": origin,
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, X-Noberu-Meta",
+      "Access-Control-Expose-Headers": "X-Noberu-Meta",
       "Access-Control-Max-Age": "86400",
       "Cross-Origin-Resource-Policy": "cross-origin",
       "Vary": "Origin",
@@ -96,6 +117,94 @@ function json(body, status, origin, allowed = true) {
     status,
     headers: { "Content-Type": "application/json", ...cors(origin, allowed) },
   });
+}
+
+// --- covers -------------------------------------------------------------------
+
+// Only vndb's own cover images, so this is no general-purpose proxy. An <img>
+// sends no Origin, so the path is the check; Cloudflare's cache keeps the
+// load off vndb.
+const COVER = /^https:\/\/t\.vndb\.org\/cv(\.t)?\/\d{1,3}\/\d{1,9}\.(jpg|webp|png)$/;
+
+async function cover(url, origin, allowed) {
+  const target = url.searchParams.get("u") || "";
+  if (!COVER.test(target)) return new Response("not a vndb cover", { status: 400 });
+  const upstream = await fetch(target, { cf: { cacheEverything: true, cacheTtl: 7 * 86400 } });
+  if (!upstream.ok) return new Response("cover not found", { status: upstream.status });
+  return new Response(upstream.body, {
+    headers: {
+      "Content-Type": upstream.headers.get("Content-Type") || "image/jpeg",
+      "Cache-Control": "public, max-age=604800",
+      "Cross-Origin-Resource-Policy": "cross-origin",
+      "Access-Control-Allow-Origin": allowed ? origin : "*",
+      "Vary": "Origin",
+    },
+  });
+}
+
+// --- save sync --------------------------------------------------------------------
+
+// Per room (one player's devices): at most SYNC_MAX_OBJECT bytes a save set
+// and SYNC_MAX_ROOM bytes in all. The meta header is the browser's encrypted
+// description of the set (name, engine, fingerprint), at most 4 KB.
+async function syncRoute(request, env, origin, room, id) {
+  const maxObject = Number(env.SYNC_MAX_OBJECT || 64 * 1048576);
+  const maxRoom = Number(env.SYNC_MAX_ROOM || 512 * 1048576);
+  const prefix = `${room}/`;
+
+  if (!id && request.method === "GET") {
+    const items = [];
+    let cursor;
+    do {
+      const page = await env.SYNC.list({ prefix, cursor, include: ["customMetadata"] });
+      for (const object of page.objects) {
+        items.push({
+          id: object.key.slice(prefix.length),
+          size: object.size,
+          uploaded: object.uploaded.getTime(),
+          meta: (object.customMetadata && object.customMetadata.m) || "",
+        });
+      }
+      cursor = page.truncated ? page.cursor : undefined;
+    } while (cursor);
+    return json({ items }, 200, origin);
+  }
+  if (!id) return json({ error: "method" }, 405, origin);
+
+  const key = prefix + id;
+  if (request.method === "GET") {
+    const object = await env.SYNC.get(key);
+    if (!object) return json({ error: "not-found" }, 404, origin);
+    return new Response(object.body, {
+      headers: {
+        "Content-Type": "application/octet-stream",
+        "X-Noberu-Meta": (object.customMetadata && object.customMetadata.m) || "",
+        "Cache-Control": "no-store",
+        ...cors(origin, true),
+      },
+    });
+  }
+  if (request.method === "DELETE") {
+    await env.SYNC.delete(key);
+    return json({ ok: true }, 200, origin);
+  }
+  if (request.method === "PUT") {
+    const meta = request.headers.get("X-Noberu-Meta") || "";
+    if (meta.length > 4096) return json({ error: "meta-too-big" }, 413, origin);
+    const length = Number(request.headers.get("Content-Length") || 0);
+    if (!length || length > maxObject) return json({ error: "too-big", maxObject }, 413, origin);
+    let used = 0;
+    let cursor;
+    do {
+      const page = await env.SYNC.list({ prefix, cursor });
+      for (const object of page.objects) if (object.key !== key) used += object.size;
+      cursor = page.truncated ? page.cursor : undefined;
+    } while (cursor);
+    if (used + length > maxRoom) return json({ error: "room-full", maxRoom, used }, 413, origin);
+    await env.SYNC.put(key, request.body, { customMetadata: { m: meta } });
+    return json({ ok: true }, 200, origin);
+  }
+  return json({ error: "method" }, 405, origin);
 }
 
 // --- relay ------------------------------------------------------------------

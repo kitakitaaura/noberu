@@ -20,6 +20,12 @@
     { "tag": "v1", "new_sqlite_classes": ["Room", "Quota"] }
   ],
 
+  // Save sync (assets/sync.js). Create the bucket once:
+  //   npx wrangler r2 bucket create noberu-sync
+  "r2_buckets": [
+    { "binding": "SYNC", "bucket_name": "noberu-sync" }
+  ],
+
   "vars": {
     // Sites allowed to use this. localhost is always allowed, for development.
     "ALLOWED_ORIGINS": "https://noberu.kitaaura.com,https://noberu.pages.dev,https://staging.noberu.pages.dev",
@@ -30,7 +36,11 @@
     // The relay (TURN) is the only part that costs money: Cloudflare's first
     // 1,000 GB a month are free, then $0.05/GB. Direct beams are never capped.
     "RELAY_MAX_BEAM_BYTES": "2147483648",
-    "RELAY_DAILY_BYTES": "4294967296"
+    "RELAY_DAILY_BYTES": "4294967296",
+
+    // Save sync: per save set, and per player (all their devices together).
+    "SYNC_MAX_OBJECT": "67108864",
+    "SYNC_MAX_ROOM": "536870912"
   }
 
   // Secrets, set with `npx wrangler secret put <NAME>` (never in this file):

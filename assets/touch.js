@@ -25,6 +25,7 @@
     <div class="tp-group tp-top-left">
       <button type="button" class="tp-pill" data-act="exit" aria-label="leave the game">✕</button>
       <button type="button" class="tp-pill" data-act="hide" aria-label="hide the controls">hide</button>
+      <button type="button" class="tp-pill" data-act="menu" aria-label="noberu menu">menu</button>
     </div>
     <div class="tp-group tp-top-right">
       <button type="button" class="tp-pill" data-act="rclick" aria-label="right click">r-click</button>
@@ -45,6 +46,7 @@
     <div class="tp-group tp-top-left">
       <button type="button" class="tp-pill" data-act="exit" aria-label="leave the game">✕</button>
       <button type="button" class="tp-pill" data-act="hide" aria-label="hide the controls">hide</button>
+      <button type="button" class="tp-pill" data-act="menu" aria-label="noberu menu">menu</button>
     </div>
     <div class="tp-group tp-shoulder-left">
       <button type="button" data-key="Key2">L2</button>
@@ -156,6 +158,7 @@
           button.textContent = hidden ? "show" : "hide";
           button.setAttribute("aria-label", hidden ? "show the controls" : "hide the controls");
         } else if (act === "rclick") rightClick(frameWrap);
+        else if (act === "menu" && window.NoberuMenu) window.NoberuMenu.toggle(frameWrap);
       });
     });
 

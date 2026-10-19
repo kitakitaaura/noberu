@@ -9,105 +9,185 @@
  * untouched, so markup does not need to change.
  */
 
+/* IBM Plex Mono, bundled (assets/fonts, SIL OFL 1.1) so it works offline and
+   under the page's cross-origin isolation. Japanese falls through to the
+   system's own font (Hiragino, Yu Gothic, Noto Sans CJK). */
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/plex-mono-latin-400.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("fonts/plex-mono-latin-500.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("fonts/plex-mono-latin-600.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/plex-mono-latin-ext-400.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("fonts/plex-mono-latin-ext-500.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("fonts/plex-mono-latin-ext-600.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* Sister to sayl (sayl.kitaaura.com): the same near-black neutrals, type and
+   rounding, with noberu's own accent - a dusk rose where sayl is teal. */
 :root {
   /* Dark is the default. The light set below only swaps these values. */
-  --paper: #000000;
-  --pink: #000000;
-  --cream: #0e0e0e;
-  --panel: #0b0b0b;
-  --panel-soft: #141414;
-  --surface: #191919;
-  --surface-hover: #202020;
-  --surface-press: #262626;
+  --paper: #0b0c0d;
+  --pink: #0b0c0d;
+  --cream: #101213;
+  --panel: #0e1011;
+  --panel-soft: #141617;
+  --surface: #1b1e20;
+  --surface-hover: #22262a;
+  --surface-press: #2a2f33;
 
-  --ink: #e4e4e4;
-  --muted: #8b8b93;
+  --ink: #e9edef;
+  --ink-2: #b8c1c6;
+  --muted: #808b91;
 
   /* Strokes: hairlines, not neon frames. */
-  --line: rgba(255, 255, 255, 0.09);
-  --line-strong: rgba(255, 255, 255, 0.16);
+  --line: #232729;
+  --line-strong: #343a3e;
 
-  --drop-shadow: rgba(0, 0, 0, 0.55);
-  --backdrop: rgba(0, 0, 0, 0.72);
+  --drop-shadow: rgba(0, 0, 0, 0.4);
+  --backdrop: rgba(0, 0, 0, 0.62);
 
-  /* One accent, used for focus and the selected tab. */
-  --accent: #2f8af9;
+  /* One accent, used for focus, the selected tab and the main action. */
+  --accent: #e891ad;
+  --accent-soft: rgba(232, 145, 173, 0.14);
+  --on-accent: #1a0d12;
+  /* The main button: the page's own ink, inverted, as sayl does it. */
+  --primary: #e9edef;
+  --on-primary: #0b0c0d;
   --mint: var(--ink);
   --sky: var(--accent);
   --blue: var(--accent);
-  --gold: #f19a38;
-  --red: #ed2236;
+  --gold: #d8b25a;
+  --red: #e47f76;
+  --ok: #6cc08b;
 
   --shadow: transparent;
   --glow: transparent;
 
   /* The stage: the viewport, the scene behind it, and the cards sitting on
      top. It follows the theme like everything else. */
-  --stage: #070707;
-  --stage-deep: #050505;
-  --stage-panel: rgba(16, 16, 16, 0.88);
-  --stage-surface: #1c1c1c;
-  --stage-surface-hover: #242424;
-  --stage-ink: #e9e9e9;
-  --stage-muted: #9a9aa2;
-  --stage-line: rgba(255, 255, 255, 0.12);
+  --stage: #0c0d0e;
+  --stage-deep: #070808;
+  --stage-panel: rgba(20, 22, 23, 0.9);
+  --stage-surface: #1b1e20;
+  --stage-surface-hover: #25292c;
+  --stage-ink: #e9edef;
+  --stage-muted: #8d979d;
+  --stage-line: #2a2f32;
   --scene-fade: rgba(0, 0, 0, 0.9);
-  --scene-glow: rgba(47, 138, 249, 0.16);
-  --scene-shape: rgba(255, 255, 255, 0.05);
+  --scene-glow: rgba(232, 145, 173, 0.12);
+  --scene-shape: rgba(255, 255, 255, 0.04);
   --scene-accent: var(--accent);
-  --scene-accent-opacity: 0.9;
+  --scene-accent-opacity: 0.85;
 
-  /* Film grain: a little texture over the whole page. */
-  --grain-opacity: 0.09;
+  /* sayl has no grain; neither does its sister. */
+  --grain-opacity: 0;
   --grain-blend: normal;
 
-  --radius: 12px;
-  --radius-sm: 8px;
+  --radius: 16px;
+  --radius-box: 20px;
+  --radius-sm: 12px;
+  --radius-xs: 8px;
   --radius-pill: 999px;
+
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --jp: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", "Noto Sans CJK JP",
+    "Noto Sans JP", "Meiryo", sans-serif;
+  --fast: 0.12s;
+  --med: 0.18s;
 }
 
 :root[data-theme="light"] {
   --paper: #ffffff;
   --pink: #ffffff;
-  --cream: #f4f4f4;
+  --cream: #f8f9fa;
   --panel: #ffffff;
-  --panel-soft: #f1f1f1;
-  --surface: #f4f4f4;
-  --surface-hover: #ededed;
-  --surface-press: #e3e3e3;
+  --panel-soft: #f4f6f7;
+  --surface: #eceff1;
+  --surface-hover: #e4e8ea;
+  --surface-press: #dfe4e7;
 
-  --ink: #282828;
-  --muted: #75757e;
+  --ink: #0f1315;
+  --ink-2: #38434a;
+  --muted: #5f6b72;
 
-  --line: rgba(0, 0, 0, 0.09);
-  --line-strong: rgba(0, 0, 0, 0.18);
+  --line: #e0e5e8;
+  --line-strong: #ccd3d7;
 
-  --drop-shadow: rgba(0, 0, 0, 0.16);
-  --backdrop: rgba(0, 0, 0, 0.35);
+  --drop-shadow: rgba(15, 19, 21, 0.12);
+  --backdrop: rgba(15, 19, 21, 0.36);
 
-  --stage: #f7f7f8;
-  --stage-deep: #ededee;
-  --stage-panel: rgba(255, 255, 255, 0.92);
+  --accent: #b23d66;
+  --accent-soft: rgba(178, 61, 102, 0.1);
+  --on-accent: #ffffff;
+  --primary: #0f1315;
+  --on-primary: #ffffff;
+  --gold: #94680f;
+  --red: #c0433a;
+  --ok: #2c8650;
+
+  --stage: #f6f7f8;
+  --stage-deep: #eceff1;
+  --stage-panel: rgba(255, 255, 255, 0.94);
   --stage-surface: #ffffff;
-  --stage-surface-hover: #f0f0f1;
-  --stage-ink: #282828;
-  --stage-muted: #75757e;
-  --stage-line: rgba(0, 0, 0, 0.1);
-  --scene-fade: rgba(0, 0, 0, 0.05);
-  --scene-glow: rgba(47, 138, 249, 0.14);
-  --scene-shape: rgba(0, 0, 0, 0.05);
+  --stage-surface-hover: #f0f2f3;
+  --stage-ink: #0f1315;
+  --stage-muted: #5f6b72;
+  --stage-line: #e0e5e8;
+  --scene-fade: rgba(0, 0, 0, 0.04);
+  --scene-glow: rgba(178, 61, 102, 0.1);
+  --scene-shape: rgba(0, 0, 0, 0.04);
   --scene-accent-opacity: 0.75;
 
-  /* Light surfaces hide grain, so it needs a little more. */
-  --grain-opacity: 0.075;
+  --grain-opacity: 0;
   --grain-blend: multiply;
 }
 
 body {
-  font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas,
-    "IBM Plex Mono", "Courier New", monospace;
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1.45;
   background: var(--paper);
   color: var(--ink);
+  -webkit-font-smoothing: antialiased;
 }
 
 /* The CRT layer: scanlines, drifting static and the glitch band. */
@@ -956,4 +1036,215 @@ body::after {
 .frame-fullscreen svg {
   width: 1rem;
   height: 1rem;
+}
+
+/* --- sister look (sayl.kitaaura.com) -------------------------------------------
+   Same layout as before; what changes is the finish: detached rounded chips,
+   a glyph wordmark with its Japanese reading, the inverted main button, a
+   softer dock. Phones keep their own bar (assets/mobile.css loads after). */
+
+.topbar {
+  padding: 0.6rem 0.75rem 0;
+  gap: 0.5rem;
+}
+
+.brand-chip,
+.downloads-chip,
+.topbar-actions .downloads-chip,
+.topbar-actions .downloads-chip:first-child {
+  min-height: 2.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--panel-soft) 92%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-weight: 500;
+  transition: background var(--fast) ease, border-color var(--fast) ease;
+}
+
+.topbar-actions {
+  gap: 0.35rem;
+}
+
+.downloads-chip:hover,
+.downloads-chip:focus-visible {
+  border-color: var(--line-strong);
+  background: var(--surface);
+}
+
+/* The wordmark: glyph, name, and the name's reading (述べる, "to tell"). */
+.logo-box.wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 0.85rem 0 0.7rem;
+  background: transparent;
+  color: var(--ink);
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  border-radius: var(--radius-sm);
+}
+
+button.logo-box.wordmark:hover,
+button.logo-box.wordmark:focus-visible {
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.wordmark-glyph {
+  width: 1.3rem;
+  height: 1.3rem;
+  flex: none;
+  color: var(--accent);
+}
+
+.wordmark-sub {
+  align-self: flex-end;
+  margin-bottom: 0.55rem;
+  color: var(--muted);
+  font-family: var(--jp);
+  font-size: 0.66rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+
+.window {
+  border-radius: var(--radius-box);
+  background: var(--panel);
+  box-shadow: 0 10px 32px var(--drop-shadow);
+}
+
+.window-bar {
+  background: var(--panel-soft);
+}
+
+.window-title {
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+}
+
+.screen {
+  border-bottom-color: var(--line);
+}
+
+.viewport {
+  border-right-color: var(--line);
+}
+
+/* The main action is the page's ink, inverted; everything else stays quiet. */
+.retro-button:not(.secondary) {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
+  font-weight: 500;
+}
+
+.retro-button:not(.secondary):hover,
+.viewport .retro-button:not(.secondary):hover {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 86%, var(--paper));
+}
+
+.viewport .retro-button:not(.secondary) {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.retro-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.retro-button,
+.tiny-button {
+  transition: background var(--fast) ease, border-color var(--fast) ease, color var(--fast) ease;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+a {
+  color: var(--ink);
+  text-decoration-color: var(--muted);
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  text-decoration-color: var(--accent);
+}
+
+/* The dock: sayl's nav items, laid out along the bottom. */
+.bottom-tabs {
+  gap: 0.25rem;
+  padding: 0.35rem;
+  border-radius: var(--radius-box);
+  background: color-mix(in srgb, var(--panel-soft) 94%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.tab-button {
+  min-height: 3.9rem;
+  border-right: 0;
+  border-radius: var(--radius);
+  transition: background var(--fast) ease, color var(--fast) ease;
+}
+
+.tab-button:hover {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.tab-button[aria-selected="true"] {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.tab-icon {
+  border: 0;
+  background: transparent;
+}
+
+.tab-button[aria-selected="true"] .tab-icon {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+}
+
+.tab-label {
+  font-size: 0.72rem;
+}
+
+.library-modal {
+  border-radius: var(--radius-box);
+  background: var(--panel);
+  box-shadow: var(--shadow-modal, 0 10px 32px var(--drop-shadow));
+}
+
+.library-item {
+  border-radius: var(--radius);
+}
+
+.panel-header h2 {
+  letter-spacing: -0.01em;
+}
+
+.mini-icon {
+  color: var(--accent);
+}
+
+.continue-card {
+  border-color: var(--accent);
+}
+
+.continue-label {
+  color: var(--accent);
+}
+
+::selection {
+  background: var(--accent-soft);
 }

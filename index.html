@@ -1607,6 +1607,9 @@
   <link rel="stylesheet" href="assets/theme.css?v=20261017a">
   <link rel="stylesheet" href="assets/mobile.css?v=20261017a">
   <link rel="stylesheet" href="assets/settings.css?v=20261017a">
+  <link rel="stylesheet" href="assets/shelf.css?v=20261018a">
+  <link rel="stylesheet" href="assets/menu.css?v=20261018a">
+  <link rel="stylesheet" href="assets/text.css?v=20261018a">
 
   <script>
     // Dark unless someone picked light; applied here so the page never
@@ -1665,8 +1668,16 @@
   </div>
   <header class="topbar" aria-label="site status">
     <div class="brand-chip">
-      <button class="logo-box" id="noberu-menu-button" type="button" aria-haspopup="menu" aria-expanded="false"
-        aria-controls="start-menu">noberu</button>
+      <button class="logo-box wordmark" id="noberu-menu-button" type="button" aria-haspopup="menu" aria-expanded="false"
+        aria-controls="start-menu" aria-label="noberu menu">
+        <svg class="wordmark-glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <rect x="2.5" y="5" width="19" height="13" rx="3.2" fill="none" stroke="currentColor" stroke-width="1.8" />
+          <path d="M6.5 9.6h8.5M6.5 13.2h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+          <path d="M16.2 12.4h2.6l-1.3 1.7z" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round" />
+        </svg>
+        <span class="wordmark-name">noberu</span>
+        <span class="wordmark-sub" lang="ja">のべる</span>
+      </button>
       <!-- Offline play on (grey) or no connection (orange); assets/offline.js. -->
       <button class="offline-badge" id="offline-badge" type="button" hidden>
         <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
@@ -1749,7 +1760,65 @@
         <div class="window-title">VN PORT</div>
       </div>
 
-      <div class="view active" id="about-view" role="tabpanel" aria-labelledby="about-tab">
+      <!-- The game shelf: every game in downloads, with its cover, play time and
+           one play button (assets/shelf.js). The home screen. -->
+      <div class="view active" id="shelf-view" role="tabpanel" aria-labelledby="shelf-tab">
+        <div class="screen shelf-screen">
+          <div class="viewport shelf-viewport" id="shelf-viewport">
+            <div class="shelf-head">
+              <div class="shelf-heading">
+                <h1>your games</h1>
+                <span class="shelf-count" id="shelf-count"></span>
+              </div>
+              <div class="shelf-tools">
+                <label class="shelf-search">
+                  <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m10.4 10.4 3.6 3.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+                  <input type="search" id="shelf-search" placeholder="search" aria-label="search your games" autocomplete="off" spellcheck="false" />
+                </label>
+                <select class="shelf-sort" id="shelf-sort" aria-label="sort games">
+                  <option value="recent">recent</option>
+                  <option value="name">a–z</option>
+                  <option value="played">most played</option>
+                  <option value="added">newest</option>
+                </select>
+                <div class="shelf-add-wrap">
+                  <button class="retro-button" type="button" id="shelf-add" aria-haspopup="menu" aria-expanded="false">
+                    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                    add a game
+                  </button>
+                  <div class="shelf-menu" id="shelf-add-menu" role="menu" hidden>
+                    <button type="button" role="menuitem" data-add="folder"><b>a folder</b><small>the game's folder on this device</small></button>
+                    <button type="button" role="menuitem" data-add="file"><b>a .zip or .7z</b><small>unpacked into this browser</small></button>
+                    <button type="button" role="menuitem" data-add="link"><b>a link</b><small>download a .zip from the web</small></button>
+                    <button type="button" role="menuitem" data-add="beam"><b>from another device</b><small>beam it over</small></button>
+                    <button type="button" role="menuitem" data-add="demo"><b>a free game to try</b><small>Narcissu, about 100 MB</small></button>
+                  </div>
+                </div>
+                <input class="file-input" id="shelf-folder-input" type="file" webkitdirectory multiple />
+                <input class="file-input" id="shelf-file-input" type="file" accept=".zip,.7z,.iso,.bin,.cue,.chd,.cso" />
+              </div>
+            </div>
+            <p class="shelf-progress" id="shelf-progress" role="status" hidden></p>
+            <div class="shelf-grid" id="shelf-grid" role="list" aria-label="your games"></div>
+            <div class="shelf-empty" id="shelf-empty" hidden>
+              <div class="shelf-empty-art" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false"><rect x="2.5" y="5" width="19" height="13" rx="3.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M6.5 9.6h8.5M6.5 13.2h5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M16.2 12.4h2.6l-1.3 1.7z" fill="currentColor"/></svg>
+              </div>
+              <h2>Your shelf is empty</h2>
+              <p class="touch-hide">Drop a game's folder or .zip anywhere on this page, or add one.</p>
+              <p class="touch-show">Add a game's folder or .zip.</p>
+              <div class="button-row">
+                <button class="retro-button" type="button" data-add="folder">add a game</button>
+                <button class="retro-button secondary" type="button" data-add="demo">try a free game</button>
+              </div>
+            </div>
+          </div>
+
+          <aside class="side-panel shelf-detail" id="shelf-detail" aria-label="game details"></aside>
+        </div>
+      </div>
+
+      <div class="view" id="about-view" role="tabpanel" aria-labelledby="about-tab">
         <div class="screen">
           <div class="viewport">
             <div class="static-noise" aria-hidden="true"></div>
@@ -3068,14 +3137,21 @@
       </div>
 
       <div class="status-strip">
-        <div class="status-readout" id="status-readout">Channel: about / lobby</div>
+        <div class="status-readout" id="status-readout">Channel: games / shelf</div>
         <div class="status-live"><span class="live-dot" aria-hidden="true"></span> LOCAL</div>
       </div>
     </section>
   </main>
 
   <nav class="bottom-tabs" aria-label="project tabs" role="tablist">
-    <button class="tab-button" id="about-tab" type="button" role="tab" aria-selected="true" aria-controls="about-view"
+    <button class="tab-button" id="shelf-tab" type="button" role="tab" aria-selected="true" aria-controls="shelf-view"
+      data-tab="shelf">
+      <span class="tab-icon" aria-hidden="true">
+        <svg viewBox="0 0 16 16" focusable="false" width="16" height="16"><rect x="2" y="2" width="5" height="5" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="2" width="5" height="5" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="9" width="5" height="5" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="9" width="5" height="5" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+      </span>
+      <span class="tab-label">games</span>
+    </button>
+    <button class="tab-button" id="about-tab" type="button" role="tab" aria-selected="false" aria-controls="about-view"
       data-tab="about">
       <span class="tab-icon" aria-hidden="true">?</span>
       <span class="tab-label">about</span>
@@ -3183,6 +3259,13 @@
   <script src="assets/gamepad.js?v=20261017a"></script>
   <script src="assets/session.js?v=20261017a"></script>
   <script src="assets/touch.js?v=20261017a" defer></script>
+  <script src="assets/covers.js?v=20261018a"></script>
+  <script src="assets/shelf.js?v=20261018a"></script>
+  <script src="assets/menu.js?v=20261018a"></script>
+  <script src="assets/deinflect.js?v=20261018a"></script>
+  <script src="assets/text.js?v=20261018a"></script>
+  <script src="assets/report.js?v=20261018a"></script>
+  <script src="assets/sync.js?v=20261018a"></script>
   <script>
     // Installable app and offline shell; see sw.js.
     if ("serviceWorker" in navigator) {
@@ -3196,6 +3279,7 @@
   <script>
     const tabs = [...document.querySelectorAll(".tab-button")];
     const views = {
+      shelf: document.querySelector("#shelf-view"),
       about: document.querySelector("#about-view"),
       ps2: document.querySelector("#ps2-view"),
       boxedwine: document.querySelector("#boxedwine-view"),
@@ -3285,7 +3369,7 @@
     const slotsViewport = document.querySelector("#slots-viewport");
     const noberuMenuButton = document.querySelector("#noberu-menu-button");
     const startMenu = document.querySelector("#start-menu");
-    let currentTab = "about";
+    let currentTab = "shelf";
     let playBridgePromise = null;
     let runtimeReady = false;
     let saveFlushIntervalId = null;
@@ -3324,7 +3408,9 @@
         view.classList.toggle("active", name === tabName);
       });
 
-      statusReadout.textContent = tabName === "about"
+      statusReadout.textContent = tabName === "shelf"
+        ? "Channel: games / shelf"
+        : tabName === "about"
         ? "Channel: about / lobby"
         : tabName === "boxedwine"
           ? "Channel: boxedwine / Wine staging"
@@ -6021,7 +6107,7 @@
       event.stopPropagation();
       if (phoneLayout.matches) {
         closeStartMenu();
-        setTab("about");
+        setTab("shelf");
         window.scrollTo({ top: 0 });
         return;
       }
@@ -6170,6 +6256,8 @@
       else if (tab === "ps2") staging = setFile(files[0]);
       else if (tab === "boxedwine") staging = setWineFile(files[0]);
       await staging;
+      // The shelf reads the files for a cover; the text tools need the tab.
+      window.dispatchEvent(new CustomEvent("noberu-handoff", { detail: { tab, files } }));
       if (options.boot) {
         const button = document.querySelector(BOOT_BUTTONS[tab] || `#${tab}-boot`);
         if (button) button.click();
