@@ -129,12 +129,6 @@
     return dir;
   }
 
-  async function createWritable(root, path) {
-    const dir = await ensureDir(root, path);
-    const handle = await dir.getFileHandle(path.split("/").pop(), { create: true });
-    return handle.createWritable();
-  }
-
   // A File goes over in slices: handing a multi-GB one to write() in one go
   // can make a phone's browser buffer it and run out of memory.
   const WRITE_SLICE = 16 * 1024 * 1024;
@@ -143,16 +137,22 @@
   // the view starts and ends, so a part of a larger buffer goes as a copy.
   const whole = (view) => (view.byteOffset === 0 && view.byteLength === view.buffer.byteLength ? view : view.slice());
 
-  async function writeFile(root, path, data) {
-    const writable = await createWritable(root, path);
-    if (data instanceof Blob && data.size > WRITE_SLICE) {
-      for (let at = 0; at < data.size; at += WRITE_SLICE) {
-        await writable.write(data.slice(at, at + WRITE_SLICE));
+  // Writes a whole file through a writer from openWriter().
+  async function writeFile(writer, path, data) {
+    const out = await writer.open(path);
+    try {
+      if (data instanceof Blob) {
+        for (let at = 0; at < data.size; at += WRITE_SLICE) {
+          await out.write(new Uint8Array(await data.slice(at, at + WRITE_SLICE).arrayBuffer()), undefined, true);
+        }
+      } else {
+        await out.write(data);
       }
-    } else {
-      await writable.write(data);
+      await out.close();
+    } catch (error) {
+      await out.abort();
+      throw error;
     }
-    await writable.close();
   }
 
   // --- archives -------------------------------------------------------------
@@ -262,6 +262,23 @@
       },
       close: () => out.close(),
       abort: () => out.abort().catch(() => { }),
+    };
+  }
+
+  // Everything that writes a game into storage goes through here: the worker
+  // where there is one, else createWritable(). open(path) creates the file and
+  // any folders on the way; stop() once done.
+  async function openWriter(dir) {
+    const writer = await startWriter(dir);
+    if (writer) return writer;
+    const dirs = new Map();
+    return {
+      async open(path) {
+        const parent = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
+        if (!dirs.has(parent)) dirs.set(parent, await ensureDir(dir, path));
+        return writableFile(dirs.get(parent), path.split("/").pop());
+      },
+      stop() { },
     };
   }
 
@@ -459,14 +476,8 @@
       onProgress(`unpacking ${count} / ${files.length} files (${bytesLabel(bytes)} / ${bytesLabel(total)})...`);
     };
 
-    const writer = await startWriter(dir);
-    const dirs = new Map();
-    const createFile = async (path) => {
-      if (writer) return writer.open(path);
-      const parent = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
-      if (!dirs.has(parent)) dirs.set(parent, await ensureDir(dir, path));
-      return writableFile(dirs.get(parent), path.split("/").pop());
-    };
+    const writer = await openWriter(dir);
+    const createFile = (path) => writer.open(path);
 
     // Decoders hand over pieces as small as a few KB, and every write is a
     // trip to another thread or process, so they are gathered first.
@@ -526,7 +537,7 @@
     } finally {
       if (current) await current.abort();
       for (const out of open) await out.abort();
-      if (writer) writer.stop();
+      writer.stop();
     }
     say(true);
     return { paths: files.map((e) => e.path), bytes, wrapper: wrapped ? first : null };
@@ -750,14 +761,19 @@
 
     let bytes = 0;
     const paths = [];
-    for (let i = 0; i < list.length; i++) {
-      const file = list[i];
-      let path = file.webkitRelativePath || file.name;
-      if (rootName && path.startsWith(rootName + "/")) path = path.slice(rootName.length + 1);
-      await writeFile(dir, path, file);
-      paths.push(path);
-      bytes += file.size;
-      if (i % 20 === 0) onProgress(`copying ${i + 1} / ${list.length} files...`);
+    const writer = await openWriter(dir);
+    try {
+      for (let i = 0; i < list.length; i++) {
+        const file = list[i];
+        let path = file.webkitRelativePath || file.name;
+        if (rootName && path.startsWith(rootName + "/")) path = path.slice(rootName.length + 1);
+        await writeFile(writer, path, file);
+        paths.push(path);
+        bytes += file.size;
+        if (i % 20 === 0) onProgress(`copying ${i + 1} / ${list.length} files...`);
+      }
+    } finally {
+      writer.stop();
     }
 
     return dbPut({
@@ -822,25 +838,47 @@
     const name = sanitize(decodeURIComponent(parsed.pathname.split("/").filter(Boolean).pop() || "download"));
     const id = newId();
     const dir = await (await storageRoot()).getDirectoryHandle(id, { create: true });
-    const handle = await dir.getFileHandle(name, { create: true });
-    const writable = await handle.createWritable();
+    const writer = await openWriter(dir);
 
     let received = 0;
-    if (response.body) {
-      const reader = response.body.getReader();
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        await writable.write(value);
-        received += value.length;
-        onProgress(`downloading ${bytesLabel(received)}${total ? " / " + bytesLabel(total) : ""}...`);
+    try {
+      if (response.body) {
+        const out = await writer.open(name);
+        // Network chunks are a few KB each; they are gathered into 4 MB writes.
+        const buffer = new Uint8Array(WRITE_BUFFER);
+        let held = 0;
+        try {
+          const reader = response.body.getReader();
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (held + value.length > WRITE_BUFFER) {
+              await out.write(buffer.slice(0, held), undefined, true);
+              held = 0;
+            }
+            if (value.length >= WRITE_BUFFER) {
+              await out.write(value, undefined, true);
+            } else {
+              buffer.set(value, held);
+              held += value.length;
+            }
+            received += value.length;
+            onProgress(`downloading ${bytesLabel(received)}${total ? " / " + bytesLabel(total) : ""}...`);
+          }
+          if (held) await out.write(buffer.slice(0, held), undefined, true);
+          await out.close();
+        } catch (error) {
+          await out.abort();
+          throw error;
+        }
+      } else {
+        const blob = await response.blob();
+        await writeFile(writer, name, blob);
+        received = blob.size;
       }
-    } else {
-      const blob = await response.blob();
-      await writable.write(blob);
-      received = blob.size;
+    } finally {
+      writer.stop();
     }
-    await writable.close();
 
     return dbPut({
       id,
@@ -860,14 +898,24 @@
   async function createStored(name) {
     const id = newId();
     const dir = await (await storageRoot()).getDirectoryHandle(id, { create: true });
+    const writer = await openWriter(dir);
+    const open = new Set();
+    // Each file is { write(bytes, position, owned), close() }, as in openWriter().
     return {
       id,
       async open(path) {
-        const parent = await ensureDir(dir, path);
-        const handle = await parent.getFileHandle(path.split("/").pop(), { create: true });
-        return handle.createWritable();
+        const out = await writer.open(path);
+        open.add(out);
+        return {
+          write: (bytes, position, owned) => out.write(bytes, position, owned),
+          close() {
+            open.delete(out);
+            return out.close();
+          },
+        };
       },
       commit({ paths, bytes, engine, root }) {
+        writer.stop();
         const detected = detectEngine(paths);
         return dbPut({
           id,
@@ -882,6 +930,11 @@
         });
       },
       async abort() {
+        // An open file stays locked until it is let go, and a locked file
+        // can't be removed.
+        for (const out of open) await out.abort();
+        open.clear();
+        writer.stop();
         try {
           await (await storageRoot()).removeEntry(id, { recursive: true });
         } catch (error) { /* nothing written yet */ }
@@ -954,15 +1007,19 @@
     }
     if (!missing.length) return { entry, added: 0 };
 
-    const dir = await patchDir(entry, true);
+    const writer = await openWriter(await patchDir(entry, true));
     let bytes = 0;
-    for (let i = 0; i < missing.length; i++) {
-      const file = missing[i];
-      let path = file.webkitRelativePath || file.name;
-      if (rootName && path.startsWith(rootName + "/")) path = path.slice(rootName.length + 1);
-      await writeFile(dir, path, file);
-      bytes += file.size;
-      onProgress(`copying ${i + 1} / ${missing.length} hidden files...`);
+    try {
+      for (let i = 0; i < missing.length; i++) {
+        const file = missing[i];
+        let path = file.webkitRelativePath || file.name;
+        if (rootName && path.startsWith(rootName + "/")) path = path.slice(rootName.length + 1);
+        await writeFile(writer, path, file);
+        bytes += file.size;
+        onProgress(`copying ${i + 1} / ${missing.length} hidden files...`);
+      }
+    } finally {
+      writer.stop();
     }
 
     const updated = await dbPut({
@@ -982,11 +1039,16 @@
     const dir = await (await storageRoot()).getDirectoryHandle(id, { create: true });
     let done = 0;
     let bytes = 0;
-    for await (const { path, handle } of walk(entry.handle)) {
-      const file = await handle.getFile();
-      await writeFile(dir, path, file);
-      bytes += file.size;
-      if (++done % 20 === 0) onProgress(`copying ${done} files (${bytesLabel(bytes)})...`);
+    const writer = await openWriter(dir);
+    try {
+      for await (const { path, handle } of walk(entry.handle)) {
+        const file = await handle.getFile();
+        await writeFile(writer, path, file);
+        bytes += file.size;
+        if (++done % 20 === 0) onProgress(`copying ${done} files (${bytesLabel(bytes)})...`);
+      }
+    } finally {
+      writer.stop();
     }
     await dbDelete(entry.id);
     return dbPut({ ...entry, id, kind: "stored", handle: undefined, bytes, fileCount: done });
