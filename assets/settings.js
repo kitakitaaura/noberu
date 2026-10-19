@@ -35,6 +35,7 @@
     theme: { key: "noberu-theme", fallback: "dark" },
     verbose: { key: "noberu.settings.verbose", fallback: "0" },
     beamSaves: { key: "noberu.beam.includeSaves", fallback: "1" },
+    unpackMemory: { key: "noberu.settings.unpackMemory", fallback: "auto" }, // assets/library.js
   };
 
   const PAD_SCALE = { small: 0.82, medium: 1, large: 1.22 };
@@ -186,6 +187,16 @@
     storage: `
       <div class="settings-row settings-wide">
         <span class="settings-text"><b>space used</b><small data-show="usage">checking...</small></span>
+      </div>
+      <div class="settings-row settings-wide">
+        <span class="settings-text"><b>unpacking memory</b><small>Higher unpacks .7z files faster. Lower it if the page reloads while unpacking.</small>
+          <small class="verbose">A .7z unpacks in several parts at once, each needing about one dictionary of memory (16-64 MB). Auto allows 384 MB on phones and tablets and 1 GB on computers. Zips use the browser's own unzipper and need little either way.</small></span>
+        <span class="settings-segments" role="radiogroup" aria-label="unpacking memory">
+          <label><input type="radio" name="settings-unpack-memory" value="auto" data-setting="unpackMemory" /><span>auto</span></label>
+          <label><input type="radio" name="settings-unpack-memory" value="128" data-setting="unpackMemory" /><span>128 MB</span></label>
+          <label><input type="radio" name="settings-unpack-memory" value="512" data-setting="unpackMemory" /><span>512 MB</span></label>
+          <label><input type="radio" name="settings-unpack-memory" value="1024" data-setting="unpackMemory" /><span>1 GB</span></label>
+        </span>
       </div>
       <div class="settings-row settings-wide">
         <span class="settings-text"><b>keep my games</b><small data-show="persist">checking...</small></span>
