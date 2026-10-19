@@ -151,14 +151,17 @@
     const { room } = await secrets();
     const response = await fetch(`${server()}/sync/${room}${path}`, options);
     if (!response.ok) {
-      let reason = `${response.status}`;
+      let body = {};
       try {
-        reason = (await response.json()).error || reason;
+        body = await response.json();
       } catch (error) { /* not JSON */ }
-      throw new Error(reason === "room-full" ? "Your synced saves are full (512 MB)."
-        : reason === "too-big" ? "One game's saves are too big to sync (over 64 MB)."
+      const mb = (bytes) => `${Math.round(bytes / 1048576)} MB`;
+      const reason = body.error || "";
+      throw new Error(reason === "room-full" ? `Your synced saves are full (${mb(body.maxRoom)}).`
+        : reason === "too-big" ? `One game's saves are too big to sync (over ${mb(body.maxObject)}).`
         : reason === "sync-unavailable" ? "Sync isn't set up on the server yet."
-        : `The sync server answered ${reason}.`);
+        : response.status >= 500 ? "The sync server is busy or full right now. noberu will try again later."
+        : `The sync server answered ${response.status}${reason ? ` (${reason})` : ""}.`);
     }
     return response;
   }

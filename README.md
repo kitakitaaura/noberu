@@ -103,7 +103,7 @@ The site itself is static: HTML, JS, wasm, and a `_headers` file. There are no
 accounts. The one piece of server code is `beam-worker/`: the small matchmaker
 for [beam](#beam-send-games-between-devices), which only introduces two devices
 to each other, plus a pass-through for vndb.org cover images and the encrypted
-store behind [save sync](#save-sync). Everything else a player does stays in
+store behind [save sync](#save-sync) (Durable Object storage, no R2). Everything else a player does stays in
 their browser:
 
 | What | Where it's kept |
@@ -259,13 +259,18 @@ in the wrong place.
 
 Settings → sync makes a key (eight groups of four); entering it on another
 device joins it. Saves are encrypted in the browser (AES-GCM, key from HKDF of
-the sync key) before they go to the Worker's `/sync`, an R2 bucket, under a room
-named by a hash of the key: the server sees sizes and times only. Per save set,
-the latest change wins; nothing is ever deleted by a sync, and saves wait while
-a game is running. Limits: 64 MB per game's saves, 512 MB per player.
+the sync key) before they go to the Worker's `/sync`. There, one `SyncRoom`
+Durable Object per player, named by a hash of the key, keeps them in its own
+SQLite storage, split into 1 MB rows. The server sees sizes and times only.
+Per save set, the latest change wins. Nothing is ever deleted by a sync, and
+saves wait while a game is running.
 
-Setting it up on the Worker (once): `npx wrangler r2 bucket create
-noberu-sync`, then deploy `beam-worker/`.
+Limits (`SYNC_MAX_*` in `beam-worker/wrangler.jsonc`): 32 MB per game's saves
+and 256 MB per player. On the Workers Free plan the whole account has 5 GB of
+Durable Object storage and 100,000 rows written a day; past either, writes fail
+(nothing is charged) and the page says the server is full.
+
+Nothing to set up beyond deploying `beam-worker/` (no R2 bucket needed).
 
 ## Beam (send games between devices)
 

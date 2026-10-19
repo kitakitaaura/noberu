@@ -13,17 +13,14 @@
   "durable_objects": {
     "bindings": [
       { "name": "ROOMS", "class_name": "Room" },
-      { "name": "QUOTAS", "class_name": "Quota" }
+      { "name": "QUOTAS", "class_name": "Quota" },
+      { "name": "SYNC_ROOMS", "class_name": "SyncRoom" }
     ]
   },
   "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["Room", "Quota"] }
-  ],
-
-  // Save sync (assets/sync.js). Create the bucket once:
-  //   npx wrangler r2 bucket create noberu-sync
-  "r2_buckets": [
-    { "binding": "SYNC", "bucket_name": "noberu-sync" }
+    { "tag": "v1", "new_sqlite_classes": ["Room", "Quota"] },
+    // Save sync (assets/sync.js): Durable Object storage, so no R2 bucket.
+    { "tag": "v2", "new_sqlite_classes": ["SyncRoom"] }
   ],
 
   "vars": {
@@ -39,8 +36,9 @@
     "RELAY_DAILY_BYTES": "4294967296",
 
     // Save sync: per save set, and per player (all their devices together).
-    "SYNC_MAX_OBJECT": "67108864",
-    "SYNC_MAX_ROOM": "536870912"
+    // The Workers Free plan has 5 GB of Durable Object storage in all.
+    "SYNC_MAX_OBJECT": "33554432",
+    "SYNC_MAX_ROOM": "268435456"
   }
 
   // Secrets, set with `npx wrangler secret put <NAME>` (never in this file):

@@ -17,8 +17,9 @@
  *                                      isolated site needs (the shelf's
  *                                      "find it online").
  *   GET|PUT|DELETE /sync/<room>[/<id>] Save sync (assets/sync.js): encrypted
- *                                      blobs in R2. The room is a hash of a
- *                                      key only the player's devices hold;
+ *                                      blobs, kept in one SyncRoom Durable
+ *                                      Object per room. The room is a hash of
+ *                                      a key only the player's devices hold;
  *                                      names and saves are encrypted in the
  *                                      browser, so this sees sizes and times.
  *
@@ -68,8 +69,13 @@ export default {
     const sync = url.pathname.match(/^\/sync\/([0-9a-f]{64})(?:\/([0-9a-f]{32}))?$/);
     if (sync) {
       if (!allowed) return json({ error: "origin not allowed" }, 403, origin, false);
-      if (!env.SYNC) return json({ error: "sync-unavailable" }, 503, origin);
-      return syncRoute(request, env, origin, sync[1], sync[2]);
+      if (!env.SYNC_ROOMS) return json({ error: "sync-unavailable" }, 503, origin);
+      const stub = env.SYNC_ROOMS.get(env.SYNC_ROOMS.idFromName(sync[1]));
+      const response = await stub.fetch(new Request(`https://sync/${sync[2] || ""}`, request));
+      // CORS is this Worker's job; the room only answers.
+      const headers = new Headers(response.headers);
+      for (const [name, value] of Object.entries(cors(origin, true))) headers.set(name, value);
+      return new Response(response.body, { status: response.status, headers });
     }
 
     if (url.pathname === "/") {
@@ -144,67 +150,86 @@ async function cover(url, origin, allowed) {
 
 // --- save sync --------------------------------------------------------------------
 
-// Per room (one player's devices): at most SYNC_MAX_OBJECT bytes a save set
-// and SYNC_MAX_ROOM bytes in all. The meta header is the browser's encrypted
-// description of the set (name, engine, fingerprint), at most 4 KB.
-async function syncRoute(request, env, origin, room, id) {
-  const maxObject = Number(env.SYNC_MAX_OBJECT || 64 * 1048576);
-  const maxRoom = Number(env.SYNC_MAX_ROOM || 512 * 1048576);
-  const prefix = `${room}/`;
+// One per player (all their devices share a room). Each save set is one row in
+// `sets` and its encrypted bytes are split into 1 MB rows in `chunks`, since a
+// SQLite row in a Durable Object holds at most 2 MB. Limits per room come from
+// SYNC_MAX_OBJECT and SYNC_MAX_ROOM; the account as a whole has 5 GB on the
+// Workers Free plan, shared with everything else here.
+const CHUNK = 1024 * 1024;
 
-  if (!id && request.method === "GET") {
-    const items = [];
-    let cursor;
-    do {
-      const page = await env.SYNC.list({ prefix, cursor, include: ["customMetadata"] });
-      for (const object of page.objects) {
-        items.push({
-          id: object.key.slice(prefix.length),
-          size: object.size,
-          uploaded: object.uploaded.getTime(),
-          meta: (object.customMetadata && object.customMetadata.m) || "",
-        });
-      }
-      cursor = page.truncated ? page.cursor : undefined;
-    } while (cursor);
-    return json({ items }, 200, origin);
+export class SyncRoom extends DurableObject {
+  constructor(ctx, env) {
+    super(ctx, env);
+    this.sql = ctx.storage.sql;
+    this.sql.exec(`CREATE TABLE IF NOT EXISTS sets (
+      id TEXT PRIMARY KEY, meta TEXT NOT NULL, size INTEGER NOT NULL,
+      uploaded INTEGER NOT NULL, chunks INTEGER NOT NULL)`);
+    this.sql.exec(`CREATE TABLE IF NOT EXISTS chunks (
+      id TEXT NOT NULL, n INTEGER NOT NULL, data BLOB NOT NULL, PRIMARY KEY (id, n))`);
   }
-  if (!id) return json({ error: "method" }, 405, origin);
 
-  const key = prefix + id;
-  if (request.method === "GET") {
-    const object = await env.SYNC.get(key);
-    if (!object) return json({ error: "not-found" }, 404, origin);
-    return new Response(object.body, {
-      headers: {
-        "Content-Type": "application/octet-stream",
-        "X-Noberu-Meta": (object.customMetadata && object.customMetadata.m) || "",
-        "Cache-Control": "no-store",
-        ...cors(origin, true),
-      },
+  async fetch(request) {
+    const id = new URL(request.url).pathname.slice(1);
+    const maxObject = Number(this.env.SYNC_MAX_OBJECT || 32 * 1048576);
+    const maxRoom = Number(this.env.SYNC_MAX_ROOM || 256 * 1048576);
+    const reply = (body, status = 200) => new Response(JSON.stringify(body), {
+      status, headers: { "Content-Type": "application/json" },
     });
+
+    if (!id) {
+      if (request.method !== "GET") return reply({ error: "method" }, 405);
+      const items = this.sql.exec("SELECT id, size, uploaded, meta FROM sets").toArray();
+      return reply({ items });
+    }
+
+    if (request.method === "GET") {
+      const set = this.sql.exec("SELECT meta, size, chunks FROM sets WHERE id = ?", id).toArray()[0];
+      if (!set) return reply({ error: "not-found" }, 404);
+      const out = new Uint8Array(set.size);
+      let at = 0;
+      for (const row of this.sql.exec("SELECT data FROM chunks WHERE id = ? ORDER BY n", id)) {
+        const piece = new Uint8Array(row.data);
+        out.set(piece, at);
+        at += piece.length;
+      }
+      return new Response(out, {
+        headers: { "Content-Type": "application/octet-stream", "X-Noberu-Meta": set.meta, "Cache-Control": "no-store" },
+      });
+    }
+
+    if (request.method === "DELETE") {
+      this.ctx.storage.transactionSync(() => {
+        this.sql.exec("DELETE FROM chunks WHERE id = ?", id);
+        this.sql.exec("DELETE FROM sets WHERE id = ?", id);
+      });
+      return reply({ ok: true });
+    }
+
+    if (request.method === "PUT") {
+      const meta = request.headers.get("X-Noberu-Meta") || "";
+      if (meta.length > 4096) return reply({ error: "meta-too-big" }, 413);
+      const declared = Number(request.headers.get("Content-Length") || 0);
+      if (declared > maxObject) return reply({ error: "too-big", maxObject }, 413);
+      const bytes = new Uint8Array(await request.arrayBuffer());
+      if (!bytes.length) return reply({ error: "empty" }, 400);
+      if (bytes.length > maxObject) return reply({ error: "too-big", maxObject }, 413);
+      const used = this.sql.exec("SELECT COALESCE(SUM(size), 0) AS used FROM sets WHERE id != ?", id).one().used;
+      if (used + bytes.length > maxRoom) return reply({ error: "room-full", maxRoom, used }, 413);
+      const count = Math.ceil(bytes.length / CHUNK);
+      this.ctx.storage.transactionSync(() => {
+        this.sql.exec("DELETE FROM chunks WHERE id = ?", id);
+        for (let n = 0; n < count; n++) {
+          this.sql.exec("INSERT INTO chunks (id, n, data) VALUES (?, ?, ?)",
+            id, n, bytes.subarray(n * CHUNK, Math.min(bytes.length, (n + 1) * CHUNK)));
+        }
+        this.sql.exec(`INSERT INTO sets (id, meta, size, uploaded, chunks) VALUES (?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET meta = excluded.meta, size = excluded.size,
+          uploaded = excluded.uploaded, chunks = excluded.chunks`, id, meta, bytes.length, Date.now(), count);
+      });
+      return reply({ ok: true });
+    }
+    return reply({ error: "method" }, 405);
   }
-  if (request.method === "DELETE") {
-    await env.SYNC.delete(key);
-    return json({ ok: true }, 200, origin);
-  }
-  if (request.method === "PUT") {
-    const meta = request.headers.get("X-Noberu-Meta") || "";
-    if (meta.length > 4096) return json({ error: "meta-too-big" }, 413, origin);
-    const length = Number(request.headers.get("Content-Length") || 0);
-    if (!length || length > maxObject) return json({ error: "too-big", maxObject }, 413, origin);
-    let used = 0;
-    let cursor;
-    do {
-      const page = await env.SYNC.list({ prefix, cursor });
-      for (const object of page.objects) if (object.key !== key) used += object.size;
-      cursor = page.truncated ? page.cursor : undefined;
-    } while (cursor);
-    if (used + length > maxRoom) return json({ error: "room-full", maxRoom, used }, 413, origin);
-    await env.SYNC.put(key, request.body, { customMetadata: { m: meta } });
-    return json({ ok: true }, 200, origin);
-  }
-  return json({ error: "method" }, 405, origin);
 }
 
 // --- relay ------------------------------------------------------------------
