@@ -2,6 +2,16 @@
    detail panel beside it. Sits in the same window and side panel as every
    engine tab; only what is inside them is new. */
 
+/* Fleuron Mixed (assets/fonts, SIL OFL 1.1), for the letter on a cover with
+   no art. Letters it lacks fall through to Plex. */
+@font-face {
+  font-family: "Fleuron Mixed";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/fleuron-mixed.woff2") format("woff2");
+}
+
 .touch-show {
   display: none;
 }
@@ -327,25 +337,27 @@
   filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.45));
 }
 
-/* No art: the game's first letter, large, on its own colour. */
+/* No art: the game's first letter, large, on its own solid colour. */
+.shelf-cover[data-fit="none"],
+:root[data-theme="light"] .shelf-cover[data-fit="none"] {
+  border-color: transparent;
+  background: var(--c);
+}
+
 .shelf-cover-initial {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 2.6rem;
-  font-weight: 600;
-  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+  color: #141617;
+  font-family: "Fleuron Mixed", var(--mono);
+  font-size: 3.4rem;
+  font-weight: 400;
+  line-height: 1;
 }
 
 .shelf-cover.big .shelf-cover-initial {
-  font-size: 3.6rem;
-}
-
-:root[data-theme="light"] .shelf-cover-initial {
-  color: rgba(15, 19, 21, 0.7);
-  text-shadow: none;
+  font-size: 4.8rem;
 }
 
 .shelf-cover-name {

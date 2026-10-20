@@ -170,6 +170,9 @@
     return h;
   }
 
+  // A cover with no art is one of these, picked by the same hash.
+  const COLORS = ["#ff8a65", "#ffb74d", "#ffd54f", "#aed581", "#4dd0b4", "#4fc3f7", "#9fa8ff", "#ce93d8", "#f48fb1", "#ff9e9e"];
+
   // "Ciconia_When_They_Cry" reads better as words.
   function prettyName(name) {
     return String(name).replace(/[_]+/g, " ").replace(/\s+/g, " ").trim();
@@ -225,8 +228,9 @@
       ? (fit === "icon"
         ? `<img class="shelf-cover-blur" src="${url}" alt="" /><img class="shelf-cover-icon" src="${url}" alt="" />`
         : `<img src="${url}" alt="" loading="lazy" />`)
-      : `<span class="shelf-cover-initial" aria-hidden="true">${escapeHtml([...name.replace(/^(the|a)\s+/i, "")][0] || "?")}</span>`;
-    return `<span class="shelf-cover${big ? " big" : ""}" data-fit="${fit}" style="--h:${hue(entry.name)}">${inner}</span>`;
+      : `<span class="shelf-cover-initial" aria-hidden="true">${escapeHtml(([...name.replace(/^(the|a)\s+/i, "")][0] || "?").toUpperCase())}</span>`;
+    const h = hue(entry.name);
+    return `<span class="shelf-cover${big ? " big" : ""}" data-fit="${url ? fit : "none"}" style="--h:${h};--c:${COLORS[h % COLORS.length]}">${inner}</span>`;
   }
 
   async function render() {
