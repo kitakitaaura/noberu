@@ -13,7 +13,8 @@ Questions (not for issues - just file an issue on GitHub)? DM me on Discord - fa
 
 **noberu does not host or distribute games.** You use a copy you own. The one
 exception is the demo, *Narcissu*, a freeware title whose authors allow
-unmodified redistribution (see [Demo game](#demo-game)).
+unmodified redistribution (see [Demo game](#demo-game)). The other
+[free games](#free-games) on the shelf download from their makers' own sites.
 
 Live at **https://noberu.kitaaura.com** (see update, unstable version https://staging.noberu.pages.dev).
 
@@ -227,6 +228,8 @@ in the wrong place.
   title background; the `.exe`'s icon), from a capture of its title screen while
   it runs, from vndb.org ("find it online", through the Worker's `/cover`), or
   from an image the player picks.
+- **Free games** (`assets/free.js`): a list under the shelf of freeware that
+  noberu plays, one click each. See [Free games](#free-games).
 - **The noberu menu** (`assets/menu.js`): screenshot (kept on the shelf, can be
   the cover), the game's own save/load menu, skip, reading tools, volume,
   fullscreen, report a problem, quit to games. It sits inside the running
@@ -378,6 +381,29 @@ workspace with their patches and build scripts. In short:
 Toolchain: [emscripten-core/emsdk](https://github.com/emscripten-core/emsdk).
 
 ---
+
+## Free games
+
+The shelf lists freeware visual novels that were downloaded, unpacked and
+booted in noberu, all ages only. "get" downloads the file from the makers' own
+site through `NoberuLibrary.addFromUrl` (so through the relay when the site sends
+no CORS headers), unpacks it, names it and sets its vndb cover. Nothing is
+hosted by noberu except Narcissu (below).
+
+| Game | Engine | Language | From |
+| --- | --- | --- | --- |
+| Narcissu | NScripter | English | noberu's copy (see [Demo game](#demo-game)) |
+| May Sky (Gogatsu no Sora) | NScripter | English | insani.org (Altogether 2008) |
+| Moonshine (Tsuki no Terasu) | NScripter | English | insani.org (Altogether 2008) |
+| The Letter (Tegami) | NScripter | English | insani.org (Altogether 2008) |
+| Ripples | Ren'Py | English | sakevisual.com |
+| Carrot Cake Jinkaku Shuffle Jiken | KiriKiri | English | Novectacle (novect.net, Google Drive) |
+| Seventh Coat | KiriKiri | Japanese | Novectacle (novect.net, Google Drive) |
+
+insani's releases are the Mac zips: the same game files as the Windows
+installers, which noberu can't unpack. Left out after testing: *[text] - A
+Summer Story* (Ren'Py 6.10, too old for the bundled Ren'Py), and games only on
+itch.io or freem (no fixed download link) or only as installers or `.tar.bz2`.
 
 ## Demo game
 

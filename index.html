@@ -1405,7 +1405,7 @@
   <link rel="stylesheet" href="assets/theme.css?v=20261020c">
   <link rel="stylesheet" href="assets/mobile.css?v=20261020a">
   <link rel="stylesheet" href="assets/settings.css?v=20261020a">
-  <link rel="stylesheet" href="assets/shelf.css?v=20261020b">
+  <link rel="stylesheet" href="assets/shelf.css?v=20261020d">
   <link rel="stylesheet" href="assets/menu.css?v=20261020b">
   <link rel="stylesheet" href="assets/text.css?v=20261020b">
   <link rel="stylesheet" href="assets/dock.css?v=20261020f">
@@ -1578,7 +1578,7 @@
                     <button type="button" role="menuitem" data-add="file"><b>a .zip or .7z</b><small>unpacked into this browser</small></button>
                     <button type="button" role="menuitem" data-add="link"><b>a link</b><small>download a .zip from the web</small></button>
                     <button type="button" role="menuitem" data-add="beam"><b>from another device</b><small>beam it over</small></button>
-                    <button type="button" role="menuitem" data-add="demo"><b>a free game to try</b><small>Narcissu, about 100 MB</small></button>
+                    <button type="button" role="menuitem" data-add="free"><b>a free game</b><small>pick one from the list below</small></button>
                   </div>
                 </div>
                 <input class="file-input" id="shelf-folder-input" type="file" webkitdirectory multiple />
@@ -1596,9 +1596,17 @@
               <p class="touch-show">Add a game's folder or .zip.</p>
               <div class="button-row">
                 <button class="retro-button" type="button" data-add="folder">add a game</button>
-                <button class="retro-button secondary" type="button" data-add="demo">try a free game</button>
+                <button class="retro-button secondary" type="button" data-add="free">try a free game</button>
               </div>
             </div>
+            <!-- Freeware from the makers' own sites, one click each (assets/free.js). -->
+            <section class="free-games" id="free-games" aria-labelledby="free-games-title">
+              <div class="shelf-heading free-head">
+                <h2 id="free-games-title">free games</h2>
+                <span class="shelf-count" id="free-count"></span>
+              </div>
+              <div class="shelf-grid free-grid" id="free-grid" role="list" aria-label="free games"></div>
+            </section>
           </div>
 
           <aside class="side-panel shelf-detail" id="shelf-detail" aria-label="game details"></aside>
@@ -2932,8 +2940,8 @@
   <script src="tyrano-runtime/noberu-glue.js"></script>
   <script src="rpgmaker-runtime/noberu-glue.js"></script>
   <script src="assets/install.js?v=20261017a"></script>
-  <script src="assets/offline.js?v=20261019c"></script>
-  <script src="assets/library.js?v=20261020c"></script>
+  <script src="assets/offline.js?v=20261020a"></script>
+  <script src="assets/library.js?v=20261020d"></script>
   <script src="assets/saves.js?v=20261019c"></script>
   <script src="assets/vendor/qrcode.js?v=20261017a"></script>
   <script src="assets/beam.js?v=20261019a"></script>
@@ -2944,7 +2952,8 @@
   <script src="assets/session.js?v=20261019c"></script>
   <script src="assets/touch.js?v=20261019c" defer></script>
   <script src="assets/covers.js?v=20261019c"></script>
-  <script src="assets/shelf.js?v=20261020b"></script>
+  <script src="assets/shelf.js?v=20261020c"></script>
+  <script src="assets/free.js?v=20261020a"></script>
   <script src="assets/menu.js?v=20261020c"></script>
   <script src="assets/deinflect.js?v=20261019c"></script>
   <script src="assets/text.js?v=20261020a"></script>

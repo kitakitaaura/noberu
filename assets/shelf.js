@@ -25,7 +25,6 @@
   const RANK = { custom: 5, vndb: 4, files: 3, capture: 2, icon: 1 };
   const STATS_KEY = "noberu.stats";
   const TICK_MS = 10000;
-  const DEMO_URL = "https://huggingface.co/datasets/noberu/noberu-demo/resolve/main/Narcissu.zip";
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const grid = $("#shelf-grid");
@@ -850,11 +849,7 @@
         if (field) field.focus();
       }, 50);
     } else if (kind === "beam") window.NoberuBeam && window.NoberuBeam.receive();
-    else if (kind === "demo") addWith((say) => Library().addFromUrl(DEMO_URL, say).then(async (entry) => {
-      // The demo arrives zipped; unpack it so it is ready to play.
-      if (entry.engine === "archive") return Library().unzip(entry, say);
-      return entry;
-    }));
+    else if (kind === "free") window.NoberuFree && window.NoberuFree.show();
   }
 
   addButton.addEventListener("click", (event) => {
@@ -1028,6 +1023,7 @@
     capture,
     addShot,
     putCover,
+    coverLink: proxied,
     current: () => current,
     play,
     select,

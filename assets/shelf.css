@@ -997,3 +997,93 @@
   color: var(--muted);
   font-size: 0.78rem;
 }
+
+/* --- free games (assets/free.js) -------------------------------------------------- */
+
+.free-games {
+  margin: 0.4rem 1.1rem 1.6rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--line);
+}
+
+.free-head h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.free-grid {
+  padding: 0.8rem 0 0;
+}
+
+.free-card {
+  display: grid;
+  align-content: start;
+  gap: 0.5rem;
+  padding: 0.4rem;
+  border-radius: var(--radius);
+  transition: background var(--fast) ease;
+}
+
+.free-card:hover {
+  background: var(--surface);
+}
+
+.free-card .shelf-meta {
+  white-space: normal;
+}
+
+.free-blurb {
+  margin: 0 0.2rem;
+  color: var(--ink-2);
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.free-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.7rem;
+  padding: 0 0.2rem;
+}
+
+.free-actions .retro-button {
+  min-height: 2rem;
+  padding: 0 0.85rem;
+  font-size: 0.75rem;
+}
+
+.free-actions a {
+  color: var(--muted);
+  font-size: 0.7rem;
+  text-shadow: none;
+  text-underline-offset: 3px;
+}
+
+.free-actions a:hover {
+  color: var(--ink);
+}
+
+.free-status {
+  margin: 0 0.2rem;
+  color: var(--muted);
+  font-size: 0.7rem;
+  overflow-wrap: anywhere;
+}
+
+.free-status:empty {
+  display: none;
+}
+
+@media (max-width: 760px), (max-height: 520px) and (pointer: coarse) {
+  .free-games {
+    margin: 0.4rem 0.6rem 1.2rem;
+  }
+
+  .free-grid {
+    padding: 0.6rem 0 0;
+  }
+}

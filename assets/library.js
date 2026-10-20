@@ -1160,6 +1160,11 @@
     await dbDelete(entry.id);
   }
 
+  // A downloaded zip's file name is rarely the game's; free.js knows the title.
+  async function rename(entry, name) {
+    return dbPut({ ...entry, name: sanitize(name) });
+  }
+
   async function usage() {
     if (!navigator.storage.estimate) return null;
     const { usage: used, quota } = await navigator.storage.estimate();
@@ -1481,6 +1486,7 @@
     // For the game shelf's detail panel (assets/shelf.js): the same actions
     // the downloads popup has, without the popup.
     remove,
+    rename,
     copyToStorage,
     unzip,
     ensurePermission,

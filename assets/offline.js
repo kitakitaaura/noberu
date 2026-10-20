@@ -117,7 +117,7 @@
     const cache = await caches.open(SHELL);
     const urls = new Set(["/", "manifest.webmanifest", "offline.json",
       // Loaded by stylesheets and frames rather than by the page's own tags.
-      "/assets/text-hooks.js", "/dict/ja-en/meta.json",
+      "/assets/text-hooks.js", "/dict/ja-en/meta.json", "/assets/fonts/fleuron-mixed.woff2",
       ...[400, 500, 600].flatMap((w) => [`/assets/fonts/plex-mono-latin-${w}.woff2`, `/assets/fonts/plex-mono-latin-ext-${w}.woff2`])]);
     document.querySelectorAll("script[src], link[rel=stylesheet][href], link[rel~=icon][href], link[rel=apple-touch-icon][href], img[src]")
       .forEach((el) => {
