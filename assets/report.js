@@ -14,7 +14,7 @@
   "use strict";
 
   const ISSUES = "https://github.com/kitakitaaura/noberu/issues/new";
-  const VERSION = "v0.3 beta";
+  const VERSION = "v0.4 beta";
   // GitHub refuses very long URLs; the rest can be pasted from the clipboard.
   const URL_BODY_MAX = 6000;
 

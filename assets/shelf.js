@@ -134,7 +134,7 @@
   }
 
   function played(ms) {
-    if (!ms || ms < 60000) return ms ? "under a minute" : "not played yet";
+    if (!ms || ms < 60000) return ms ? "under a minute" : "not yet";
     const minutes = Math.round(ms / 60000);
     if (minutes < 60) return `${minutes} min`;
     const hours = Math.floor(minutes / 60);
@@ -225,7 +225,7 @@
       ? (fit === "icon"
         ? `<img class="shelf-cover-blur" src="${url}" alt="" /><img class="shelf-cover-icon" src="${url}" alt="" />`
         : `<img src="${url}" alt="" loading="lazy" />`)
-      : `<span class="shelf-cover-name">${escapeHtml(name)}</span>`;
+      : `<span class="shelf-cover-initial" aria-hidden="true">${escapeHtml([...name.replace(/^(the|a)\s+/i, "")][0] || "?")}</span>`;
     return `<span class="shelf-cover${big ? " big" : ""}" data-fit="${fit}" style="--h:${hue(entry.name)}">${inner}</span>`;
   }
 
@@ -478,6 +478,8 @@
     detail.querySelectorAll("[data-drawer]").forEach((drawer) => {
       const open = drawer.dataset.drawer === name && drawer.hidden;
       drawer.hidden = !open;
+      // It opens below the fold of a short panel; bring it up.
+      if (open) requestAnimationFrame(() => drawer.scrollIntoView({ block: "nearest", behavior: "smooth" }));
     });
     detail.querySelectorAll('[data-act="cover"], [data-act="more"]').forEach((b) => {
       b.setAttribute("aria-expanded", String(b === button && !$(`[data-drawer="${name}"]`, detail).hidden));

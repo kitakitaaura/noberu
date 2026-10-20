@@ -5,8 +5,10 @@
   position: absolute;
   left: 50%;
   z-index: 35;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 0.35rem;
+  overflow: hidden;
   width: min(56rem, calc(100% - 1.5rem));
   max-height: calc(100% - 1.5rem);
   padding: 0.55rem 0.75rem 0.7rem;
@@ -33,6 +35,11 @@
 .emulator-maximized > .nb-reader[data-pos="top"],
 :fullscreen > .nb-reader[data-pos="top"] {
   width: min(56rem, calc(100% - 7rem));
+}
+
+.nb-reader-bar,
+.nb-reader-body {
+  flex: none;
 }
 
 .nb-reader-bar {
@@ -180,6 +187,8 @@
 /* --- backlog and saved words --------------------------------------------------- */
 
 .nb-reader-log {
+  flex: 0 1 auto;
+  min-height: 0;
   max-height: 40vh;
   overflow-y: auto;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -437,4 +446,11 @@
   .nb-dict {
     max-width: calc(100% - 1rem);
   }
+}
+
+/* Touch: the on-screen pad's top row (leave, hide, menu, r-click) stays clear. */
+:root[data-touch="1"] .emulator-maximized > .nb-reader[data-pos="top"],
+:root[data-touch="1"] :fullscreen > .nb-reader[data-pos="top"] {
+  top: calc(3.3rem + env(safe-area-inset-top));
+  width: calc(100% - 1rem);
 }

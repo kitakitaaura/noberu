@@ -387,6 +387,7 @@
   function on(frameWrap) {
     const s = stateFor(frameWrap);
     if (s.reader) return;
+    if (window.NoberuMenu && window.NoberuMenu.fullView) window.NoberuMenu.fullView(frameWrap);
     const reader = document.createElement("section");
     reader.className = "nb-reader";
     reader.dataset.pos = setting("textPos", "top");

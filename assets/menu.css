@@ -268,10 +268,13 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  max-width: calc(100% - 2rem);
+  flex-wrap: wrap;
+  justify-content: center;
+  width: max-content;
+  max-width: calc(100% - 1rem);
   padding: 0.5rem 0.55rem 0.5rem 0.9rem;
   border: 1px solid var(--line);
-  border-radius: var(--radius-pill, 999px);
+  border-radius: var(--radius, 16px);
   background: var(--panel);
   color: var(--ink);
   box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
@@ -326,4 +329,11 @@
   .nb-menu-grid {
     grid-template-columns: repeat(3, 1fr);
   }
+}
+
+/* Touch: the toast goes up top, off the d-pad and the keys. */
+:root[data-touch="1"] .emulator-maximized > .nb-toast,
+:root[data-touch="1"] :fullscreen > .nb-toast {
+  top: calc(3.3rem + env(safe-area-inset-top));
+  bottom: auto;
 }

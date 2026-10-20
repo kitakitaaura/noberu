@@ -327,6 +327,27 @@
   filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.45));
 }
 
+/* No art: the game's first letter, large, on its own colour. */
+.shelf-cover-initial {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 2.6rem;
+  font-weight: 600;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+}
+
+.shelf-cover.big .shelf-cover-initial {
+  font-size: 3.6rem;
+}
+
+:root[data-theme="light"] .shelf-cover-initial {
+  color: rgba(15, 19, 21, 0.7);
+  text-shadow: none;
+}
+
 .shelf-cover-name {
   position: absolute;
   inset: auto 0.7rem 0.6rem;
@@ -348,7 +369,9 @@
   text-shadow: none;
 }
 
+/* Short enough that play and the actions under it show without scrolling. */
 .shelf-cover.big {
+  aspect-ratio: 2 / 1;
   border-radius: var(--radius);
 }
 
@@ -419,6 +442,13 @@
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
+}
+
+/* With nothing picked: the notes fill the panel, the status sits at its foot. */
+.shelf-detail > .panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* A column of fixed-size blocks: in a grid, the cover (an aspect-ratio box

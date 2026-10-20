@@ -49,7 +49,7 @@
 
   // Languages the browser's own translator offers (Chrome's Translator API).
   const LANGUAGES = [
-    ["", "this device's language"], ["en", "English"], ["es", "Spanish"], ["pt", "Portuguese"],
+    ["", "automatic"], ["en", "English"], ["es", "Spanish"], ["pt", "Portuguese"],
     ["fr", "French"], ["de", "German"], ["it", "Italian"], ["nl", "Dutch"], ["pl", "Polish"],
     ["ru", "Russian"], ["uk", "Ukrainian"], ["tr", "Turkish"], ["ar", "Arabic"], ["hi", "Hindi"],
     ["bn", "Bengali"], ["id", "Indonesian"], ["vi", "Vietnamese"], ["th", "Thai"], ["zh", "Chinese"],
@@ -338,7 +338,7 @@
               data-panel="${name}" hidden>${PANELS[name]}</section>`).join("")}
           </div>
         </div>
-        <div class="library-foot">noberu v0.3 beta · settings are kept in this browser.</div>
+        <div class="library-foot">noberu v0.4 beta · settings are kept in this browser.</div>
       </div>`;
     document.body.appendChild(dialog);
 

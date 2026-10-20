@@ -75,6 +75,7 @@
   function open(frameWrap) {
     frameWrap = frameWrap || activeFrame() || document.querySelector(".play-frame-wrap.active");
     if (!frameWrap || !frameWrap.classList.contains("active")) return;
+    fullView(frameWrap);
     if (menu) close();
     frame = frameWrap;
     const game = currentGame();
@@ -130,6 +131,14 @@
     });
     menu.addEventListener("keydown", onKey);
     menu.querySelector("[data-m]").focus();
+  }
+
+  // On a phone the game outside full screen is a small box; the menu (and the
+  // reading tools) need the whole screen, so they go back to it first.
+  function fullView(frameWrap) {
+    if (document.documentElement.dataset.touch !== "1" || frameWrap.classList.contains("emulator-maximized")) return;
+    const button = frameWrap.querySelector(".frame-fullscreen");
+    if (button) button.click();
   }
 
   function note(text) {
@@ -413,5 +422,5 @@
     toggle(frameWrap || activeFrame());
   }
 
-  window.NoberuMenu = { open, close, toggle, isOpen, gamepad, fromFrame, toast, screenshot };
+  window.NoberuMenu = { open, close, toggle, isOpen, gamepad, fromFrame, toast, screenshot, fullView };
 })();

@@ -384,6 +384,13 @@
   font-size: 0.78rem;
 }
 
+/* A row's button keeps to one line beside its text. */
+.settings-row > .retro-button,
+.settings-row > .settings-buttons .retro-button {
+  flex: none;
+  white-space: nowrap;
+}
+
 /* Reading panel (assets/text.js). */
 .settings-buttons {
   display: flex;

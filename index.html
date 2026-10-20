@@ -1402,12 +1402,12 @@
 
   </style>
 
-  <link rel="stylesheet" href="assets/theme.css?v=20261019c">
-  <link rel="stylesheet" href="assets/mobile.css?v=20261019c">
-  <link rel="stylesheet" href="assets/settings.css?v=20261019c">
-  <link rel="stylesheet" href="assets/shelf.css?v=20261019d">
-  <link rel="stylesheet" href="assets/menu.css?v=20261019c">
-  <link rel="stylesheet" href="assets/text.css?v=20261019c">
+  <link rel="stylesheet" href="assets/theme.css?v=20261020b">
+  <link rel="stylesheet" href="assets/mobile.css?v=20261020a">
+  <link rel="stylesheet" href="assets/settings.css?v=20261020a">
+  <link rel="stylesheet" href="assets/shelf.css?v=20261020a">
+  <link rel="stylesheet" href="assets/menu.css?v=20261020b">
+  <link rel="stylesheet" href="assets/text.css?v=20261020b">
 
   <script>
     // Dark unless someone picked light; applied here so the page never
@@ -2907,7 +2907,7 @@
     <div class="library-modal" role="dialog" aria-modal="true" aria-labelledby="welcome-title"
       style="width:min(34rem,100%);">
       <div class="library-bar">
-        <b id="welcome-title">noberu v0.3 — beta</b>
+        <b id="welcome-title">noberu v0.4 — beta</b>
       </div>
       <div class="library-add">
         <img src="assets/noberu-card.png" alt="" width="418" height="392"
@@ -2917,6 +2917,8 @@
         <p class="control-note">Every tab runs a real engine or emulator in your browser, which asks
           a lot of a machine. On weaker systems expect long loads, stutter, or games that never
           start at all.</p>
+        <p class="control-note"><b>New in v0.4:</b> your games on one shelf, a menu in every game
+          (<span class="desktop-only">press <kbd>`</kbd></span><span class="touch-only">tap <b>menu</b></span>), and reading tools with a Japanese dictionary.</p>
         <p class="control-note">Questions, bugs, or a game that will not run — dm
           <b>farisnyanyann</b> on Discord.</p>
       </div>
@@ -2935,16 +2937,16 @@
   <script src="assets/vendor/qrcode.js?v=20261017a"></script>
   <script src="assets/beam.js?v=20261019a"></script>
   <script src="assets/tour.js?v=20261017a"></script>
-  <script src="assets/settings.js?v=20261019c"></script>
+  <script src="assets/settings.js?v=20261020a"></script>
   <script src="assets/input.js?v=20261017a"></script>
   <script src="assets/gamepad.js?v=20261019c"></script>
   <script src="assets/session.js?v=20261019c"></script>
   <script src="assets/touch.js?v=20261019c" defer></script>
   <script src="assets/covers.js?v=20261019c"></script>
-  <script src="assets/shelf.js?v=20261019c"></script>
-  <script src="assets/menu.js?v=20261019c"></script>
+  <script src="assets/shelf.js?v=20261020a"></script>
+  <script src="assets/menu.js?v=20261020a"></script>
   <script src="assets/deinflect.js?v=20261019c"></script>
-  <script src="assets/text.js?v=20261019c"></script>
+  <script src="assets/text.js?v=20261020a"></script>
   <script src="assets/report.js?v=20261019c"></script>
   <script src="assets/sync.js?v=20261019c"></script>
   <script>
@@ -5592,7 +5594,7 @@
     // version, so a later release can say its piece again rather than being
     // silenced by someone having clicked ok on this one.
 
-    const WELCOME_KEY = "noberu.welcome.v0.3";
+    const WELCOME_KEY = "noberu.welcome.v0.4";
     const welcomeBackdrop = document.querySelector("#welcome-backdrop");
     const welcomeOk = document.querySelector("#welcome-ok");
 
