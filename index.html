@@ -62,8 +62,8 @@
       --red: #ff4f87;
       --panel: rgba(7, 19, 22, 0.92);
       --panel-soft: rgba(13, 35, 34, 0.92);
-      --shadow: rgba(39, 216, 255, 0.24);
-      --glow: rgba(53, 255, 178, 0.52);
+      --shadow: rgba(140, 150, 155, 0.24);
+      --glow: rgba(140, 150, 155, 0.52);
     }
 
     * {
@@ -80,10 +80,10 @@
       color: var(--ink);
       font-family: "Courier New", Courier, monospace;
       background:
-        linear-gradient(rgba(53, 255, 178, 0.12) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(39, 216, 255, 0.13) 1px, transparent 1px),
-        radial-gradient(circle at 18% 14%, rgba(39, 216, 255, 0.3), transparent 24rem),
-        radial-gradient(circle at 78% 20%, rgba(53, 255, 178, 0.18), transparent 18rem),
+        linear-gradient(rgba(140, 150, 155, 0.12) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(140, 150, 155, 0.13) 1px, transparent 1px),
+        radial-gradient(circle at 18% 14%, rgba(140, 150, 155, 0.3), transparent 24rem),
+        radial-gradient(circle at 78% 20%, rgba(140, 150, 155, 0.18), transparent 18rem),
         linear-gradient(120deg, rgba(12, 47, 52, 0.75), rgba(3, 9, 15, 0.95)),
         var(--pink);
       background-size: 12px 12px, 12px 12px, auto, auto, auto, auto;
@@ -102,8 +102,8 @@
       z-index: 1;
       opacity: 0.28;
       background:
-        repeating-linear-gradient(0deg, rgba(217, 255, 244, 0.11) 0 1px, transparent 1px 4px),
-        linear-gradient(90deg, transparent, rgba(39, 216, 255, 0.12), transparent);
+        repeating-linear-gradient(0deg, rgba(233, 237, 239, 0.11) 0 1px, transparent 1px 4px),
+        linear-gradient(90deg, transparent, rgba(140, 150, 155, 0.12), transparent);
       mix-blend-mode: screen;
       animation: scan-drift 5s steps(18) infinite;
     }
@@ -112,8 +112,8 @@
       z-index: 2;
       opacity: 0.15;
       background:
-        linear-gradient(90deg, rgba(255, 79, 135, 0.28), transparent 16%, transparent 84%, rgba(39, 216, 255, 0.25)),
-        repeating-linear-gradient(90deg, transparent 0 31px, rgba(53, 255, 178, 0.2) 32px 33px);
+        linear-gradient(90deg, rgba(255, 79, 135, 0.28), transparent 16%, transparent 84%, rgba(140, 150, 155, 0.25)),
+        repeating-linear-gradient(90deg, transparent 0 31px, rgba(140, 150, 155, 0.2) 32px 33px);
       clip-path: inset(12% 0 83% 0);
       animation: glitch-band 4.6s steps(1) infinite;
     }
@@ -194,7 +194,7 @@
       min-height: 2.65rem;
       border: 2px solid var(--line);
       background: rgba(5, 14, 17, 0.96);
-      box-shadow: 0 0 18px rgba(53, 255, 178, 0.24), 3px 3px 0 rgba(39, 216, 255, 0.16);
+      box-shadow: 0 0 18px transparent, 3px 3px 0 transparent;
       pointer-events: auto;
     }
 
@@ -209,7 +209,7 @@
       border-right: 0;
       border-radius: 0 0 0 5px;
       background: rgba(5, 14, 17, 0.96);
-      box-shadow: 0 0 18px rgba(53, 255, 178, 0.24), 3px 3px 0 rgba(39, 216, 255, 0.16);
+      box-shadow: 0 0 18px transparent, 3px 3px 0 transparent;
       color: inherit;
       font: inherit;
       font-weight: 800;
@@ -222,7 +222,7 @@
 
     .downloads-chip:hover,
     .downloads-chip:focus-visible {
-      background: rgba(53, 255, 178, 0.14);
+      background: rgba(140, 150, 155, 0.14);
       outline: none;
     }
 
@@ -267,7 +267,7 @@
       border: 2px solid var(--line);
       border-radius: 8px;
       background: var(--cream);
-      box-shadow: 0 0 26px rgba(39, 216, 255, 0.24), 7px 7px 0 rgba(53, 255, 178, 0.12);
+      box-shadow: 0 0 26px transparent, 7px 7px 0 transparent;
       overflow: hidden;
     }
 
@@ -412,7 +412,7 @@
       border: 2px solid var(--line);
       border-radius: 8px;
       background: var(--cream);
-      box-shadow: 0 0 26px rgba(39, 216, 255, 0.24), 7px 7px 0 rgba(53, 255, 178, 0.12);
+      box-shadow: 0 0 26px transparent, 7px 7px 0 transparent;
       overflow: hidden;
     }
 
@@ -423,7 +423,7 @@
       align-items: center;
       padding: 0 0.8rem;
       background:
-        linear-gradient(90deg, rgba(53, 255, 178, 0.08), rgba(39, 216, 255, 0.06)),
+        linear-gradient(90deg, rgba(140, 150, 155, 0.08), rgba(140, 150, 155, 0.06)),
         var(--cream);
       border-bottom: 2px solid var(--line);
     }
@@ -512,8 +512,8 @@
       border-right: 2px solid var(--line);
       overflow: hidden;
       background:
-        linear-gradient(rgba(53, 255, 178, 0.13) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(39, 216, 255, 0.13) 1px, transparent 1px),
+        linear-gradient(rgba(140, 150, 155, 0.13) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(140, 150, 155, 0.13) 1px, transparent 1px),
         #020807;
       background-size: 8px 8px;
     }
@@ -523,9 +523,9 @@
       inset: 0;
       opacity: 0.42;
       background-image:
-        repeating-radial-gradient(circle at 17% 32%, rgba(217, 255, 244, 0.88) 0 1px, rgba(4, 12, 15, 0.88) 1px 2px, transparent 2px 3px),
-        repeating-linear-gradient(90deg, transparent 0 7px, rgba(39, 216, 255, 0.2) 8px 9px),
-        repeating-linear-gradient(0deg, transparent 0 3px, rgba(53, 255, 178, 0.15) 4px 5px);
+        repeating-radial-gradient(circle at 17% 32%, rgba(233, 237, 239, 0.88) 0 1px, rgba(4, 12, 15, 0.88) 1px 2px, transparent 2px 3px),
+        repeating-linear-gradient(90deg, transparent 0 7px, rgba(140, 150, 155, 0.2) 8px 9px),
+        repeating-linear-gradient(0deg, transparent 0 3px, rgba(140, 150, 155, 0.15) 4px 5px);
       mix-blend-mode: screen;
       animation: static-shift 0.42s steps(2) infinite;
     }
@@ -552,9 +552,9 @@
       padding: 2rem;
       background:
         linear-gradient(to top, rgba(0, 0, 0, 0.88), transparent 48%),
-        linear-gradient(160deg, rgba(39, 216, 255, 0.24), transparent 46%),
-        linear-gradient(25deg, rgba(53, 255, 178, 0.24), transparent 42%),
-        repeating-linear-gradient(90deg, rgba(39, 216, 255, 0.05) 0 2px, transparent 2px 8px),
+        linear-gradient(160deg, rgba(140, 150, 155, 0.24), transparent 46%),
+        linear-gradient(25deg, rgba(140, 150, 155, 0.24), transparent 42%),
+        repeating-linear-gradient(90deg, rgba(140, 150, 155, 0.05) 0 2px, transparent 2px 8px),
         #030b0e;
     }
 
@@ -568,7 +568,7 @@
       box-shadow:
         0 0 0 2px var(--line),
         12px 12px 0 rgba(255, 79, 135, 0.22),
-        0 0 25px rgba(39, 216, 255, 0.48);
+        0 0 25px transparent;
       animation: text-split 3.8s steps(1) infinite;
     }
 
@@ -579,7 +579,7 @@
       bottom: 5.5rem;
       height: 7rem;
       border: 2px solid var(--line);
-      background: rgba(53, 255, 178, 0.18);
+      background: rgba(140, 150, 155, 0.18);
     }
 
     .hill {
@@ -597,7 +597,7 @@
     .hill::before {
       left: 70%;
       width: 65%;
-      background: rgba(39, 216, 255, 0.18);
+      background: rgba(140, 150, 155, 0.18);
     }
 
     .hill::after {
@@ -613,7 +613,7 @@
       border: 2px solid var(--line);
       background: rgba(6, 18, 15, 0.9);
       padding: 1rem;
-      box-shadow: 0 0 20px rgba(53, 255, 178, 0.22), 4px 4px 0 rgba(255, 79, 135, 0.14);
+      box-shadow: 0 0 20px transparent, 4px 4px 0 rgba(255, 79, 135, 0.14);
     }
 
     .caption-box h1 {
@@ -671,7 +671,7 @@
       align-content: start;
       overflow: auto;
       background:
-        linear-gradient(rgba(53, 255, 178, 0.05) 1px, transparent 1px),
+        linear-gradient(rgba(140, 150, 155, 0.05) 1px, transparent 1px),
         var(--panel);
       background-size: 100% 9px;
     }
@@ -689,8 +689,8 @@
       display: grid;
       place-items: center;
       border: 2px solid var(--line);
-      background: rgba(39, 216, 255, 0.18);
-      box-shadow: 0 0 10px rgba(39, 216, 255, 0.28), 2px 2px 0 rgba(53, 255, 178, 0.16);
+      background: rgba(140, 150, 155, 0.18);
+      box-shadow: 0 0 10px transparent, 2px 2px 0 transparent;
       color: var(--ink);
     }
 
@@ -712,7 +712,7 @@
       align-items: stretch;
       padding: 0.55rem;
       background:
-        repeating-linear-gradient(90deg, rgba(53, 255, 178, 0.07) 0 7px, transparent 7px 14px),
+        repeating-linear-gradient(90deg, rgba(140, 150, 155, 0.07) 0 7px, transparent 7px 14px),
         var(--cream);
     }
 
@@ -726,7 +726,7 @@
       align-items: center;
       padding: 0 0.75rem;
       font-size: 0.9rem;
-      box-shadow: inset 0 0 14px rgba(53, 255, 178, 0.1);
+      box-shadow: inset 0 0 14px transparent;
     }
 
     .status-live {
@@ -759,15 +759,15 @@
       border: 2px dashed var(--mint);
       outline: 2px solid var(--line);
       background:
-        linear-gradient(90deg, rgba(255, 79, 135, 0.1), transparent 16%, rgba(39, 216, 255, 0.12)),
+        linear-gradient(90deg, rgba(255, 79, 135, 0.1), transparent 16%, rgba(140, 150, 155, 0.12)),
         rgba(4, 15, 15, 0.91);
       padding: 1rem;
       text-align: center;
-      box-shadow: 0 0 28px rgba(53, 255, 178, 0.22);
+      box-shadow: 0 0 28px transparent;
     }
 
     .upload-zone.dragging {
-      background: rgba(39, 216, 255, 0.28);
+      background: rgba(140, 150, 155, 0.28);
     }
 
     .upload-symbol {
@@ -778,7 +778,7 @@
       background:
         linear-gradient(var(--mint) 0 48%, var(--paper) 49%),
         rgba(5, 17, 18, 0.94);
-      box-shadow: 0 0 18px rgba(53, 255, 178, 0.28), 4px 4px 0 rgba(255, 79, 135, 0.18);
+      box-shadow: 0 0 18px transparent, 4px 4px 0 rgba(255, 79, 135, 0.18);
       display: grid;
       place-items: center;
       font-size: 2rem;
@@ -819,11 +819,11 @@
       min-height: 2.55rem;
       border: 2px solid var(--line);
       border-radius: 5px;
-      background: rgba(39, 216, 255, 0.22);
+      background: rgba(140, 150, 155, 0.22);
       color: var(--ink);
       padding: 0 0.95rem;
       font-weight: 800;
-      box-shadow: 0 0 12px rgba(39, 216, 255, 0.22), 3px 3px 0 rgba(53, 255, 178, 0.18);
+      box-shadow: 0 0 12px transparent, 3px 3px 0 transparent;
       cursor: pointer;
       line-height: 1;
       text-align: center;
@@ -844,7 +844,7 @@
       border: 2px solid var(--line);
       background: rgba(4, 14, 15, 0.96);
       padding: 0.75rem;
-      box-shadow: 0 0 16px rgba(53, 255, 178, 0.16), 3px 3px 0 rgba(39, 216, 255, 0.14);
+      box-shadow: 0 0 16px transparent, 3px 3px 0 transparent;
     }
 
     .file-card b {
@@ -876,8 +876,8 @@
       gap: 0.55rem;
       padding: 0.85rem 0.85rem 3.7rem;
       background:
-        radial-gradient(circle at 50% 40%, rgba(39, 216, 255, 0.18), transparent 22rem),
-        repeating-linear-gradient(0deg, rgba(53, 255, 178, 0.08) 0 1px, transparent 1px 5px),
+        radial-gradient(circle at 50% 40%, rgba(140, 150, 155, 0.18), transparent 22rem),
+        repeating-linear-gradient(0deg, rgba(140, 150, 155, 0.08) 0 1px, transparent 1px 5px),
         #010707;
     }
 
@@ -888,7 +888,7 @@
       max-height: 100%;
       border: 2px solid var(--line);
       background: #000;
-      box-shadow: 0 0 24px rgba(53, 255, 178, 0.24);
+      box-shadow: 0 0 24px transparent;
       outline: none;
     }
 
@@ -907,7 +907,7 @@
       border: 2px solid var(--line);
       background: rgba(4, 14, 15, 0.9);
       padding: 0.65rem 0.75rem;
-      box-shadow: 0 0 18px rgba(53, 255, 178, 0.2), 4px 4px 0 rgba(255, 79, 135, 0.14);
+      box-shadow: 0 0 18px transparent, 4px 4px 0 rgba(255, 79, 135, 0.14);
     }
 
     .runtime-card b {
@@ -943,7 +943,7 @@
       padding: 0.45rem;
       border: 2px solid var(--line);
       background: rgba(4, 14, 15, 0.94);
-      box-shadow: 0 0 16px rgba(53, 255, 178, 0.2), 3px 3px 0 rgba(39, 216, 255, 0.16);
+      box-shadow: 0 0 16px transparent, 3px 3px 0 transparent;
     }
 
     .play-frame-toolbar span {
@@ -1054,7 +1054,7 @@
       border-radius: 4px;
       background: rgba(3, 14, 15, 0.95);
       color: var(--ink);
-      box-shadow: 0 0 10px rgba(39, 216, 255, 0.12), 2px 2px 0 rgba(53, 255, 178, 0.15);
+      box-shadow: 0 0 10px transparent, 2px 2px 0 transparent;
       cursor: pointer;
       font-size: 0.78rem;
       font-weight: 800;
@@ -1152,7 +1152,7 @@
       border-radius: 4px;
       background: rgba(3, 14, 15, 0.95);
       color: var(--ink);
-      box-shadow: 0 0 10px rgba(39, 216, 255, 0.12), 2px 2px 0 rgba(53, 255, 178, 0.15);
+      box-shadow: 0 0 10px transparent, 2px 2px 0 transparent;
     }
 
     /* A select also has to clear its own dropdown arrow. */
@@ -1182,7 +1182,7 @@
       border-collapse: collapse;
       border: 2px solid var(--line);
       background: rgba(3, 14, 15, 0.95);
-      box-shadow: 0 0 12px rgba(53, 255, 178, 0.14);
+      box-shadow: 0 0 12px transparent;
       font-size: 0.78rem;
     }
 
@@ -1198,7 +1198,7 @@
     .keymap-table th,
     .keymap-table td {
       padding: 0.42rem 0.55rem;
-      border-bottom: 1px solid rgba(157, 254, 240, 0.32);
+      border-bottom: 1px solid rgba(140, 150, 155, 0.32);
       text-align: left;
       vertical-align: top;
     }
@@ -1217,12 +1217,12 @@
       min-width: 1.35rem;
       padding: 0.08rem 0.28rem;
       border: 1px solid var(--line);
-      background: rgba(53, 255, 178, 0.1);
+      background: rgba(140, 150, 155, 0.1);
       color: var(--ink);
       font: inherit;
       font-weight: 800;
       text-align: center;
-      box-shadow: inset 0 0 8px rgba(53, 255, 178, 0.08);
+      box-shadow: inset 0 0 8px transparent;
     }
 
     .bottom-tabs {
@@ -1243,7 +1243,7 @@
       scrollbar-color: var(--line) rgba(7, 20, 22, 0.96);
       border: 2px solid var(--line);
       border-radius: 6px;
-      box-shadow: 0 0 22px rgba(53, 255, 178, 0.24), 4px 4px 0 rgba(39, 216, 255, 0.16);
+      box-shadow: 0 0 22px transparent, 4px 4px 0 transparent;
       background: var(--cream);
     }
 
@@ -1281,7 +1281,7 @@
 
     .tab-button[aria-selected="true"] {
       background:
-        repeating-linear-gradient(90deg, rgba(53, 255, 178, 0.14) 0 9px, rgba(39, 216, 255, 0.12) 9px 18px),
+        repeating-linear-gradient(90deg, rgba(140, 150, 155, 0.14) 0 9px, rgba(140, 150, 155, 0.12) 9px 18px),
         rgba(6, 36, 37, 0.96);
     }
 
@@ -1292,7 +1292,7 @@
       place-items: center;
       border: 2px solid var(--line);
       background: rgba(4, 13, 14, 0.96);
-      box-shadow: 0 0 12px rgba(53, 255, 178, 0.2), 2px 2px 0 rgba(39, 216, 255, 0.14);
+      box-shadow: 0 0 12px transparent, 2px 2px 0 transparent;
       font-size: 1.2rem;
     }
 
@@ -1304,7 +1304,7 @@
     a {
       color: var(--sky);
       font-weight: 800;
-      text-shadow: 0 0 8px rgba(39, 216, 255, 0.45);
+      text-shadow: 0 0 8px transparent;
     }
 
     /* Background art. z-index -1 puts it under every in-flow box - the window,
@@ -1405,7 +1405,7 @@
   <link rel="stylesheet" href="assets/theme.css?v=20261020c">
   <link rel="stylesheet" href="assets/mobile.css?v=20261020a">
   <link rel="stylesheet" href="assets/settings.css?v=20261020a">
-  <link rel="stylesheet" href="assets/shelf.css?v=20261020d">
+  <link rel="stylesheet" href="assets/shelf.css?v=20261020e">
   <link rel="stylesheet" href="assets/menu.css?v=20261020b">
   <link rel="stylesheet" href="assets/text.css?v=20261020b">
   <link rel="stylesheet" href="assets/dock.css?v=20261020f">
@@ -1921,7 +1921,7 @@
             <div class="play-frame-wrap" id="wine-frame-wrap" aria-label="local BoxedWine runtime">
               <div class="play-runtime">
                 <iframe class="play-canvas" id="wine-iframe" title="BoxedWine runtime"
-                  style="border:2px solid var(--line);background:#000;box-shadow:0 0 24px rgba(53,255,178,0.24);"></iframe>
+                  style="border:2px solid var(--line);background:#000;box-shadow:0 0 24px transparent;"></iframe>
                 <div class="runtime-overlay" id="wine-runtime-overlay">
                   <div class="runtime-card">
                     <b id="wine-runtime-title">BoxedWine runtime</b>
@@ -2065,7 +2065,7 @@
             <div class="play-frame-wrap" id="vnds-frame-wrap" aria-label="local VNDS-LOVE runtime">
               <div class="play-runtime">
                 <iframe class="play-canvas" id="vnds-iframe" title="VNDS-LOVE runtime"
-                  style="border:2px solid var(--line);background:#000;box-shadow:0 0 24px rgba(53,255,178,0.24);"></iframe>
+                  style="border:2px solid var(--line);background:#000;box-shadow:0 0 24px transparent;"></iframe>
                 <div class="runtime-overlay" id="vnds-runtime-overlay">
                   <div class="runtime-card">
                     <b id="vnds-runtime-title">VNDS-LOVE runtime</b>
@@ -2147,7 +2147,7 @@
             <div class="play-frame-wrap" id="rlvm-frame-wrap" aria-label="local rlvm runtime">
               <div class="play-runtime">
                 <iframe class="play-canvas" id="rlvm-iframe" title="rlvm runtime"
-                  style="border:2px solid var(--line);background:#000;box-shadow:0 0 24px rgba(53,255,178,0.24);"></iframe>
+                  style="border:2px solid var(--line);background:#000;box-shadow:0 0 24px transparent;"></iframe>
                 <div class="runtime-overlay" id="rlvm-runtime-overlay">
                   <div class="runtime-card">
                     <b id="rlvm-runtime-title">rlvm runtime</b>
@@ -2224,7 +2224,7 @@
             <div class="play-frame-wrap" id="ons-frame-wrap" aria-label="local onscripter runtime">
               <div class="play-runtime">
                 <iframe class="play-canvas" id="ons-iframe" title="onscripter runtime"
-                  style="border:2px solid var(--line);background:#000;box-shadow:0 0 24px rgba(53,255,178,0.24);"></iframe>
+                  style="border:2px solid var(--line);background:#000;box-shadow:0 0 24px transparent;"></iframe>
                 <div class="runtime-overlay" id="ons-runtime-overlay">
                   <div class="runtime-card">
                     <b id="ons-runtime-title">onscripter runtime</b>
@@ -2308,7 +2308,7 @@
             <div class="play-frame-wrap" id="onsru-frame-wrap" aria-label="local onscripter-ru runtime">
               <div class="play-runtime">
                 <iframe class="play-canvas" id="onsru-iframe" title="onscripter-ru runtime"
-                  style="border:2px solid var(--line);background:#000;box-shadow:0 0 24px rgba(53,255,178,0.24);"></iframe>
+                  style="border:2px solid var(--line);background:#000;box-shadow:0 0 24px transparent;"></iframe>
                 <div class="runtime-overlay" id="onsru-runtime-overlay">
                   <div class="runtime-card">
                     <b id="onsru-runtime-title">onscripter-ru runtime</b>
@@ -2381,7 +2381,7 @@
             <div class="play-frame-wrap" id="pons-frame-wrap" aria-label="local ponscripter runtime">
               <div class="play-runtime">
                 <iframe class="play-canvas" id="pons-iframe" title="ponscripter runtime"
-                  style="border:2px solid var(--line);background:#000;box-shadow:0 0 24px rgba(53,255,178,0.24);"></iframe>
+                  style="border:2px solid var(--line);background:#000;box-shadow:0 0 24px transparent;"></iframe>
                 <div class="runtime-overlay" id="pons-runtime-overlay">
                   <div class="runtime-card">
                     <b id="pons-runtime-title">ponscripter runtime</b>
@@ -2454,7 +2454,7 @@
             <div class="play-frame-wrap" id="renpy-frame-wrap" aria-label="local ren'py runtime">
               <div class="play-runtime">
                 <iframe class="play-canvas" id="renpy-iframe" title="ren'py runtime"
-                  style="border:2px solid var(--line);background:#000;box-shadow:0 0 24px rgba(53,255,178,0.24);"></iframe>
+                  style="border:2px solid var(--line);background:#000;box-shadow:0 0 24px transparent;"></iframe>
                 <div class="runtime-overlay" id="renpy-runtime-overlay">
                   <div class="runtime-card">
                     <b id="renpy-runtime-title">ren'py runtime</b>
@@ -2538,7 +2538,7 @@
             <div class="play-frame-wrap" id="kirikiri-frame-wrap" aria-label="local kirikiri runtime">
               <div class="play-runtime">
                 <iframe class="play-canvas" id="kirikiri-iframe" title="kirikiri runtime"
-                  style="border:2px solid var(--line);background:#000;box-shadow:0 0 24px rgba(53,255,178,0.24);"></iframe>
+                  style="border:2px solid var(--line);background:#000;box-shadow:0 0 24px transparent;"></iframe>
                 <div class="runtime-overlay" id="kirikiri-runtime-overlay">
                   <div class="runtime-card">
                     <b id="kirikiri-runtime-title">kirikiri runtime</b>
@@ -2617,7 +2617,7 @@
             <div class="play-frame-wrap" id="siglus-frame-wrap" aria-label="local siglus runtime">
               <div class="play-runtime">
                 <iframe class="play-canvas" id="siglus-iframe" title="siglus runtime"
-                  style="border:2px solid var(--line);background:#000;box-shadow:0 0 24px rgba(53,255,178,0.24);"></iframe>
+                  style="border:2px solid var(--line);background:#000;box-shadow:0 0 24px transparent;"></iframe>
                 <div class="runtime-overlay" id="siglus-runtime-overlay">
                   <div class="runtime-card">
                     <b id="siglus-runtime-title">siglus runtime</b>
@@ -2697,7 +2697,7 @@
               <div class="play-runtime">
                 <iframe class="play-canvas" id="tyrano-iframe" title="tyrano runtime"
                   allow="fullscreen; autoplay"
-                  style="border:2px solid var(--line);background:#000;box-shadow:0 0 24px rgba(53,255,178,0.24);"></iframe>
+                  style="border:2px solid var(--line);background:#000;box-shadow:0 0 24px transparent;"></iframe>
                 <div class="runtime-overlay" id="tyrano-runtime-overlay">
                   <div class="runtime-card">
                     <b id="tyrano-runtime-title">tyrano runtime</b>
@@ -2778,7 +2778,7 @@
               <div class="play-runtime">
                 <iframe class="play-canvas" id="rpgmaker-iframe" title="rpg maker runtime"
                   allow="fullscreen; autoplay"
-                  style="border:2px solid var(--line);background:#000;box-shadow:0 0 24px rgba(53,255,178,0.24);"></iframe>
+                  style="border:2px solid var(--line);background:#000;box-shadow:0 0 24px transparent;"></iframe>
                 <div class="runtime-overlay" id="rpgmaker-runtime-overlay">
                   <div class="runtime-card">
                     <b id="rpgmaker-runtime-title">rpg maker runtime</b>
@@ -2940,8 +2940,8 @@
   <script src="tyrano-runtime/noberu-glue.js"></script>
   <script src="rpgmaker-runtime/noberu-glue.js"></script>
   <script src="assets/install.js?v=20261017a"></script>
-  <script src="assets/offline.js?v=20261020a"></script>
-  <script src="assets/library.js?v=20261020d"></script>
+  <script src="assets/offline.js?v=20261020b"></script>
+  <script src="assets/library.js?v=20261020g"></script>
   <script src="assets/saves.js?v=20261019c"></script>
   <script src="assets/vendor/qrcode.js?v=20261017a"></script>
   <script src="assets/beam.js?v=20261019a"></script>
@@ -2952,8 +2952,8 @@
   <script src="assets/session.js?v=20261019c"></script>
   <script src="assets/touch.js?v=20261019c" defer></script>
   <script src="assets/covers.js?v=20261019c"></script>
-  <script src="assets/shelf.js?v=20261020c"></script>
-  <script src="assets/free.js?v=20261020a"></script>
+  <script src="assets/shelf.js?v=20261020d"></script>
+  <script src="assets/free.js?v=20261020d"></script>
   <script src="assets/menu.js?v=20261020c"></script>
   <script src="assets/deinflect.js?v=20261019c"></script>
   <script src="assets/text.js?v=20261020a"></script>

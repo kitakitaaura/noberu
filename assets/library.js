@@ -442,6 +442,9 @@
     };
   }
 
+  // What unpackTo() can open: zip, and 7z (assets/sevenzip.js).
+  const ARCHIVE = /\.(zip|7z)$/i;
+
   async function openArchive(blob) {
     const magic = new Uint8Array(await blob.slice(0, 8).arrayBuffer());
     if (window.NoberuSevenZip && NoberuSevenZip.is(magic)) return NoberuSevenZip.open(blob);
@@ -603,7 +606,7 @@
       byDir.get(dir).add(name);
     }
 
-    if (paths.length === 1 && /\.(zip|7z|rar)$/i.test(paths[0])) {
+    if (paths.length === 1 && (ARCHIVE.test(paths[0]) || /\.rar$/i.test(paths[0]))) {
       return { engine: "archive", root: "" };
     }
 
@@ -769,7 +772,7 @@
   async function addFiles(files, onProgress) {
     const list = [...files];
     if (!list.length) throw new Error("Nothing was selected.");
-    if (list.length === 1 && !list[0].webkitRelativePath && /\.(zip|7z)$/i.test(list[0].name)) {
+    if (list.length === 1 && !list[0].webkitRelativePath && ARCHIVE.test(list[0].name)) {
       return addArchive(list[0], onProgress);
     }
     const rootName = (list[0].webkitRelativePath || "").split("/")[0];
@@ -817,7 +820,7 @@
         id,
         // A Japanese folder name sanitizes to underscores; the zip's own name
         // is usually more telling then.
-        name: sanitize(wrapper && /[A-Za-z0-9]/.test(sanitize(wrapper)) ? wrapper : file.name.replace(/\.(zip|7z)$/i, "")),
+        name: sanitize(wrapper && /[A-Za-z0-9]/.test(sanitize(wrapper)) ? wrapper : file.name.replace(ARCHIVE, "")),
         kind: "stored",
         ...detectEngine(paths),
         fileCount: paths.length,
@@ -1124,7 +1127,7 @@
     const dir = await entryDir(entry);
     let archiveName = null;
     for await (const { path } of walk(dir)) {
-      if (/\.(zip|7z)$/i.test(path)) {
+      if (ARCHIVE.test(path)) {
         archiveName = path;
         break;
       }
@@ -1160,9 +1163,12 @@
     await dbDelete(entry.id);
   }
 
-  // A downloaded zip's file name is rarely the game's; free.js knows the title.
-  async function rename(entry, name) {
-    return dbPut({ ...entry, name: sanitize(name) });
+  // A downloaded zip's file name is rarely the game's; free.js knows the title,
+  // and marks the entry with `extra` ({ free: id }) to find it again.
+  async function rename(entry, name, extra = {}) {
+    // "Doki Doki Literature Club!" would end in an underscore, and a colon
+    // would become one: "Katawa Shoujo - Re-Engineered".
+    return dbPut({ ...entry, ...extra, name: sanitize(name.replace(/\s*:\s*/g, " - ")).replace(/(.)_+$/, "$1") });
   }
 
   async function usage() {

@@ -299,15 +299,7 @@
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  background:
-    radial-gradient(120% 90% at 85% 0%, hsl(var(--h) 45% 32% / 0.85), transparent 60%),
-    linear-gradient(160deg, hsl(var(--h) 30% 16%), hsl(calc(var(--h) + 40) 25% 9%));
-}
-
-:root[data-theme="light"] .shelf-cover {
-  background:
-    radial-gradient(120% 90% at 85% 0%, hsl(var(--h) 60% 80% / 0.9), transparent 60%),
-    linear-gradient(160deg, hsl(var(--h) 45% 90%), hsl(calc(var(--h) + 40) 35% 82%));
+  background: var(--surface);
 }
 
 .shelf-cover img {
@@ -1086,4 +1078,23 @@
   .free-grid {
     padding: 0.6rem 0 0;
   }
+}
+
+.free-ages {
+  margin-right: 0.15rem;
+  padding: 0.02rem 0.4rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  color: var(--ink);
+  font-size: 0.64rem;
+  font-weight: 600;
+}
+
+/* The first step of a game fetched by hand: a link that looks like a button. */
+.free-actions a.retro-button {
+  display: inline-flex;
+  align-items: center;
+  color: var(--ink);
+  font-size: 0.75rem;
+  text-decoration: none;
 }

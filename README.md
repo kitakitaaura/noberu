@@ -385,10 +385,11 @@ Toolchain: [emscripten-core/emsdk](https://github.com/emscripten-core/emsdk).
 ## Free games
 
 The shelf lists freeware visual novels that were downloaded, unpacked and
-booted in noberu, all ages only. "get" downloads the file from the makers' own
-site through `NoberuLibrary.addFromUrl` (so through the relay when the site sends
-no CORS headers), unpacks it, names it and sets its vndb cover. Nothing is
-hosted by noberu except Narcissu (below).
+booted in noberu. "get" downloads the file from the makers' own site through
+`NoberuLibrary.addFromUrl` (so through the relay when the site sends no CORS
+headers), unpacks it, names it and sets its vndb cover. Nothing is hosted by
+noberu except Narcissu (below). Cards show an age where a game has one, and
+an 18+ game (Katawa Shoujo) asks in a popup before it downloads.
 
 | Game | Engine | Language | From |
 | --- | --- | --- | --- |
@@ -399,11 +400,18 @@ hosted by noberu except Narcissu (below).
 | Ripples | Ren'Py | English | sakevisual.com |
 | Carrot Cake Jinkaku Shuffle Jiken | KiriKiri | English | Novectacle (novect.net, Google Drive) |
 | Seventh Coat | KiriKiri | Japanese | Novectacle (novect.net, Google Drive) |
+| Katawa Shoujo: Re-Engineered | Ren'Py 8 | English | GitHub (fleetingheart/ksre releases), 1.5 GB |
+| Doki Doki Literature Club! | Ren'Py | English | the player downloads it at ddlc.moe, then adds the zip |
+
+DDLC is only offered through Team Salvato's pay-what-you-want page on itch.io,
+with no fixed file link, so its card opens ddlc.moe and then takes the
+`ddlc-win.zip` (or `ddlc-mac.zip`) the player saved.
 
 insani's releases are the Mac zips: the same game files as the Windows
 installers, which noberu can't unpack. Left out after testing: *[text] - A
-Summer Story* (Ren'Py 6.10, too old for the bundled Ren'Py), and games only on
-itch.io or freem (no fixed download link) or only as installers or `.tar.bz2`.
+Summer Story* (Ren'Py 6.10, too old for the bundled Ren'Py), the original
+Katawa Shoujo (Re-Engineered plays better), and games only on freem (no fixed
+download link) or only as installers or `.tar.bz2`.
 
 ## Demo game
 

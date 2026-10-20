@@ -5,7 +5,12 @@
  * Every file comes from its makers' own site (or, for Narcissu, noberu's copy
  * on Hugging Face), through NoberuLibrary.addFromUrl - so through the relay
  * when the site sends no CORS headers. Nothing is hosted here. Only games that
- * were downloaded, unpacked and booted in noberu are listed, all ages only.
+ * were downloaded, unpacked and booted in noberu are listed.
+ *
+ * A game with `ages` says so on its card; with `adult`, "get" first asks in a
+ * popup whether the player is 18 or older. A game with `manual` has no link
+ * that can be fetched (DDLC asks what you'd like to pay first), so its card
+ * opens the makers' page and then takes the file the player downloaded there.
  *
  * Covers come from vndb through the cover route on the beam Worker; offline,
  * a card falls back to its letter.
@@ -116,6 +121,38 @@
       cover: "https://t.vndb.org/cv/89/77789.jpg",
       blurb: "A struggling indie game developer hears from a very keen fan. Good practice with the dictionary.",
     },
+    {
+      id: "katawa-shoujo",
+      title: "Katawa Shoujo: Re-Engineered",
+      vndb: "v945",
+      engine: "Ren'Py",
+      lang: "English",
+      minutes: 2025,
+      bytes: 1472512914,
+      url: "https://github.com/fleetingheart/ksre/releases/download/v2.0.5/KSRE-win.zip",
+      site: "https://github.com/fleetingheart/ksre",
+      host: "github.com",
+      cover: "https://t.vndb.org/cv/88/88188.jpg",
+      blurb: "A new student at a school for the disabled, and the five girls he gets to know.",
+      ages: "18+",
+      adult: true,
+    },
+    {
+      id: "ddlc",
+      title: "Doki Doki Literature Club!",
+      vndb: "v21905",
+      engine: "Ren'Py",
+      lang: "English",
+      minutes: 390,
+      bytes: 231593427,
+      manual: /^ddlc-(win|mac)\.zip$/i,
+      fileName: "ddlc-win.zip or ddlc-mac.zip",
+      site: "https://ddlc.moe/",
+      host: "ddlc.moe",
+      cover: "https://t.vndb.org/cv/36/79136.jpg",
+      blurb: "Join the literature club and write poems with four girls. Not for the easily disturbed.",
+      ages: "13+",
+    },
   ];
 
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -136,41 +173,50 @@
   const length = (minutes) => minutes < 60 ? `${minutes} min` : `${Math.round(minutes / 60)} h`;
   const size = (bytes) => bytes >= 1024 * MB ? `${(bytes / 1024 / MB).toFixed(1)} GB` : `${Math.round(bytes / MB)} MB`;
 
+  // Games on the shelf, by the link they came from or the list's id for them.
   async function onShelf() {
-    const byUrl = new Map();
-    for (const entry of await Library().list()) if (entry.source) byUrl.set(entry.source, entry);
-    return byUrl;
+    const have = new Map();
+    for (const entry of await Library().list()) {
+      if (entry.source) have.set(entry.source, entry);
+      if (entry.free) have.set(entry.free, entry);
+    }
+    return have;
+  }
+
+  function actions(game, entry) {
+    if (entry && entry.engine !== "archive") {
+      return `<button class="retro-button" type="button" data-play="${entry.id}">play</button>
+        <a href="${escapeHtml(game.site)}" target="_blank" rel="noopener">${escapeHtml(game.host)}</a>`;
+    }
+    const off = busy ? " disabled" : "";
+    if (game.manual) {
+      return `<a class="retro-button secondary" href="${escapeHtml(game.site)}" target="_blank" rel="noopener">get it at ${escapeHtml(game.host)}</a>
+        <button class="retro-button secondary" type="button" data-file${off}>then add the .zip</button>`;
+    }
+    return `<button class="retro-button secondary" type="button" data-get${off}>get · ${size(game.bytes)}</button>
+      <a href="${escapeHtml(game.site)}" target="_blank" rel="noopener">${escapeHtml(game.host)}</a>`;
   }
 
   async function render() {
     const have = await onShelf();
     $("#free-count", section).textContent = `${GAMES.length} game${GAMES.length === 1 ? "" : "s"} · from their makers' own sites`;
-    grid.innerHTML = GAMES.map((game) => {
-      const entry = have.get(game.url);
-      const ready = entry && entry.engine !== "archive";
-      return `
+    grid.innerHTML = GAMES.map((game) => `
         <article class="free-card" role="listitem" data-game="${game.id}">
           <span class="shelf-cover" data-fit="cover" style="--c:${color(game.id)}">
             <img src="${Shelf().coverLink(game.cover)}" alt="" loading="lazy" />
           </span>
           <span class="shelf-card-text">
             <span class="shelf-name">${escapeHtml(game.title)}</span>
-            <span class="shelf-meta">${escapeHtml(game.engine)} · ${escapeHtml(game.lang)} · ${length(game.minutes)}</span>
+            <span class="shelf-meta">${game.ages ? `<b class="free-ages">${escapeHtml(game.ages)}</b> ` : ""}${escapeHtml(game.engine)} · ${escapeHtml(game.lang)} · ${length(game.minutes)}</span>
           </span>
           <p class="free-blurb">${escapeHtml(game.blurb)}</p>
-          <div class="free-actions">
-            ${ready
-              ? `<button class="retro-button" type="button" data-play="${entry.id}">play</button>`
-              : `<button class="retro-button secondary" type="button" data-get${busy ? " disabled" : ""}>get · ${size(game.bytes)}</button>`}
-            <a href="${escapeHtml(game.site)}" target="_blank" rel="noopener">${escapeHtml(game.host)}</a>
-          </div>
+          <div class="free-actions">${actions(game, have.get(game.url) || have.get(game.id))}</div>
           <p class="free-status" role="status"></p>
-        </article>`;
-    }).join("");
+        </article>`).join("");
   }
 
   // The same colours as the shelf's letter covers, for when a cover can't load.
-  const COLORS = ["#ff8a65", "#ffb74d", "#ffd54f", "#aed581", "#4dd0b4", "#4fc3f7", "#9fa8ff", "#ce93d8", "#f48fb1", "#ff9e9e"];
+  const COLORS = ["#ff8a65", "#ffb74d", "#ffd54f", "#ffcc80", "#b39ddb", "#4fc3f7", "#9fa8ff", "#ce93d8", "#f48fb1", "#ff9e9e"];
   function color(id) {
     let h = 0;
     for (const c of id) h = (h * 31 + c.codePointAt(0)) % 360;
@@ -186,20 +232,26 @@
     cover.innerHTML = `<span class="shelf-cover-initial" aria-hidden="true">${escapeHtml(game.title[0].toUpperCase())}</span>`;
   }, true);
 
-  async function get(game, card) {
+  // From the game's link, or from `file` for a game the player downloaded.
+  async function get(game, card, file) {
     const status = $(".free-status", card);
     const say = (text) => { status.textContent = text; };
     busy = game.id;
-    grid.querySelectorAll("[data-get]").forEach((b) => { b.disabled = true; });
+    grid.querySelectorAll("[data-get], [data-file]").forEach((b) => { b.disabled = true; });
     try {
       const estimate = navigator.storage && navigator.storage.estimate ? await navigator.storage.estimate() : null;
       // The zip and what comes out of it are both on disk for a moment.
-      if (estimate && estimate.quota && estimate.quota - estimate.usage < game.bytes * 2.2) {
+      if (!file && estimate && estimate.quota && estimate.quota - estimate.usage < game.bytes * 2.2) {
         throw new Error(`Not enough room in this browser: it needs about ${size(game.bytes * 2.2)} free.`);
       }
-      let entry = await Library().addFromUrl(game.url, say);
-      if (entry.engine === "archive") entry = await Library().unzip(entry, say);
-      entry = await Library().rename(entry, game.title);
+      let entry;
+      if (file) {
+        entry = await Library().addFiles([file], say);
+      } else {
+        entry = await Library().addFromUrl(game.url, say);
+        if (entry.engine === "archive") entry = await Library().unzip(entry, say);
+      }
+      entry = await Library().rename(entry, game.title, { free: game.id });
       say("getting the cover...");
       try {
         const image = await fetch(Shelf().coverLink(game.cover));
@@ -225,10 +277,82 @@
       Shelf().play(play.dataset.play);
       return;
     }
+    const fileButton = event.target.closest("[data-file]");
+    if (fileButton && !busy) {
+      picking = GAMES.find((g) => g.id === fileButton.closest("[data-game]").dataset.game);
+      fileInput.click();
+      return;
+    }
     const button = event.target.closest("[data-get]");
     if (!button || busy) return;
     const card = button.closest("[data-game]");
-    get(GAMES.find((g) => g.id === card.dataset.game), card);
+    const game = GAMES.find((g) => g.id === card.dataset.game);
+    if (!game.adult) return get(game, card);
+    askAge(game).then((yes) => {
+      if (yes) get(game, card);
+      else button.focus();
+    });
+  });
+
+  // --- 18+ ----------------------------------------------------------------------
+
+  // Resolves true only for "yes"; "no", Escape and a click outside are a no.
+  function askAge(game) {
+    return new Promise((resolve) => {
+      const backdrop = document.createElement("div");
+      backdrop.className = "library-backdrop";
+      backdrop.innerHTML = `
+        <div class="library-modal install-modal" role="dialog" aria-modal="true" aria-labelledby="free-age-title">
+          <div class="library-bar"><b id="free-age-title">are you 18 or older?</b></div>
+          <div class="library-add">
+            <p class="control-note">${escapeHtml(game.title)} has adult scenes. Only download it if you're 18 or older.</p>
+          </div>
+          <div class="library-foot install-foot">
+            <button class="retro-button" type="button" data-age="yes">yes, I'm 18+ · get ${size(game.bytes)}</button>
+            <button class="retro-button secondary" type="button" data-age="no">no</button>
+          </div>
+        </div>`;
+      const done = (yes) => {
+        document.removeEventListener("keydown", onKey, true);
+        backdrop.remove();
+        resolve(yes);
+      };
+      const onKey = (event) => {
+        if (event.key === "Escape") {
+          event.stopPropagation();
+          done(false);
+        }
+      };
+      backdrop.addEventListener("click", (event) => {
+        const choice = event.target.closest("[data-age]");
+        if (choice) done(choice.dataset.age === "yes");
+        else if (event.target === backdrop) done(false);
+      });
+      document.addEventListener("keydown", onKey, true);
+      document.body.appendChild(backdrop);
+      backdrop.querySelector('[data-age="no"]').focus();
+    });
+  }
+
+  // The file the player downloaded from a `manual` game's page.
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.accept = ".zip";
+  fileInput.hidden = true;
+  section.appendChild(fileInput);
+  let picking = null;
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files && fileInput.files[0];
+    const game = picking;
+    fileInput.value = "";
+    picking = null;
+    if (!file || !game) return;
+    const card = grid.querySelector(`[data-game="${game.id}"]`);
+    if (!game.manual.test(file.name)) {
+      $(".free-status", card).textContent = `That's ${file.name}; the file from ${game.host} is called ${game.fileName}.`;
+      return;
+    }
+    get(game, card, file);
   });
 
   // While a download runs, the list keeps its buttons; otherwise it follows the shelf.
