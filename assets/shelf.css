@@ -759,11 +759,17 @@
     -webkit-backdrop-filter: none;
   }
 
+  /* Search gets a row of its own; sort and add share the next. */
   .shelf-tools {
+    flex-wrap: wrap;
     width: 100%;
   }
 
   .shelf-search {
+    flex: 1 1 100%;
+  }
+
+  .shelf-sort {
     flex: 1;
   }
 
