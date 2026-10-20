@@ -30,6 +30,33 @@
       height: 100%;
       background: #000;
     }
+
+    /* Crash details (showCrash below), so a phone can report what failed. */
+    #crash {
+      position: fixed;
+      left: 8px;
+      right: 8px;
+      bottom: 8px;
+      max-height: 55vh;
+      margin: 0;
+      padding: 10px;
+      overflow: auto;
+      background: #111;
+      color: #ddd;
+      border: 1px solid #444;
+      border-radius: 8px;
+      font: 11px/1.4 ui-monospace, Menlo, monospace;
+      white-space: pre-wrap;
+      word-break: break-all;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    #crash button {
+      float: right;
+      font: inherit;
+      padding: 4px 10px;
+    }
   </style>
 </head>
 
@@ -51,6 +78,56 @@
     // postMessage({ source: "rlvm-runtime", type, ... }).
 
     const canvasEl = document.getElementById("canvas");
+
+    // The last console lines, shown with a crash. A phone has no console to
+    // look at, and the engine's own log says how far it got.
+    const recentLog = [];
+    for (const level of ["log", "warn", "error"]) {
+      const original = console[level].bind(console);
+      console[level] = (...args) => {
+        recentLog.push(args.map(String).join(" ").slice(0, 300));
+        if (recentLog.length > 40) recentLog.shift();
+        original(...args);
+      };
+    }
+
+    function crashReport(error) {
+      const lines = [String((error && error.message) || error), ""];
+      if (error && error.stack) lines.push("stack:", ...String(error.stack).split("\n").slice(0, 40), "");
+      lines.push("ua: " + navigator.userAgent);
+      lines.push(`screen: ${innerWidth}x${innerHeight} @${devicePixelRatio}, canvas ${canvasEl.width}x${canvasEl.height}`);
+      try {
+        lines.push("heap MB: " + window.wasmMemory.buffer.byteLength / 1048576);
+      } catch (e) {}
+      try {
+        lines.push("lazyFS: " + JSON.stringify(window.Module.lazyFS.stats()));
+      } catch (e) {}
+      try {
+        const gl = document.createElement("canvas").getContext("webgl");
+        const info = gl.getExtension("WEBGL_debug_renderer_info");
+        lines.push("gl: " + (info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)) +
+          ", max texture " + gl.getParameter(gl.MAX_TEXTURE_SIZE));
+      } catch (e) {}
+      lines.push("", "last log lines:", ...recentLog);
+      return lines.join("\n");
+    }
+
+    let crashShown = false;
+    function showCrash(error) {
+      if (crashShown) return;
+      crashShown = true;
+      const text = crashReport(error);
+      const box = document.createElement("pre");
+      box.id = "crash";
+      const copy = document.createElement("button");
+      copy.type = "button";
+      copy.textContent = "copy";
+      copy.onclick = () => navigator.clipboard.writeText(text).then(() => { copy.textContent = "copied"; }, () => {});
+      box.append(copy, text);
+      document.body.appendChild(box);
+    }
+    window.addEventListener("error", (event) => showCrash(event.error || event.message));
+    window.addEventListener("unhandledrejection", (event) => showCrash(event.reason));
 
     // The largest box of the game's shape (its canvas resolution, which SDL
     // sets) that fits the frame. SDL maps pointer positions through the
@@ -338,6 +415,7 @@
         post("running", { root: root || "" });
       } catch (error) {
         console.error(error);
+        showCrash(error);
         post("error", { message: String((error && error.message) || error) });
       } finally {
         booting = false;

@@ -662,10 +662,17 @@
 
       const flush = async () => {
         if (!pending.length) return;
-        const block = new Blob(pending);
+        // One copy that nothing else shares, so the library's file writer
+        // can take it as it is.
+        const block = new Uint8Array(pendingBytes);
+        let at = 0;
+        for (const piece of pending) {
+          block.set(piece, at);
+          at += piece.length;
+        }
         pending = [];
         pendingBytes = 0;
-        await writer.write(block);
+        await writer.write(block, undefined, true);
       };
 
       // Moves to the next file with bytes still to come, closing finished

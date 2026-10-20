@@ -6,8 +6,10 @@
  *
  * Like the zip reader, nothing is ever held whole: the archive is read in
  * slices straight from the File, decoded a megabyte at a time, and handed to
- * the sink as it comes out, so a 4 GB archive on a phone needs about one
- * dictionary's worth of memory (16-64 MB for usual settings).
+ * the sink as it comes out, so a 4 GB archive needs about one dictionary's
+ * worth of memory (16-64 MB for usual settings) per part decoding at once.
+ * How many decode at once is up to the memory the caller allows; see
+ * "decoding in parallel" below. This file is also that decoding's worker.
  *
  * Most 7z archives are "solid": many files compressed as one stream, which is
  * why extract() takes the whole list and walks it in archive order. Supported
@@ -680,17 +682,18 @@
     };
   }
 
+  const lzma2Dict = (props) => (props[0] === 40 ? 0xffffffff : (2 | (props[0] & 1)) * 2 ** (Math.floor(props[0] / 2) + 11));
+
   function lzma2Source(input, props, unpackSize) {
     if (!props || props.length < 1 || props[0] > 40) throw damaged("bad LZMA2 settings");
-    const p = props[0];
-    const dictSize = p === 40 ? 0xffffffff : (2 | (p & 1)) * 2 ** (Math.floor(p / 2) + 11);
-    const lzma = new Lzma(windowSize(dictSize, unpackSize));
+    const lzma = new Lzma(windowSize(lzma2Dict(props), unpackSize));
     const inp = new Input(input);
     let left = 0; // bytes still to come out of the current chunk
     let copy = false; // the current chunk is stored, not LZMA
     let chunkEnd = 0;
     let haveProps = false;
     let done = false;
+    let out = 0;
     return {
       // Gathers up to a megabyte across chunks (stored ones are at most 64 KB)
       // so storage sees a few large writes rather than many small ones.
@@ -699,6 +702,12 @@
         let produced = 0;
         while (!done && produced < want) {
           if (left === 0) {
+            // A part cut from the middle of a stream (see lzma2Parts) has
+            // no end marker; it ends when its bytes are out.
+            if (out + produced >= unpackSize) {
+              done = true;
+              break;
+            }
             if ((await inp.fill(1)) < 1) throw damaged("LZMA2 data runs short");
             const control = inp.buf[inp.pos];
             if (control === 0) {
@@ -761,6 +770,7 @@
             inp.pos = chunkEnd;
           }
         }
+        out += produced;
         return produced ? lzma.take(produced) : null;
       },
     };
@@ -935,6 +945,7 @@
   }
 
   function deflateSource(input) {
+    if (typeof fflate === "undefined") importScripts("vendor/fflate.min.js"); // in the worker
     const inflate = new fflate.Inflate();
     let out = [];
     let done = false;
@@ -1344,25 +1355,37 @@
       // sink: { start(file), write(bytes), end() }, all awaited. Files not in
       // `wanted` are decoded and dropped when they share a folder with ones
       // that are, and skipped outright when they don't.
-      async extract(wanted, sink) {
+      //
+      // A sink that also has openAt(file), resolving to
+      // { write(bytes, position), close() }, is filled by decoders running in
+      // parallel instead (see extractParallel); options.memory then caps what
+      // they hold between them.
+      async extract(wanted, sink, options = {}) {
         const want = new Set(wanted);
-        for (let i = 0; i < folders.length; i++) {
-          const members = all.filter((f) => !f.emptyStream && f.folder === i);
-          if (!members.some((f) => want.has(f))) continue;
-          const next = splitter(folderSource(blob, folders[i]));
-          for (const f of members) {
-            const keep = want.has(f);
-            if (keep) await sink.start(f);
-            for (let left = f.size; left > 0;) {
-              const piece = await next(Math.min(left, CHUNK));
-              if (keep) await sink.write(piece);
-              left -= piece.length;
+        const members = folders.map((_, i) => all.filter((f) => !f.emptyStream && f.folder === i));
+        if (sink.openAt && WORKER_URL) {
+          await extractParallel(blob, folders, members, want, sink, options);
+        } else {
+          for (let i = 0; i < folders.length; i++) {
+            if (!members[i].some((f) => want.has(f))) continue;
+            const next = splitter(folderSource(blob, folders[i]));
+            for (const f of members[i]) {
+              const keep = want.has(f);
+              if (keep) await sink.start(f);
+              for (let left = f.size; left > 0;) {
+                const piece = await next(Math.min(left, CHUNK));
+                if (keep) await sink.write(piece);
+                left -= piece.length;
+              }
+              if (keep) await sink.end();
             }
-            if (keep) await sink.end();
           }
         }
         for (const f of files) {
-          if (f.emptyStream && want.has(f)) {
+          if (!f.emptyStream || !want.has(f)) continue;
+          if (sink.openAt && WORKER_URL) {
+            await (await sink.openAt(f)).close();
+          } else {
             await sink.start(f);
             await sink.end();
           }
@@ -1371,5 +1394,305 @@
     };
   }
 
-  window.NoberuSevenZip = { is, open };
+  // --- decoding in parallel --------------------------------------------------
+  // Decoding LZMA is most of the time a 7z takes, and one core does it all
+  // unless the archive is cut into parts that decode on their own. Each folder
+  // is one such part, and inside a plain LZMA2 folder so is every stretch
+  // between two dictionary resets: multithreaded 7-Zip (the default) starts
+  // one every four dictionaries' worth, 64 MB at the usual settings. Workers
+  // take the parts as memory and cores allow and send back slices tagged with
+  // where they go, and each slice is written straight to its place in its
+  // file, so nothing waits in memory for the parts before it.
+
+  const WORKER_URL = typeof document !== "undefined" && document.currentScript && typeof Worker !== "undefined"
+    ? document.currentScript.src : null;
+  const PART_MIN = 32 * 1024 * 1024; // resets closer than this stay in one part
+  const SCAN_WINDOW = 4 * 1024 * 1024;
+  const SLICE = 4 * 1024 * 1024; // what a worker sends at a time
+  const CREDIT = 2 * SLICE; // unwritten bytes a worker may have out before it waits
+
+  function dictSize(coder) {
+    const p = coder.props;
+    if (coder.id === "21") return lzma2Dict(p);
+    if (coder.id === "030101" && p && p.length >= 5) return (p[1] | (p[2] << 8) | (p[3] << 16) | (p[4] << 24)) >>> 0;
+    return 0;
+  }
+
+  // Roughly what decoding `folder` (or `size` bytes of it) holds at once: a
+  // window per LZMA coder, plus buffers.
+  function partMemory(folder, size) {
+    let bytes = CREDIT + 2 * SLICE + 4 * CHUNK;
+    folder.coders.forEach((c, i) => {
+      const dict = dictSize(c);
+      if (dict) bytes += windowSize(dict, Math.min(size, folder.unpackSizes[i]));
+    });
+    return bytes;
+  }
+
+  // Walks an LZMA2 folder's chunk headers (each says how long its chunk is, so
+  // nothing is decoded) and yields { packOffset, packSize, unpackOffset,
+  // unpackSize } for each part that starts at a dictionary reset.
+  async function* lzma2Parts(blob, folder) {
+    const start = folder.packOffsets[0];
+    const end = start + folder.packSizes[0];
+    let win = new Uint8Array(0);
+    let winAt = 0;
+    const at = async (pos, n) => {
+      if (pos < winAt || pos + n > winAt + win.length) {
+        winAt = pos;
+        win = new Uint8Array(await blob.slice(pos, Math.min(end, pos + SCAN_WINDOW)).arrayBuffer());
+        if (win.length < n) throw damaged("LZMA2 data runs short");
+      }
+      return pos - winAt;
+    };
+    let pos = start;
+    let out = 0;
+    let part = { packOffset: start, unpackOffset: 0 };
+    for (;;) {
+      if (pos >= end) throw damaged("LZMA2 data runs short");
+      let i = await at(pos, 1);
+      const control = win[i];
+      if (control === 0) break;
+      let unpack;
+      let next;
+      if (control === 1 || control === 2) {
+        i = await at(pos, 3);
+        unpack = ((win[i + 1] << 8) | win[i + 2]) + 1;
+        next = pos + 3 + unpack;
+      } else if (control >= 0x80) {
+        const head = ((control >>> 5) & 3) >= 2 ? 6 : 5;
+        i = await at(pos, head);
+        unpack = (control & 0x1f) * 65536 + ((win[i + 1] << 8) | win[i + 2]) + 1;
+        next = pos + head + ((win[i + 3] << 8) | win[i + 4]) + 1;
+      } else {
+        throw damaged("bad LZMA2 chunk");
+      }
+      if ((control === 1 || control >= 0xe0) && out - part.unpackOffset >= PART_MIN) {
+        yield { ...part, packSize: pos - part.packOffset, unpackSize: out - part.unpackOffset };
+        part = { packOffset: pos, unpackOffset: out };
+      }
+      out += unpack;
+      pos = next;
+    }
+    if (out !== folder.unpackSize) throw damaged("LZMA2 size mismatch");
+    yield { ...part, packSize: end - part.packOffset, unpackSize: out - part.unpackOffset };
+  }
+
+  async function extractParallel(blob, folders, members, want, sink, options) {
+    const budget = options.memory || 256 * 1024 * 1024;
+    // Safari may report fewer cores than a phone has, so at least 4.
+    const cores = options.workers || Math.min(8, Math.max(4, navigator.hardwareConcurrency || 4));
+
+    // Where each file sits in its folder's output.
+    const layout = members.map((list) => {
+      let offset = 0;
+      return list.map((f) => {
+        const m = { f, start: offset, left: f.size, keep: want.has(f), out: null };
+        offset += f.size;
+        return m;
+      });
+    });
+
+    async function* parts() {
+      for (let i = 0; i < folders.length; i++) {
+        if (!members[i].some((f) => want.has(f))) continue;
+        const folder = folders[i];
+        if (folder.coders.length === 1 && folder.coders[0].id === "21") {
+          for await (const part of lzma2Parts(blob, folder)) {
+            yield { index: i, folder, part, memory: partMemory(folder, part.unpackSize) };
+          }
+        } else {
+          yield { index: i, folder, part: null, memory: partMemory(folder, folder.unpackSize) };
+        }
+      }
+    }
+
+    // Writes one slice of folder `index`'s output, starting at `at` in it.
+    async function deliver(index, at, bytes) {
+      const list = layout[index];
+      let lo = 0;
+      let hi = list.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (list[mid].start + list[mid].f.size > at) hi = mid;
+        else lo = mid + 1;
+      }
+      for (let k = lo; k < list.length && list[k].start < at + bytes.length; k++) {
+        const m = list[k];
+        const from = Math.max(at, m.start);
+        const to = Math.min(at + bytes.length, m.start + m.f.size);
+        if (to <= from) continue;
+        if (m.keep) {
+          if (!m.out) m.out = await sink.openAt(m.f);
+          await m.out.write(bytes.subarray(from - at, to - at), from - m.start);
+        }
+        m.left -= to - from;
+        if (m.left === 0 && m.out) {
+          await m.out.close();
+          m.out = null;
+        }
+      }
+    }
+
+    for (const list of layout) {
+      for (const m of list) {
+        if (m.keep && m.f.size === 0) await (await sink.openAt(m.f)).close();
+      }
+    }
+
+    const workers = [];
+    const idle = [];
+    try {
+      await new Promise((resolve, reject) => {
+        const source = parts();
+        let writes = Promise.resolve(); // slices are written one at a time, in arrival order
+        let running = 0;
+        let held = 0;
+        let waiting = null;
+        let exhausted = false;
+        let failed = false;
+        let pumping = false;
+        let again = false;
+
+        const fail = (error) => {
+          if (failed) return;
+          failed = true;
+          reject(error);
+        };
+
+        function start(job) {
+          let worker = idle.pop();
+          if (!worker) {
+            worker = new Worker(WORKER_URL);
+            workers.push(worker);
+          }
+          running++;
+          held += job.memory;
+          worker.onmessage = (event) => {
+            const m = event.data;
+            if (m.type === "data") {
+              const n = m.bytes.length;
+              writes = writes.then(() => {
+                if (!failed) return deliver(job.index, m.at, m.bytes);
+              });
+              writes.then(() => worker.postMessage({ type: "ack", n }), fail);
+            } else if (m.type === "done") {
+              writes.then(() => {
+                running--;
+                held -= job.memory;
+                idle.push(worker);
+                pump();
+              }, fail);
+            } else if (m.type === "error") {
+              fail(new Error(m.message));
+            }
+          };
+          worker.onerror = (event) => {
+            event.preventDefault();
+            fail(new Error(`The unpacker stopped (${event.message || "worker error"}).`));
+          };
+          worker.postMessage({ type: "job", blob, folder: job.folder, part: job.part });
+        }
+
+        async function pump() {
+          if (pumping) {
+            again = true;
+            return;
+          }
+          pumping = true;
+          try {
+            do {
+              again = false;
+              while (!failed) {
+                if (!waiting) {
+                  if (exhausted) break;
+                  const next = await source.next();
+                  if (next.done) {
+                    exhausted = true;
+                    break;
+                  }
+                  waiting = next.value;
+                }
+                // One part always runs, whatever it needs; more only as they fit.
+                if (running >= cores || (running > 0 && held + waiting.memory > budget)) break;
+                start(waiting);
+                waiting = null;
+              }
+            } while (again);
+          } catch (error) {
+            fail(error);
+          } finally {
+            pumping = false;
+          }
+          if (exhausted && !waiting && running === 0) writes.then(resolve, fail);
+        }
+
+        pump();
+      });
+    } finally {
+      for (const worker of workers) worker.terminate();
+    }
+  }
+
+  // --- worker ----------------------------------------------------------------
+  // The same file runs as the worker extractParallel starts: it decodes one
+  // part per "job" message and posts the output in SLICE-sized pieces, waiting
+  // whenever more than CREDIT of them are still unwritten.
+
+  if (typeof window === "undefined") {
+    let unacked = 0;
+    let wake = null;
+    self.onmessage = async (event) => {
+      const m = event.data;
+      if (m.type === "ack") {
+        unacked -= m.n;
+        if (wake && unacked <= CREDIT) {
+          const w = wake;
+          wake = null;
+          w();
+        }
+        return;
+      }
+      if (m.type !== "job") return;
+      try {
+        const { blob, folder, part } = m;
+        const source = part
+          ? lzma2Source(packSource(blob, part.packOffset, part.packSize), folder.coders[0].props, part.unpackSize)
+          : folderSource(blob, folder);
+        const size = part ? part.unpackSize : folder.unpackSize;
+        let at = part ? part.unpackOffset : 0;
+        let sent = 0;
+        let buf = new Uint8Array(Math.min(SLICE, size));
+        let filled = 0;
+        const send = async () => {
+          while (unacked > CREDIT) await new Promise((resolve) => { wake = resolve; });
+          const bytes = filled === buf.length ? buf : buf.slice(0, filled);
+          unacked += filled;
+          self.postMessage({ type: "data", at, bytes }, [bytes.buffer]); // bytes is empty from here on
+          at += filled;
+          sent += filled;
+          filled = 0;
+          buf = new Uint8Array(Math.max(1, Math.min(SLICE, size - sent)));
+        };
+        for (let chunk = await source.read(); chunk; chunk = await source.read()) {
+          for (let i = 0; i < chunk.length;) {
+            const n = Math.min(chunk.length - i, buf.length - filled, size - sent - filled);
+            if (n <= 0) throw damaged("more data than expected");
+            buf.set(chunk.subarray(i, i + n), filled);
+            filled += n;
+            i += n;
+            if (filled === buf.length) await send();
+          }
+          if (sent + filled === size) break;
+        }
+        if (filled) await send();
+        if (sent !== size) throw damaged("a file in it is cut short");
+        self.postMessage({ type: "done" });
+      } catch (error) {
+        self.postMessage({ type: "error", message: String((error && error.message) || error) });
+      }
+    };
+  } else {
+    window.NoberuSevenZip = { is, open };
+  }
 })();
