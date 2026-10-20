@@ -1270,3 +1270,10 @@ kbd {
 .play-frame-wrap:fullscreen .play-runtime {
   background: #000;
 }
+
+/* Popups (downloads, saves, settings, beam, report...) open over everything
+   else: the phone's game sheet (assets/shelf.css) and a full-screen game.
+   The tour stays above them. */
+.library-backdrop {
+  z-index: 10500;
+}

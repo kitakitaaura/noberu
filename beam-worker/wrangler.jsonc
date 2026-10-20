@@ -38,7 +38,10 @@
     // Save sync: per save set, and per player (all their devices together).
     // The Workers Free plan has 5 GB of Durable Object storage in all.
     "SYNC_MAX_OBJECT": "33554432",
-    "SYNC_MAX_ROOM": "268435456"
+    "SYNC_MAX_ROOM": "268435456",
+
+    // The downloads tab's relay (/fetch), per address a day.
+    "DOWNLOAD_DAILY_BYTES": "10737418240"
   }
 
   // Secrets, set with `npx wrangler secret put <NAME>` (never in this file):

@@ -103,7 +103,8 @@ The site itself is static: HTML, JS, wasm, and a `_headers` file. There are no
 accounts. The one piece of server code is `beam-worker/`: the small matchmaker
 for [beam](#beam-send-games-between-devices), which only introduces two devices
 to each other, plus a pass-through for vndb.org cover images and the encrypted
-store behind [save sync](#save-sync) (Durable Object storage, no R2). Everything else a player does stays in
+store behind [save sync](#save-sync) (Durable Object storage, no R2), and a
+relay for download links whose servers block other sites. Everything else a player does stays in
 their browser:
 
 | What | Where it's kept |
@@ -149,8 +150,10 @@ The download icon in the header opens this pop. Three ways:
   `.zip` or `.7z` is unpacked straight from where it is instead, so the archive
   itself is never copied in.
 - **web link**: the browser downloads a file straight from a URL into browser
-  storage. ***The server has to allow cross-origin reads, or the download fails
-  with a message saying so.***
+  storage. When the server doesn't allow cross-origin reads (archive.org,
+  GitHub releases and most file hosts), the download goes through the beam
+  Worker's `/fetch` relay instead: streamed, never stored or cached, refused
+  for private addresses, 10 GB per address a day (`DOWNLOAD_DAILY_BYTES`).
 
 A downloaded `.zip` or `.7z` gets an **unzip** button. Both unzip paths
 stream: the archive's file list is read first, then each entry is decoded a

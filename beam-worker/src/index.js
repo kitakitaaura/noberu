@@ -12,6 +12,12 @@
  *   POST /turn  { bytes }              Relay (TURN) credentials, for when a
  *                                      direct connection is impossible. Capped:
  *                                      see RELAY_* in wrangler.jsonc.
+ *   GET  /fetch?u=<url>                A download for the downloads tab, passed
+ *                                      through when the file's own server
+ *                                      refuses other sites (no CORS). Only for
+ *                                      noberu's sites; streamed, never stored
+ *                                      or cached; DOWNLOAD_DAILY_BYTES per
+ *                                      address a day.
  *   GET  /cover?u=<vndb image url>     A vndb.org cover image, passed through
  *                                      with the headers the cross-origin
  *                                      isolated site needs (the shelf's
@@ -36,7 +42,7 @@ const ROOM_TTL_MS = 10 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const origin = request.headers.get("Origin") || "";
     const allowed = originAllowed(origin, env);
@@ -60,6 +66,11 @@ export default {
     if (url.pathname === "/turn" && request.method === "POST") {
       if (!allowed) return json({ error: "origin not allowed" }, 403, origin, false);
       return relayCredentials(request, env, origin);
+    }
+
+    if (url.pathname === "/fetch" && request.method === "GET") {
+      if (!allowed) return json({ error: "origin not allowed" }, 403, origin, false);
+      return downloadRelay(request, env, ctx, url, origin);
     }
 
     if (url.pathname === "/cover" && request.method === "GET") {
@@ -146,6 +157,88 @@ async function cover(url, origin, allowed) {
       "Vary": "Origin",
     },
   });
+}
+
+// --- download relay -------------------------------------------------------------
+
+// Hosts a relay must never be pointed at: this machine's own names and
+// private address ranges. (A Worker cannot reach a private network anyway;
+// this keeps it obvious.)
+function privateHost(host) {
+  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal")) return true;
+  if (/^\[?[0-9a-f:]+\]?$/i.test(host) && host.includes(":")) return true; // IPv6 literal
+  const v4 = host.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  if (!v4) return false;
+  const [a, b] = [Number(v4[1]), Number(v4[2])];
+  return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127);
+}
+
+async function downloadRelay(request, env, ctx, url, origin) {
+  let target;
+  try {
+    target = new URL(url.searchParams.get("u") || "");
+  } catch (error) {
+    return json({ error: "bad-url" }, 400, origin);
+  }
+  if (!/^https?:$/.test(target.protocol) || target.username || target.password || privateHost(target.hostname)) {
+    return json({ error: "bad-url" }, 400, origin);
+  }
+
+  const daily = Number(env.DOWNLOAD_DAILY_BYTES || 10 * 1073741824);
+  const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+  const day = Math.floor(Date.now() / DAY_MS);
+  const quota = env.QUOTAS.get(env.QUOTAS.idFromName(`download:${ip}:${day}`));
+  const before = await quota.take(0, daily);
+  if (!before.ok || before.used >= daily) return json({ error: "daily-limit", daily }, 429, origin);
+
+  let upstream;
+  try {
+    upstream = await fetch(target.href, {
+      headers: { "User-Agent": "noberu-download-relay (+https://noberu.kitaaura.com)" },
+      redirect: "follow",
+      cf: { cacheTtl: 0, cacheEverything: false },
+    });
+  } catch (error) {
+    return json({ error: "unreachable" }, 502, origin);
+  }
+  if (!upstream.ok) return json({ error: "upstream", status: upstream.status }, 502, origin);
+
+  const length = Number(upstream.headers.get("Content-Length")) || 0;
+  if (length && before.used + length > daily) {
+    upstream.body && upstream.body.cancel();
+    return json({ error: "daily-limit", daily }, 429, origin);
+  }
+
+  // A stated size is counted up front and the body passes straight through,
+  // keeping its length (the browser shows progress against it). With no
+  // stated size it is counted as it streams.
+  const knownLength = length && !upstream.headers.get("Content-Encoding");
+  if (knownLength) ctx.waitUntil(quota.take(length, Number.MAX_SAFE_INTEGER));
+  let counted = 0;
+  const meter = new TransformStream({
+    transform(chunk, controller) {
+      counted += chunk.byteLength;
+      controller.enqueue(chunk);
+    },
+    flush() {
+      ctx.waitUntil(quota.take(counted, Number.MAX_SAFE_INTEGER));
+    },
+  });
+
+  const headers = {
+    "Content-Type": upstream.headers.get("Content-Type") || "application/octet-stream",
+    "Cache-Control": "no-store",
+    ...cors(origin, true),
+    "Access-Control-Expose-Headers": "Content-Length, Content-Disposition, X-Noberu-Final-Url",
+    "X-Noberu-Final-Url": upstream.url,
+  };
+  // A compressed response arrives here decoded, so its stated length is wrong.
+  if (knownLength) headers["Content-Length"] = String(length);
+  const disposition = upstream.headers.get("Content-Disposition");
+  if (disposition) headers["Content-Disposition"] = disposition;
+  const body = !upstream.body ? null : knownLength ? upstream.body : upstream.body.pipeThrough(meter);
+  return new Response(body, { headers });
 }
 
 // --- save sync --------------------------------------------------------------------

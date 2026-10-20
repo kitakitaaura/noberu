@@ -253,6 +253,8 @@
     }
     if (name === "report") {
       close(false);
+      // Nothing outside a fullscreen element shows; step out so the form can.
+      if (document.fullscreenElement) await document.exitFullscreen().catch(() => { });
       const game = currentGame();
       if (window.NoberuReport) window.NoberuReport.open({ game: game && game.name, engine: game && game.engine, frame: frameWrap.id });
       return;

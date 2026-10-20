@@ -832,6 +832,38 @@
     }
   }
 
+  // The beam Worker, which also relays downloads. ?beam-server= overrides;
+  // locally it is `wrangler dev`.
+  function relayServer() {
+    const override = new URLSearchParams(location.search).get("beam-server");
+    if (override) return override.replace(/\/$/, "");
+    if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+      return `http://${location.hostname}:8787`;
+    }
+    return "https://beam.kitaaura.com";
+  }
+
+  // The name the server gives the file, else the last part of its address
+  // (after any redirect), else "download".
+  function fileNameFrom(response, parsed) {
+    const disposition = response.headers.get("Content-Disposition") || "";
+    const star = disposition.match(/filename\*\s*=\s*(?:UTF-8'')?([^;]+)/i);
+    const plain = disposition.match(/filename\s*=\s*"?([^";]+)"?/i);
+    try {
+      if (star) return decodeURIComponent(star[1].trim().replace(/^"|"$/g, ""));
+    } catch (error) { /* malformed: fall through */ }
+    if (plain) return plain[1].trim();
+    let path = parsed.pathname;
+    try {
+      path = new URL(response.headers.get("X-Noberu-Final-Url") || response.url || parsed.href).pathname;
+    } catch (error) { /* keep the link's own */ }
+    try {
+      return decodeURIComponent(path.split("/").filter(Boolean).pop() || "download");
+    } catch (error) {
+      return path.split("/").filter(Boolean).pop() || "download";
+    }
+  }
+
   async function addFromUrl(url, onProgress) {
     let parsed;
     try {
@@ -840,19 +872,35 @@
       throw new Error("That is not a valid link.");
     }
     onProgress("downloading...");
-    // Browser-direct: a server that does not allow cross-origin reads fails
-    // here, and the message says so.
+    // Straight from the browser first. A server that does not let other sites
+    // read its files makes that throw; then the file comes through noberu's
+    // relay (the beam Worker's /fetch), which streams it and keeps nothing.
     let response;
     try {
       response = await fetch(parsed.href);
     } catch (e) {
-      throw new Error(`The download was blocked by the browser (${e.message}). ` +
-        "That server does not allow other sites to read its files.");
+      if (!/^https?:$/.test(parsed.protocol)) throw new Error("Only http and https links can be downloaded.");
+      onProgress("that site blocks direct downloads; using noberu's relay...");
+      try {
+        response = await fetch(`${relayServer()}/fetch?u=${encodeURIComponent(parsed.href)}`);
+      } catch (error) {
+        throw new Error("That site blocks direct downloads, and noberu's relay could not be reached.");
+      }
+      if (!response.ok) {
+        let reason = "";
+        try {
+          reason = (await response.json()).error || "";
+        } catch (error) { /* not JSON */ }
+        throw new Error(reason === "daily-limit" ? "The relay's daily limit for your connection is used up (10 GB). Try again tomorrow."
+          : reason === "upstream" || reason === "unreachable" ? "The site would not hand the file to noberu's relay either."
+          : reason === "bad-url" ? "noberu's relay can't download from that address."
+          : `noberu's relay answered ${response.status}.`);
+      }
     }
     if (!response.ok) throw new Error(`The server answered ${response.status} ${response.statusText}.`);
 
     const total = Number(response.headers.get("Content-Length")) || 0;
-    const name = sanitize(decodeURIComponent(parsed.pathname.split("/").filter(Boolean).pop() || "download"));
+    const name = sanitize(fileNameFrom(response, parsed));
     const id = newId();
     const dir = await (await storageRoot()).getDirectoryHandle(id, { create: true });
     const writer = await openWriter(dir);
