@@ -190,8 +190,8 @@ controls, so people learn the actual flow.
    instead (a `.zip`, or a web link).
 2. On **games** (the home screen), press **add a game** or drop the game's
    folder or `.zip` anywhere on the page. noberu works out the engine.
-3. Press **play**. (The engine tabs still work the old way: **choose folder**,
-   then **boot local**.)
+3. Press **play**. (The engine tabs, under **more engines** in the dock, still
+   work the old way: **choose folder**, then **boot local**.)
 4. Press **▣** in the window bar for fullscreen; Esc comes back. Press **`**
    (or a controller's back button, or **menu** on the touch pad) for the
    noberu menu.

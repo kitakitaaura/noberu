@@ -1,0 +1,253 @@
+/* The dock (assets/dock.js): games, about, and "more engines" with the
+   engine tabs in a menu. Loaded after theme.css and mobile.css. */
+
+/* --- computers: a short dock at the bottom, the menu opening upward ------------ */
+
+.bottom-tabs {
+  width: auto;
+  min-width: 0;
+  overflow: visible;
+  gap: 0.25rem;
+}
+
+.bottom-tabs > .tab-button,
+.dock-button {
+  flex: 0 0 8.5rem;
+  min-width: 8.5rem;
+}
+
+.dock-more {
+  position: relative;
+  display: flex;
+}
+
+.dock-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 0.35rem;
+  min-height: 3.6rem;
+  padding: 0 0.3rem;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+  transition: background var(--fast) ease, color var(--fast) ease;
+}
+
+.dock-button:hover,
+.dock-button[aria-expanded="true"],
+.dock-button.selected {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.dock-button.selected .tab-icon {
+  color: var(--accent);
+}
+
+.dock-button .tab-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.dock-caret {
+  flex: none;
+  opacity: 0.7;
+  transition: transform var(--fast) ease;
+}
+
+.dock-button[aria-expanded="true"] .dock-caret {
+  transform: rotate(180deg);
+}
+
+/* A game is running in the engine the button is named after. */
+.dock-playing {
+  position: absolute;
+  top: 0.55rem;
+  left: calc(50% + 0.75rem);
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 0 2px var(--panel-soft);
+}
+
+.dock-playing[hidden] {
+  display: none;
+}
+
+.engines-menu {
+  position: absolute;
+  bottom: calc(100% + 0.55rem);
+  left: 50%;
+  z-index: 30;
+  display: grid;
+  gap: 0.1rem;
+  width: 15rem;
+  max-height: min(70vh, 34rem);
+  padding: 0.4rem;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-soft);
+  box-shadow: 0 10px 32px var(--drop-shadow);
+  transform: translateX(-50%);
+}
+
+.engines-menu[hidden] {
+  display: none;
+}
+
+.engines-menu-title {
+  margin: 0.15rem 0.5rem 0.3rem;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.engines-menu .tab-button {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.6rem;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  min-height: 2.15rem;
+  padding: 0.2rem 0.55rem;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+
+.engines-menu .tab-button:hover,
+.engines-menu .tab-button:focus-visible {
+  background: var(--surface);
+  outline: none;
+}
+
+.engines-menu .tab-button[aria-selected="true"] {
+  background: var(--surface);
+}
+
+.engines-menu .tab-button[aria-selected="true"] .tab-label {
+  color: var(--ink);
+}
+
+.engines-menu .tab-icon {
+  display: grid;
+  flex: none;
+  width: 1.6rem;
+  height: 1.6rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.engines-menu .tab-button[aria-selected="true"] .tab-icon {
+  color: var(--accent);
+}
+
+.engines-menu .tab-label {
+  overflow: visible;
+  font-size: 0.82rem;
+  text-transform: none;
+}
+
+.engines-menu .tab-button.running::after {
+  content: "playing";
+  margin-left: auto;
+  padding: 0.05rem 0.45rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--ok) 18%, transparent);
+  color: var(--ok);
+  font-size: 0.64rem;
+}
+
+/* --- phones: a chip in the row under the top bar, the menu dropping down -------- */
+
+@media (max-width: 760px), (max-height: 520px) and (pointer: coarse) {
+  .bottom-tabs {
+    width: auto;
+    overflow: visible;
+  }
+
+  .bottom-tabs > .tab-button,
+  .dock-button {
+    flex: none;
+    min-width: 0;
+  }
+
+  .dock-button {
+    display: flex;
+    align-items: center;
+    height: 2rem;
+    min-height: 0;
+    padding: 0 0.9rem;
+    border: 1px solid var(--line-strong, var(--line));
+    border-radius: 999px;
+    background: transparent;
+  }
+
+  .dock-button .tab-icon {
+    display: none;
+  }
+
+  .dock-button .tab-label {
+    font-size: 0.8rem;
+  }
+
+  .dock-button.selected {
+    border-color: var(--ink);
+    background: var(--ink);
+  }
+
+  .dock-button.selected .tab-label {
+    color: var(--paper);
+  }
+
+  .dock-playing {
+    position: static;
+    margin-left: 0.4rem;
+    box-shadow: none;
+  }
+
+  .engines-menu {
+    top: calc(100% + 0.5rem);
+    bottom: auto;
+    left: auto;
+    right: 0;
+    width: min(16rem, calc(100vw - 2rem));
+    max-height: 70dvh;
+    transform: none;
+  }
+
+  .engines-menu .tab-button {
+    height: auto;
+    border: 0;
+    border-radius: var(--radius-xs);
+  }
+
+  .engines-menu .tab-button:last-child {
+    border-right: 0;
+  }
+
+  .engines-menu .tab-button[aria-selected="true"] {
+    border-color: transparent;
+    background: var(--surface);
+  }
+
+  .engines-menu .tab-button[aria-selected="true"] .tab-label {
+    color: var(--ink);
+  }
+
+  .engines-menu .tab-icon {
+    display: grid;
+  }
+}
