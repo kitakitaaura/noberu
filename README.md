@@ -405,20 +405,22 @@ an 18+ game (Katawa Shoujo) asks in a popup before it downloads.
 | Your Turn to Die | RPG Maker MV | English | vgperson.com (the free chapters, vgperson's translation) |
 | Butterfly Soup | Ren'Py | English | the player downloads it at itch.io, then adds the zip |
 | Our Life: Beginnings & Always | Ren'Py | English | the player downloads it at itch.io, then adds the zip |
+| Cinderella Phenomenon | Ren'Py | English | the player downloads it at itch.io (a MediaFire file), then adds the zip |
 | Doki Doki Literature Club! | Ren'Py | English | the player downloads it at ddlc.moe, then adds the zip |
 
 Some games are only offered through itch.io, which hands out a new link for
 each download (and for DDLC and Butterfly Soup, a pay-what-you-want page
 first), so their cards open the game's page and then take the zip the player
 saved. They're checked by file name (`ddlc-win.zip`, `ButterflySoup-2.20-pc.zip`,
-`our-life-windows-linux.zip`).
+`our-life-windows-linux.zip`, `CinderellaPhenomenon-1.1-pc.zip`).
 
 Making them run took three fixes, all general: the KiriKiri tab finds an
 archive appended to the game's `.exe` (and the library recognises such a game
 by its `plugin/*.dll`); the RPG Maker shim points synchronous XHR (which service
 workers never see) at a `blob:` URL of the staged file, for Your Turn to Die's
-translation; and the Ren'Py 7 page has a stand-in `requests` module, which Our
-Life's update check imports.
+translation; and the Ren'Py 7 page has stand-in `requests` and `_renpysteam`
+modules, which Our Life's update check and Cinderella Phenomenon's achievements
+import.
 
 insani's releases are the Mac zips: the same game files as the Windows
 installers, which noberu can't unpack. Left out after testing: *[text] - A

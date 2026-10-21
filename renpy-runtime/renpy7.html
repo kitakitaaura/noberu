@@ -780,7 +780,19 @@
       // requests: Our Life's update check imports it. The web build has no
       // sockets for it anyway, so every call fails with requests' own
       // ConnectionError, as it would offline, and the check gives up.
+      //
+      // _renpysteam: desktop Ren'Py 6.99's Steam module, which Cinderella
+      // Phenomenon imports for achievements. Every call answers False, as it
+      // does on desktop when Steam isn't running.
       const SHIMS = {
+        "/_renpysteam.py":
+          "# noberu: no Steam in a browser; everything answers False.\n" +
+          "import sys\n" +
+          "class _NoSteam(object):\n" +
+          "    def __getattr__(self, name):\n" +
+          "        if name.startswith('__'): raise AttributeError(name)\n" +
+          "        return lambda *args, **kwargs: False\n" +
+          "sys.modules[__name__] = _NoSteam()\n",
         "/requests.py":
           "# noberu: no requests in the web build; every call fails as if offline.\n" +
           "import sys, types\n" +
