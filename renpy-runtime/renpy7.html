@@ -776,7 +776,28 @@
       // fcntl: DDLC's singleton.py locks a file so a second copy of the game
       // refuses to start. A browser tab has no second copy to stop, so the
       // lock can always succeed.
+      //
+      // requests: Our Life's update check imports it. The web build has no
+      // sockets for it anyway, so every call fails with requests' own
+      // ConnectionError, as it would offline, and the check gives up.
       const SHIMS = {
+        "/requests.py":
+          "# noberu: no requests in the web build; every call fails as if offline.\n" +
+          "import sys, types\n" +
+          "exceptions = types.ModuleType('requests.exceptions')\n" +
+          "class RequestException(IOError): pass\n" +
+          "class ConnectionError(RequestException): pass\n" +
+          "class HTTPError(RequestException): pass\n" +
+          "class Timeout(RequestException): pass\n" +
+          "for _c in (RequestException, ConnectionError, HTTPError, Timeout): setattr(exceptions, _c.__name__, _c)\n" +
+          "sys.modules['requests.exceptions'] = exceptions\n" +
+          "def request(*args, **kwargs): raise ConnectionError('noberu: games have no network here')\n" +
+          "get = post = put = head = delete = patch = request\n" +
+          "class Session(object):\n" +
+          "    def __enter__(self): return self\n" +
+          "    def __exit__(self, *args): return False\n" +
+          "    def close(self): pass\n" +
+          "    request = get = post = put = head = delete = patch = staticmethod(request)\n",
         "/fcntl.py":
           "# noberu: browsers have no fcntl; one tab is one instance.\n" +
           "LOCK_SH, LOCK_EX, LOCK_NB, LOCK_UN = 1, 2, 4, 8\n" +

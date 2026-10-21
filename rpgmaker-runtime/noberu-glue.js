@@ -41,6 +41,7 @@
 
   window.RpgMakerVFS = {
     stage: vfs.stage,
+    file: vfs.file,
     version(files) {
       const path = corePath([...(files || [])]);
       if (!path) return null;

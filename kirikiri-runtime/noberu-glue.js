@@ -213,6 +213,22 @@
     return body;
   }
 
+  // Where an archive appended to a .exe starts, or -1. KiriKiri itself looks
+  // on 16-byte boundaries. The engine's own code holds the signature too, so
+  // a hit counts only if the index offset after it points inside the file.
+  async function embeddedXp3(file) {
+    const CHUNK = 4 * 1024 * 1024;
+    for (let base = 0; base < file.size; base += CHUNK) {
+      const bytes = new Uint8Array(await file.slice(base, base + CHUNK + 32).arrayBuffer());
+      for (let i = 0; i + 19 <= bytes.length && i < CHUNK; i += 16) {
+        if (XP3_MAGIC.some((b, k) => bytes[i + k] !== b)) continue;
+        const index = u64(new DataView(bytes.buffer, i), 11);
+        if (index > 11 && base + i + index < file.size) return base + i;
+      }
+    }
+    return -1;
+  }
+
   // The archive with the prelude in front, or null if this one cannot take
   // it (no plain startup.tjs entry, an unusual header): then it runs as is.
   async function withPrelude(file, paths) {
@@ -374,6 +390,27 @@
         }
       }
 
+      // Some games keep their archive inside the .exe (True Remembrance): it
+      // is served beside it as data.xp3, which is where the engine looks.
+      const embedded = new Map();
+      if (archives.length === 0) {
+        for (let i = 0; i < files.length; i++) {
+          const relative = files[i].webkitRelativePath || files[i].name;
+          const path = ("/" + relative).substring(prefix.length) || "/" + files[i].name;
+          if (!/\.exe$/i.test(path)) continue;
+          status("looking for the game's data inside its .exe...");
+          const at = await embeddedXp3(files[i]);
+          if (at < 0) continue;
+          const xp3 = path.replace(/[^/]*$/, "data.xp3");
+          const blob = files[i].slice(at);
+          VLFS.registerBlobFile(xp3, blob);
+          staged.push(xp3);
+          archives.push(xp3);
+          embedded.set(xp3, blob);
+          break;
+        }
+      }
+
       if (archives.length === 0) {
         throw new Error("No .xp3 archives here. Pick the folder holding the game's " +
           "data.xp3 (the one with the .exe in it).");
@@ -382,7 +419,7 @@
       const gameStartup = startupArchive(archives);
       if (archives.length > 1) Module._startupXp3Path = gameStartup;
       try {
-        const original = files.find((f) =>
+        const original = embedded.get(gameStartup) || files.find((f) =>
           ("/" + (f.webkitRelativePath || f.name)).substring(prefix.length) === gameStartup);
         const patched = original && await withPrelude(original, staged);
         if (patched) VLFS.registerBlobFile(gameStartup, patched);

@@ -13,6 +13,35 @@
   const match = /\/vfs\/([^/]+)\//.exec(location.pathname);
   const gameId = match ? decodeURIComponent(match[1]) : "game";
 
+  // Synchronous XHR never reaches the service worker, so a plugin that loads
+  // a file that way (Your Turn to Die's translation, languages/EN.cte) gets
+  // the web server's 404. Such a request is pointed at a blob: URL of the
+  // staged file instead, which a synchronous XHR can read. Set up now, before
+  // the engine's plugins run.
+  const base = match ? location.pathname.slice(0, match.index + match[0].length) : null;
+  const blobs = new Map();
+  const open = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function (method, url, async) {
+    // The arguments as given: open(method, url) is asynchronous, but an
+    // explicit undefined third argument would make it synchronous.
+    const args = [...arguments];
+    if (args.length > 2 && !async && base) {
+      try {
+        const target = new URL(url, location.href);
+        const vfs = window.parent && window.parent.RpgMakerVFS;
+        if (target.origin === location.origin && target.pathname.startsWith(base) && vfs && vfs.file) {
+          const path = decodeURIComponent(target.pathname.slice(base.length));
+          if (!blobs.has(path)) {
+            const file = vfs.file(gameId, path);
+            blobs.set(path, file ? URL.createObjectURL(file) : null);
+          }
+          if (blobs.get(path)) args[1] = blobs.get(path);
+        }
+      } catch (error) { /* leave the request as it was */ }
+    }
+    return open.apply(this, args);
+  };
+
   window.addEventListener("load", () => {
     // Scale to the frame. RPG Maker stretches its canvas to the window only in
     // its desktop app and on phones; in a desktop browser it stays at its own

@@ -122,6 +122,20 @@
       blurb: "A struggling indie game developer hears from a very keen fan. Good practice with the dictionary.",
     },
     {
+      id: "true-remembrance",
+      title: "TRUE REMEMBRANCE -remake-",
+      vndb: "v103",
+      engine: "KiriKiri",
+      lang: "Japanese",
+      minutes: 300,
+      bytes: 47113405,
+      url: "https://ftp.vector.co.jp/48/54/1834/true1.05.zip",
+      site: "https://www.vector.co.jp/soft/win95/amuse/se402345.html",
+      host: "vector.co.jp",
+      cover: "https://t.vndb.org/cv/82/43082.jpg",
+      blurb: "In a town of rain, a girl who sells memories. The Japanese remake; the English release is an installer only.",
+    },
+    {
       id: "katawa-shoujo",
       title: "Katawa Shoujo: Re-Engineered",
       vndb: "v945",
@@ -136,6 +150,51 @@
       blurb: "A new student at a school for the disabled, and the five girls he gets to know.",
       ages: "18+",
       adult: true,
+    },
+    {
+      id: "your-turn-to-die",
+      title: "Your Turn to Die",
+      vndb: "v25931",
+      engine: "RPG Maker MV",
+      lang: "English",
+      bytes: 314698204,
+      url: "https://vgperson.com/games/YourTurnToDie.zip",
+      site: "https://vgperson.com/games/yourturntodie.htm",
+      host: "vgperson.com",
+      cover: "https://t.vndb.org/cv/16/58816.jpg",
+      blurb: "A death game decided by majority vote. The free chapters, in vgperson's translation. Lots of blood.",
+      ages: "16+",
+    },
+    {
+      id: "butterfly-soup",
+      title: "Butterfly Soup",
+      vndb: "v21875",
+      engine: "Ren'Py",
+      lang: "English",
+      minutes: 180,
+      bytes: 188748512,
+      manual: /^ButterflySoup-[\d.]+-(pc|mac)\.zip$/i,
+      fileName: "ButterflySoup-2.20-pc.zip",
+      site: "https://brianna-lei.itch.io/butterfly-soup",
+      host: "itch.io",
+      cover: "https://t.vndb.org/cv/47/125747.jpg",
+      blurb: "Gay Asian girls playing baseball and falling in love, with a lot of jokes.",
+      ages: "13+",
+    },
+    {
+      id: "our-life",
+      title: "Our Life: Beginnings & Always",
+      vndb: "v26391",
+      engine: "Ren'Py",
+      lang: "English",
+      minutes: 1575,
+      bytes: 832415860,
+      manual: /^our-life-[\w-]*\.zip$/i,
+      fileName: "our-life-windows-linux.zip",
+      site: "https://gbpatch.itch.io/our-life",
+      host: "itch.io",
+      cover: "https://t.vndb.org/cv/20/76320.jpg",
+      blurb: "Grow up beside the lonely boy next door, from childhood summers to adulthood.",
     },
     {
       id: "ddlc",
@@ -207,7 +266,7 @@
           </span>
           <span class="shelf-card-text">
             <span class="shelf-name">${escapeHtml(game.title)}</span>
-            <span class="shelf-meta">${game.ages ? `<b class="free-ages">${escapeHtml(game.ages)}</b> ` : ""}${escapeHtml(game.engine)} · ${escapeHtml(game.lang)} · ${length(game.minutes)}</span>
+            <span class="shelf-meta">${game.ages ? `<b class="free-ages">${escapeHtml(game.ages)}</b> ` : ""}${escapeHtml(game.engine)} · ${escapeHtml(game.lang)}${game.minutes ? ` · ${length(game.minutes)}` : ""}</span>
           </span>
           <p class="free-blurb">${escapeHtml(game.blurb)}</p>
           <div class="free-actions">${actions(game, have.get(game.url) || have.get(game.id))}</div>

@@ -7,7 +7,9 @@
 // See tyrano-sw.js for why a service worker rather than blob URLs.
 //
 // The rpgmaker tab serves its games the same way, so the staging is a factory:
-//   NoberuVFS({ label, db, worker, scope, findRoot, rootHint, wwwIsWrapper }) -> { stage }
+//   NoberuVFS({ label, db, worker, scope, findRoot, rootHint, wwwIsWrapper }) -> { stage, file }
+// file(id, path) is the staged File at a path, for a game page's synchronous
+// requests, which the service worker never sees (rpgmaker-runtime/noberu-shim.js).
 // findRoot(files) returns the path prefix of the game's folder, or null.
 // wwwIsWrapper names a game found in `www/` after the folder above it.
 (function () {
@@ -98,6 +100,16 @@
     }
 
     return {
+      // Exact match first, then any case, as the worker does.
+      file(id, path) {
+        const map = memory.get(id);
+        if (!map) return null;
+        if (map[path]) return map[path];
+        const lower = path.toLowerCase();
+        const key = Object.keys(map).find((k) => k.toLowerCase() === lower);
+        return key ? map[key] : null;
+      },
+
       async stage(list) {
         const files = [...(list || [])];
         if (!files.length) throw new Error("nothing was selected");

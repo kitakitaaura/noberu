@@ -632,6 +632,17 @@
       return { engine: "rpgmaker", root: rpgmaker.replace(/\/?js\/[^/]+$/i, "") };
     }
 
+    // KiriKiri's own plugins (plugin/wuvorbis.dll and friends) beside a .exe:
+    // a KiriKiri game even with no .xp3 in sight, since some keep their
+    // archive inside the .exe (kirikiri-runtime/noberu-glue.js finds it).
+    const krkrPlugin = paths.find((path) => /(^|\/)plugin\/(wuvorbis|krmovie|extrans|kagexopt)\.dll$/i.test(path));
+    if (krkrPlugin) {
+      const root = krkrPlugin.replace(/\/?plugin\/[^/]+$/i, "");
+      if (byDir.has(root) && [...byDir.get(root)].some((n) => n.endsWith(".exe"))) {
+        return { engine: "kirikiri", root };
+      }
+    }
+
     const test = (names) => {
       const has = (n) => names.has(n);
       const any = (re) => [...names].some((n) => re.test(n));
@@ -1166,9 +1177,9 @@
   // A downloaded zip's file name is rarely the game's; free.js knows the title,
   // and marks the entry with `extra` ({ free: id }) to find it again.
   async function rename(entry, name, extra = {}) {
-    // "Doki Doki Literature Club!" would end in an underscore, and a colon
-    // would become one: "Katawa Shoujo - Re-Engineered".
-    return dbPut({ ...entry, ...extra, name: sanitize(name.replace(/\s*:\s*/g, " - ")).replace(/(.)_+$/, "$1") });
+    // "Doki Doki Literature Club!" would end in an underscore, and a colon or
+    // an ampersand would become one: "Katawa Shoujo - Re-Engineered".
+    return dbPut({ ...entry, ...extra, name: sanitize(name.replace(/\s*:\s*/g, " - ").replace(/\s*&\s*/g, " and ")).replace(/(.)_+$/, "$1") });
   }
 
   async function usage() {
