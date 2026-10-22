@@ -196,10 +196,17 @@ try {
   // pointer's position over the canvas to noberu-hover.txt beside the game
   // (watchHover below), and this timer hands it to the window's own
   // onMouseMove, in game pixels, as desktop KiriKiri would.
+  //
+  // Novectacle's candle menu (showQExecMenu) only builds its buttons when
+  // there are none, and they are only thrown away at the end of its slide-out.
+  // A finger that taps "back" on the save screen never moves away to slide
+  // it out, so the menu came back as an empty strip and the next tap missed.
+  // Opened from hidden, it now starts from fresh buttons.
   const HOVER = `
 try {
   global.noberu_hover_path = System.exePath + "noberu-hover.txt";
   global.noberu_hover_last = "";
+  global.noberu_qexec_fixed = false;
   global.noberu_hover_timer = new Timer(function() {
     if (!Storages.isExistentStorage(global.noberu_hover_path)) return;
     var a = [];
@@ -207,6 +214,18 @@ try {
     if (!a.count || a[0] == global.noberu_hover_last) return;
     global.noberu_hover_last = a[0];
     if (typeof global.kag != "Object" || global.kag === null) return;
+    if (!global.noberu_qexec_fixed) {
+      global.noberu_qexec_fixed = true;
+      try {
+        if (typeof kag.showQExecMenu == "Object" && typeof kag.deleteQExecMenu == "Object") {
+          global.noberu_qexec_show = kag.showQExecMenu;
+          kag.showQExecMenu = function(mvmode, backmode) {
+            if (backmode != "back" && !movemode_qexec && !fore.messages[qmenuLayer_Exec].visible) deleteQExecMenu();
+            return global.noberu_qexec_show(...);
+          } incontextof kag;
+        }
+      } catch (e) { }
+    }
     var p = [];
     p.split(",", a[0]);
     if (p.count < 5) return;
@@ -539,6 +558,54 @@ try {
       if (performance.now() - last >= 100) send(event);
       else pending = setTimeout(() => send(event), 100);
     });
+
+    // A phone has no hover, so menus that open under the mouse (Novectacle's
+    // candles) never showed. A touch moves the game's mouse (HOVER) to where
+    // it landed, the way a tap moves the cursor on a touchscreen laptop. When
+    // it lands somewhere new, the touch is held back while the mouse moves
+    // there twice and the game slides its menu in, so the tap meets the menu
+    // it opened. Taps near the last one, like reading taps, go straight
+    // through.
+    let lastX = -1e4;
+    let lastY = -1e4;
+    let held = null;
+    let replaying = false;
+    const replay = () => {
+      const events = held;
+      held = null;
+      replaying = true;
+      try {
+        for (const event of events) {
+          canvas.dispatchEvent(new TouchEvent(event.type, {
+            bubbles: true, cancelable: true, composed: true,
+            touches: [...event.touches], targetTouches: [...event.targetTouches], changedTouches: [...event.changedTouches],
+          }));
+        }
+      } finally {
+        replaying = false;
+      }
+    };
+    for (const type of ["touchstart", "touchmove", "touchend", "touchcancel"]) {
+      window.addEventListener(type, (event) => {
+        if (replaying || event.target !== canvas) return;
+        if (!held && type === "touchstart") {
+          const touch = event.changedTouches[0];
+          const near = Math.hypot(touch.clientX - lastX, touch.clientY - lastY) < 48;
+          lastX = touch.clientX;
+          lastY = touch.clientY;
+          send(touch);
+          if (near) return;
+          const { clientX, clientY } = touch;
+          setTimeout(() => send({ clientX: clientX + 1, clientY }), 150);
+          held = [];
+          setTimeout(replay, 700);
+        }
+        if (!held) return;
+        held.push(event);
+        event.stopImmediatePropagation();
+        event.preventDefault();
+      }, { capture: true, passive: false });
+    }
   }
 
   window.KrKrInstallAndBoot = async function (root, fileList) {
