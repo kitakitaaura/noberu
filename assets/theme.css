@@ -399,6 +399,43 @@ body::after {
   letter-spacing: -0.01em;
 }
 
+/* A random VNDB quote (assets/quote.js): in the caption box once it has
+   loaded, in place of the caption's own line; as a card under the tabs on
+   phones (assets/mobile.css). */
+.caption-box:has(.caption-quote:not([hidden])) > p,
+.quote-card {
+  display: none;
+}
+
+.vn-quote {
+  margin: 0;
+}
+
+.vn-quote blockquote {
+  max-width: 58ch;
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.45;
+}
+
+.vn-quote blockquote::before {
+  content: "“";
+}
+
+.vn-quote blockquote::after {
+  content: "”";
+}
+
+.vn-quote figcaption {
+  margin-top: 0.35rem;
+  color: var(--stage-muted);
+  font-size: 0.82rem;
+}
+
+.vn-quote a {
+  color: inherit;
+}
+
 /* --- side panel --- */
 
 .panel-header,

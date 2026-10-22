@@ -1402,8 +1402,8 @@
 
   </style>
 
-  <link rel="stylesheet" href="assets/theme.css?v=20261020c">
-  <link rel="stylesheet" href="assets/mobile.css?v=20261021a">
+  <link rel="stylesheet" href="assets/theme.css?v=20261022a">
+  <link rel="stylesheet" href="assets/mobile.css?v=20261022a">
   <link rel="stylesheet" href="assets/settings.css?v=20261020a">
   <link rel="stylesheet" href="assets/shelf.css?v=20261020e">
   <link rel="stylesheet" href="assets/menu.css?v=20261020b">
@@ -1639,6 +1639,8 @@
                 <p>
                   Port your favorite visual novels for the web, with no need for a virtual machine.
                 </p>
+                <!-- A random quote from VNDB in place of the line above (assets/quote.js). -->
+                <div class="caption-quote" data-vn-quote hidden></div>
               </div>
             </div>
           </div>
@@ -2826,6 +2828,9 @@
         </div>
       </div>
 
+      <!-- Phones: the same quote, as a card under whichever tab is open. -->
+      <aside class="quote-card" data-vn-quote hidden aria-label="a quote from VNDB"></aside>
+
       <div class="status-strip">
         <div class="status-readout" id="status-readout">Channel: games / shelf</div>
         <div class="status-live"><span class="live-dot" aria-hidden="true"></span> LOCAL</div>
@@ -2959,6 +2964,7 @@
   <script src="assets/text.js?v=20261020a"></script>
   <script src="assets/report.js?v=20261019c"></script>
   <script src="assets/sync.js?v=20261019c"></script>
+  <script src="assets/quote.js?v=20261022a"></script>
   <script>
     // Installable app and offline shell; see sw.js.
     if ("serviceWorker" in navigator) {

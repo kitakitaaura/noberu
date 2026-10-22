@@ -103,18 +103,25 @@
     pointer-events: auto;
   }
 
-  /* Safari draws the page under the status bar, above the viewport's top
-     edge, and the page scrolls up into it; the bar's colour reaches up there
-     so nothing shows through behind the clock. */
-  .topbar::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 100%;
-    height: 100vh;
-    background: var(--paper);
-    pointer-events: none;
+  /* Safari 26 draws the page under the status bar and fills that strip with
+     the colour of the fixed element at the top edge. Two things kept that
+     from being this bar, so the page scrolled through behind the clock: the
+     film grain and the background art are fixed full-screen layers (the
+     grain above everything, and see-through), and a backdrop blur inside a
+     bar stops Safari sampling it. Both layers start below the bars here, and
+     the bars, solid on a phone, lose the desktop blur. (Painting a cover
+     above the bar did nothing: Safari clips it.) */
+  body::after,
+  #bg-art {
+    top: calc(var(--bar-h) + env(safe-area-inset-top));
+  }
+
+  .topbar,
+  .topbar .brand-chip,
+  .topbar .topbar-actions .downloads-chip,
+  .bottom-tabs {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 
   .brand-chip,
@@ -696,6 +703,22 @@
   .continue-card {
     width: 100%;
     margin: 0;
+  }
+
+  /* The VNDB quote (assets/quote.js) closes every tab as a card of its own;
+     the caption box's copy of it stays desktop-only. */
+  .caption-quote {
+    display: none;
+  }
+
+  .quote-card:not([hidden]) {
+    display: block;
+    margin-top: 1rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--stage-panel);
+    color: var(--stage-ink);
   }
 }
 
