@@ -1,0 +1,37 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>starting the game</title>
+<!-- Shown in a game frame when the runtime's service worker did not answer its
+     first load (_redirects sends vfs/ here, extensionless: Pages turns .html into a
+     308, and WebKit refuses a redirected frame on this page). It waits for that worker, then
+     reloads, which it does answer; after three tries it says so. -->
+<body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#000;color:#ccc;font:14px/1.5 ui-monospace,Menlo,monospace;text-align:center;padding:1.5rem;box-sizing:border-box">
+<p id="say">starting the game...</p>
+<script>
+(async () => {
+  const say = (text) => { document.getElementById("say").textContent = text; };
+  const scope = (location.pathname.match(/^\/[a-z0-9-]+-runtime\/vfs\//) || [])[0];
+  const key = "noberu.vfs-retry." + location.pathname;
+  let tries = { n: 0, at: 0 };
+  try { tries = JSON.parse(sessionStorage.getItem(key)) || tries; } catch (e) { }
+  if (Date.now() - tries.at > 60000) tries = { n: 0, at: 0 };
+  const giveUp = () => say("The game's files couldn't be opened. Close the game and press play again.");
+  if (!scope || !("serviceWorker" in navigator) || tries.n >= 3) return giveUp();
+  try {
+    const registration = await navigator.serviceWorker.getRegistration(scope);
+    const worker = registration && (registration.active || registration.waiting || registration.installing);
+    if (!worker) return giveUp();
+    if (worker.state !== "activated") {
+      await new Promise((resolve) => {
+        worker.addEventListener("statechange", () => { if (worker.state === "activated") resolve(); });
+        setTimeout(resolve, 5000);
+      });
+    }
+    try { sessionStorage.setItem(key, JSON.stringify({ n: tries.n + 1, at: Date.now() })); } catch (e) { }
+    setTimeout(() => location.reload(), 250 * (tries.n + 1));
+  } catch (error) {
+    giveUp();
+  }
+})();
+</script>

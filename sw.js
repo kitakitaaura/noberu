@@ -11,8 +11,11 @@
  *   BoxedWine parts) are left to the browser's HTTP cache as before.
  * - Other sites (the demo's Hugging Face download) and range requests pass
  *   straight through.
- * - tyrano-runtime/vfs/ belongs to the Tyrano runtime's own worker, whose
- *   narrower scope wins for those pages anyway.
+ * - tyrano-runtime/vfs/ and rpgmaker-runtime/vfs/ belong to those runtimes'
+ *   own workers. Their narrower scope normally wins, but when it doesn't (an
+ *   iPhone sometimes sends the game frame's first load past it), this worker
+ *   must not fetch the address itself: Pages answers it with noberu's own
+ *   page, which then showed in the game frame without its styles.
  *
  * Cached responses keep their headers, so the cross-origin isolation headers
  * the threaded engines need (see _headers) survive an offline load.
@@ -113,7 +116,7 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET" || request.headers.has("range")) return;
   const url = new URL(request.url);
   if (url.origin !== location.origin) return;
-  if (url.pathname.startsWith("/tyrano-runtime/vfs/")) return;
+  if (/^\/[a-z0-9-]+-runtime\/vfs\//.test(url.pathname)) return;
   if (RUNTIME.test(url.pathname)) {
     event.respondWith(engineFetch(request, url));
     return;

@@ -1,0 +1,7 @@
+# Game frames served by a runtime's own service worker (tyrano-sw.js, which
+# rpgmaker-sw.js builds on). Nothing is deployed under vfs/, so a request
+# that reaches Pages means the worker did not answer; without these rules
+# Pages would send noberu's own index.html. assets/vfs-retry.html reloads the
+# frame once the worker is ready instead.
+/rpgmaker-runtime/vfs/*  /assets/vfs-retry  200
+/tyrano-runtime/vfs/*    /assets/vfs-retry  200
