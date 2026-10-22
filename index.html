@@ -47,7 +47,7 @@
   <meta name="twitter:title" content="noberu" />
   <meta name="twitter:description" content="web-based visual novel porter" />
   <meta name="twitter:image" content="https://noberu.kitaaura.com/assets/noberu-card.png" />
-  <meta name="theme-color" content="#0b1416" />
+  <meta name="theme-color" content="#0b0c0d" />
   <style>
     :root {
       --ink: #d9fff4;
@@ -1403,7 +1403,7 @@
   </style>
 
   <link rel="stylesheet" href="assets/theme.css?v=20261020c">
-  <link rel="stylesheet" href="assets/mobile.css?v=20261020a">
+  <link rel="stylesheet" href="assets/mobile.css?v=20261021a">
   <link rel="stylesheet" href="assets/settings.css?v=20261020a">
   <link rel="stylesheet" href="assets/shelf.css?v=20261020e">
   <link rel="stylesheet" href="assets/menu.css?v=20261020b">
@@ -5584,6 +5584,9 @@
     function applyTheme(theme) {
       if (theme === "light") document.documentElement.dataset.theme = "light";
       else delete document.documentElement.dataset.theme;
+      // The browser's own bars (Safari's status bar area) take this colour.
+      const bar = document.querySelector('meta[name="theme-color"]');
+      if (bar) bar.content = theme === "light" ? "#ffffff" : "#0b0c0d";
       themeButton.setAttribute("aria-label",
         theme === "light" ? "switch to dark mode" : "switch to light mode");
       try {

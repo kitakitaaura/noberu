@@ -103,6 +103,20 @@
     pointer-events: auto;
   }
 
+  /* Safari draws the page under the status bar, above the viewport's top
+     edge, and the page scrolls up into it; the bar's colour reaches up there
+     so nothing shows through behind the clock. */
+  .topbar::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    height: 100vh;
+    background: var(--paper);
+    pointer-events: none;
+  }
+
   .brand-chip,
   .topbar-actions .downloads-chip {
     min-height: 0;
