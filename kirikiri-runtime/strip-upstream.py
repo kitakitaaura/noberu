@@ -48,6 +48,12 @@ SAVEDATA_MKDIR = 'preRun:[function(){FS.mkdir("/savedata"),'
 SAVEDATA_MKDIR_GUARDED = 'preRun:[function(){try{FS.mkdir("/savedata")}catch(e){}'
 RUNTIME_TAG = '<script src="../assets/runtime.js"></script>'
 SKIN_TAG = '<link rel="stylesheet" href="noberu-skin.css">'
+SAVE_PATH_TEST = 'function isSaveStoragePath(e){return e.startsWith("/savedata/")'
+SAVE_PATH_WIDER = (
+    'function isSaveStoragePath(e){if(window.__noberuSaveDirs&&'
+    'window.__noberuSaveDirs.some(function(d){return e.startsWith(d)}))return!0;'
+    'return e.startsWith("/savedata/")'
+)
 
 
 def strip(html: str) -> tuple[str, list[str]]:
@@ -96,6 +102,16 @@ def strip(html: str) -> tuple[str, list[str]]:
     if RUNTIME_TAG not in html:
         html = html.replace("<head>", "<head>" + RUNTIME_TAG, 1)
         done.append("runtime hooks injected")
+
+    # Only /savedata/ and /save/ are kept between visits, but a KAG game can
+    # save anywhere (Config.tjs saveDataLocation; Novectacle's use
+    # house_save/), and those saves were lost on reload. noberu-glue.js adds
+    # the game's own folder to window.__noberuSaveDirs once KAG reports it.
+    if SAVE_PATH_WIDER not in html:
+        if SAVE_PATH_TEST not in html:
+            raise SystemExit("isSaveStoragePath changed upstream; check which saves are kept")
+        html = html.replace(SAVE_PATH_TEST, SAVE_PATH_WIDER, 1)
+        done.append("save folders widened")
 
     # noberu's look for the loading and error overlays. It has to come after
     # upstream's <style> to win, so it goes last in <head>.

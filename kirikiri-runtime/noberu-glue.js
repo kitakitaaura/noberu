@@ -189,6 +189,39 @@ try {
 } catch (e) { }
 `;
 
+  // A mouse that moves without a button pressed never reaches the game: this
+  // engine takes touches, and only a press becomes one. KAG games that show
+  // their menus on hover (Novectacle's: save and load appear when the pointer
+  // is in the bottom-right corner) never showed them. The page writes the
+  // pointer's position over the canvas to noberu-hover.txt beside the game
+  // (watchHover below), and this timer hands it to the window's own
+  // onMouseMove, in game pixels, as desktop KiriKiri would.
+  const HOVER = `
+try {
+  global.noberu_hover_path = System.exePath + "noberu-hover.txt";
+  global.noberu_hover_last = "";
+  global.noberu_hover_timer = new Timer(function() {
+    if (!Storages.isExistentStorage(global.noberu_hover_path)) return;
+    var a = [];
+    try { a.load(global.noberu_hover_path); } catch (e) { return; }
+    if (!a.count || a[0] == global.noberu_hover_last) return;
+    global.noberu_hover_last = a[0];
+    if (typeof global.kag != "Object" || global.kag === null) return;
+    var p = [];
+    p.split(",", a[0]);
+    if (p.count < 5) return;
+    var cw = +p[3], ch = +p[4], gw = kag.innerWidth, gh = kag.innerHeight;
+    if (cw <= 0 || ch <= 0 || gw <= 0 || gh <= 0) return;
+    var scale = cw / gw < ch / gh ? cw / gw : ch / gh;
+    var x = (+p[1] - (cw - gw * scale) / 2) / scale, y = (+p[2] - (ch - gh * scale) / 2) / scale;
+    if (x < 0 || y < 0 || x >= gw || y >= gh) return;
+    kag.onMouseMove(int x, int y, 0);
+  }, "");
+  global.noberu_hover_timer.interval = 100;
+  global.noberu_hover_timer.enabled = true;
+} catch (e) { }
+`;
+
   function preludeScript(paths) {
     const dirs = new Map(); // "/sub/" -> Set of names ("file", "folder/")
     const add = (dir, name) => {
@@ -233,6 +266,10 @@ try {
       "};",
       'Scripts.execStorage("startup_game.tjs");',
       MACRO_STAR_FIX,
+      HOVER,
+      // Where KAG keeps its saves, for the page to keep that folder too (see
+      // reportSaveDir).
+      'try { if (typeof global.kag == "Object" && global.kag !== null) ["@savedir", kag.saveDataLocation].save(System.dataPath + "noberu-say.txt"); } catch (e) { }',
       // Text for noberu's reading tools (assets/text.js): KAG's own tag
       // handlers are wrapped, so each line is printed, marked, when the game
       // waits for a click. A game that is not KAG just goes without.
@@ -440,6 +477,23 @@ try {
   // (name, then text) as noberu-say.txt, and it is taken out here as the
   // engine closes the file, never kept as a save. Array.save writes UTF-16
   // with a byte-order mark; anything else is read as UTF-8.
+  // Upstream keeps only /savedata/ and /save/ between visits; a KAG game
+  // saving elsewhere (Novectacle's house_save/) lost every save on reload.
+  // index.html's isSaveStoragePath also accepts window.__noberuSaveDirs
+  // (strip-upstream.py), and anything already written there is stored now.
+  function keepSaveDir(location) {
+    const dir = ("/" + String(location).replace(/^file:\/\/\.?\/?/i, "") + "/").replace(/\/+/g, "/");
+    if (dir === "/" || /^\/(savedata|save)\//i.test(dir)) return;
+    const dirs = window.__noberuSaveDirs || (window.__noberuSaveDirs = []);
+    if (dirs.includes(dir)) return;
+    dirs.push(dir);
+    if (!window.VLFS || typeof window.idbSaveFile !== "function") return;
+    for (const [path, entry] of VLFS._entries) {
+      if (!path.startsWith(dir) || !entry || !entry.data) continue;
+      window.idbSaveFile(path, entry.data.subarray(0, entry.size));
+    }
+  }
+
   function watchSay() {
     if (!window.VLFS || VLFS.__noberuSay) return;
     VLFS.__noberuSay = true;
@@ -455,10 +509,36 @@ try {
       const lines = text.replace(/\r/g, "").split("\n");
       const name = lines.shift() || "";
       const body = lines.join("\n").replace(/\\n/g, "\n").trim();
-      if (name === "@hook") console.info("[noberu] KiriKiri text hook:", body);
+      if (name === "@savedir") keepSaveDir(body);
+      else if (name === "@hook") console.info("[noberu] KiriKiri text hook:", body);
       else if (body && window.NoberuSay) window.NoberuSay({ name, text: body, kind: "line" });
       return 0;
     };
+  }
+
+  // The page's half of HOVER (in the prelude): the mouse's position over the
+  // canvas, in canvas pixels, as "seq,x,y,width,height". At most every 100 ms,
+  // and once more where the mouse stops.
+  function watchHover() {
+    const canvas = document.getElementById("canvas");
+    if (!canvas || !window.VLFS || canvas.__noberuHover) return;
+    canvas.__noberuHover = true;
+    let seq = 0;
+    let last = 0;
+    let pending = null;
+    const send = (event) => {
+      last = performance.now();
+      const r = canvas.getBoundingClientRect();
+      const line = [++seq, Math.round(event.clientX - r.left), Math.round(event.clientY - r.top),
+        Math.round(r.width), Math.round(r.height)].join(",");
+      VLFS.registerOverlayFile("/noberu-hover.txt", new TextEncoder().encode(line + "\n"));
+    };
+    canvas.addEventListener("pointermove", (event) => {
+      if (event.pointerType !== "mouse" || event.buttons) return;
+      clearTimeout(pending);
+      if (performance.now() - last >= 100) send(event);
+      else pending = setTimeout(() => send(event), 100);
+    });
   }
 
   window.KrKrInstallAndBoot = async function (root, fileList) {
@@ -549,6 +629,7 @@ try {
       while (Date.now() - began < 120000) {
         if (canvas && canvas.width > 1 && canvas.height > 1) {
           post("running", { width: canvas.width, height: canvas.height });
+          watchHover();
           canvas.focus();
           return;
         }

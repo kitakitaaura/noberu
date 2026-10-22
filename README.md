@@ -436,12 +436,17 @@ more, also fixed in general:
   moment a character appeared. The prelude now rewrites `*` as scenarios load
   and fills the missing keys in before each tag (`MACRO_STAR_FIX`). A right
   click now reaches the game as Escape, which KAG games treat as a right click.
+  The engine only sees the mouse while a button is down, so menus that open
+  on hover (Novectacle's save/load in the bottom-right corner) never opened:
+  the page now passes the pointer's position to the game's own onMouseMove
+  (`HOVER`). And saves outside `savedata/` (Config.tjs `saveDataLocation`,
+  Novectacle's `house_save/`) were lost on reload; the game's own save folder
+  is now kept too (`isSaveStoragePath`, widened by `strip-upstream.py`).
 - RPG Maker: the saves panel now finds MV saves whose keys carry a prefix
   (Your Turn to Die's `Kimi RPG File1`).
 
-Known gaps: Carrot Cake's and Seventh Coat's save menus open on mouse hover,
-which this KiriKiri build never receives (it only sees the mouse while a
-button is down), so they can be played but not saved yet. The Letter resumes
+Known gaps: Carrot Cake's and Seventh Coat's save menus open on hover, so
+on a phone (no hover) they can't be reached yet. The Letter resumes
 from its title screen when a save is loaded: an ONScripter issue with its
 custom click-wait routine (`textgosub`); May Sky, Moonshine and Narcissu load
 fine.
