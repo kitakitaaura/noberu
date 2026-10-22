@@ -422,6 +422,30 @@ translation; and the Ren'Py 7 page has stand-in `requests` and `_renpysteam`
 modules, which Our Life's update check and Cinderella Phenomenon's achievements
 import.
 
+Every game was played a few lines in, saved, and loaded back. That found
+more, also fixed in general:
+
+- Ren'Py: saving failed in any game once a menu had been shown ("Can't pickle
+  function"): the reading tools' menu hook now pickles by name. Movies threw
+  "Videos must not be stored in game.zip" (Katawa Shoujo's opening):
+  `noberu-video.js` hands them to the player as `blob:` URLs. Old theme images
+  (`renpy/common/_roundrect` and friends, which current Ren'Py dropped) are
+  kept from the game's own `renpy/` (Ripples' menus).
+- KiriKiri: `*` inside a macro passed on only the macro's own arguments, not
+  the keys the macro set in `mp`, so Novectacle's character macros failed the
+  moment a character appeared. The prelude now rewrites `*` as scenarios load
+  and fills the missing keys in before each tag (`MACRO_STAR_FIX`). A right
+  click now reaches the game as Escape, which KAG games treat as a right click.
+- RPG Maker: the saves panel now finds MV saves whose keys carry a prefix
+  (Your Turn to Die's `Kimi RPG File1`).
+
+Known gaps: Carrot Cake's and Seventh Coat's save menus open on mouse hover,
+which this KiriKiri build never receives (it only sees the mouse while a
+button is down), so they can be played but not saved yet. The Letter resumes
+from its title screen when a save is loaded: an ONScripter issue with its
+custom click-wait routine (`textgosub`); May Sky, Moonshine and Narcissu load
+fine.
+
 insani's releases are the Mac zips: the same game files as the Windows
 installers, which noberu can't unpack. Left out after testing: *[text] - A
 Summer Story* (Ren'Py 6.10, too old for the bundled Ren'Py), the original

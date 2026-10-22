@@ -79,6 +79,116 @@
     return /^[a-z]{2}-[A-Za-z]{2}$/.test(tag) ? tag : "en-US";
   }
 
+  // `*` in a tag inside a macro passes the macro's arguments on. Desktop
+  // KiriKiri passes all of mp, including keys the macro set itself
+  // ([eval exp="mp.layer = ..."]); this engine's parser (KAGParser.cpp, the
+  // '*' branch) passes only the names the macro was called with. Novectacle's
+  // character macros depend on the former: [image *] arrived without layer, x
+  // and y, and both of their games stopped with "Cannot convert the variable
+  // type" the moment a character appeared.
+  //
+  // So, once kag exists: each scenario is filtered as it loads (KAG's own
+  // onConductorScenarioLoad hook) so that a bare `*` also records the whole
+  // mp it was written in (`* noberu_from=&global.noberu_push_mp()`, an id for a
+  // snapshot), and the tag - or the macro it calls, at its first tag - gets the
+  // keys it is missing from that snapshot before anything uses them. first.ks is already loaded by then;
+  // the macro files it calls are not. TJS blocks ([iscript]) and quoted
+  // values are left alone.
+  const MACRO_STAR_FIX = `
+try {
+  global.noberu_star_line = function(line) {
+    if (line.indexOf("*") < 0) return line;
+    var n = line.length, i = 0;
+    while (i < n && (line[i] == " " || line[i] == "\\t")) i++;
+    if (i >= n || line[i] == "*" || line[i] == ";") return line;
+    var at = line[i] == "@", inTag = at, q = "", out = "";
+    for (var k = 0; k < n; k++) {
+      var c = line[k];
+      if (q != "") { if (c == q) q = ""; out += c; continue; }
+      if (inTag) {
+        if (c == '"' || c == "'") q = c;
+        else if (c == "]" && !at) inTag = false;
+        else if (c == "*" && k > 0 && (line[k - 1] == " " || line[k - 1] == "\\t") &&
+                 (k + 1 >= n || line[k + 1] == " " || line[k + 1] == "\\t" || line[k + 1] == "]")) {
+          out += "* noberu_from=&global.noberu_push_mp()";
+          continue;
+        }
+      } else if (c == "[") {
+        if (k + 1 < n && line[k + 1] == "[") { out += "[["; k++; continue; }
+        inTag = true;
+      }
+      out += c;
+    }
+    return out;
+  };
+  global.noberu_star_filter = function(name, text) {
+    var lines = [];
+    if (typeof text == "String") lines.split("\\n", text);
+    else lines.load(name);
+    var script = false, changed = false;
+    for (var i = 0; i < lines.count; i++) {
+      var t = lines[i].trim().toLowerCase();
+      if (t.indexOf("[iscript") == 0 || t.indexOf("@iscript") == 0) { script = true; continue; }
+      if (t.indexOf("[endscript") == 0 || t.indexOf("@endscript") == 0) { script = false; continue; }
+      if (script) continue;
+      var after = global.noberu_star_line(lines[i]);
+      if (after != lines[i]) { lines[i] = after; changed = true; }
+    }
+    if (!changed) return typeof text == "String" ? text : true;
+    return lines.join("\\n");
+  };
+  // A snapshot of the mp a star was written in, by id: & values reach the
+  // tag as strings here, so the dictionary itself cannot be passed.
+  global.noberu_star_table = %[];
+  global.noberu_star_seq = 0;
+  global.noberu_push_mp = function() {
+    var id = "s" + (++global.noberu_star_seq);
+    var mp = kag.conductor.mp, copy = %[];
+    if (typeof mp == "Object" && mp !== null) (Dictionary.assign incontextof copy)(mp);
+    global.noberu_star_table[id] = copy;
+    return id;
+  };
+  global.noberu_star_take = function(d) {
+    var id = d.noberu_from;
+    delete d.noberu_from;
+    var src = global.noberu_star_table[id];
+    delete global.noberu_star_table[id];
+    global.noberu_star_merge(d, src);
+  };
+  global.noberu_star_merge = function(elm, mp) {
+    if (typeof mp != "Object" || mp === null) return;
+    var keys = [];
+    keys.assign(mp);
+    for (var k = 0; k < keys.count; k += 2) {
+      var key = keys[k];
+      if (key == "tagname" || key == "taglist" || key == "noberu_from") continue;
+      if (elm[key] === void) elm[key] = keys[k + 1];
+    }
+  };
+  if (typeof global.kag == "Object" && global.kag !== null) {
+    global.noberu_star_load = kag.onConductorScenarioLoad;
+    kag.onConductorScenarioLoad = function(name) {
+      var r = global.noberu_star_load(...);
+      try { return global.noberu_star_filter(name, r); } catch (e) { return r; }
+    } incontextof kag;
+    // Every tag goes through its conductor's onTag; for a macro called
+    // with a star, its own mp takes the snapshot at its first tag.
+    global.noberu_star_wrap = function(c) {
+      if (c === void || c === null || typeof c.noberu_star_tag != "undefined") return;
+      c.noberu_star_tag = c.onTag;
+      c.onTag = function(elm) {
+        var mp = this.mp;
+        if (typeof mp == "Object" && mp !== null && mp.noberu_from !== void) global.noberu_star_take(mp);
+        if (typeof elm == "Object" && elm !== null && elm.noberu_from !== void) global.noberu_star_take(elm);
+        return this.noberu_star_tag(elm);
+      } incontextof c;
+    };
+    global.noberu_star_wrap(kag.mainConductor);
+    global.noberu_star_wrap(kag.extraConductor);
+  }
+} catch (e) { }
+`;
+
   function preludeScript(paths) {
     const dirs = new Map(); // "/sub/" -> Set of names ("file", "folder/")
     const add = (dir, name) => {
@@ -122,6 +232,7 @@
       "  return global.noberu_regvalue_original(...);",
       "};",
       'Scripts.execStorage("startup_game.tjs");',
+      MACRO_STAR_FIX,
       // Text for noberu's reading tools (assets/text.js): KAG's own tag
       // handlers are wrapped, so each line is printed, marked, when the game
       // waits for a click. A game that is not KAG just goes without.
@@ -481,6 +592,29 @@
       Object.defineProperty(space, "keyCode", { get: () => 32 });
       Object.defineProperty(space, "which", { get: () => 32 });
       event.target.dispatchEvent(space);
+    }, true);
+  }
+
+  // The right mouse button never reaches the game either (the engine takes
+  // touches, and only the left button becomes one), yet it is how most KAG
+  // games open their save/load menu - True Remembrance's readme says so. KAG
+  // treats Escape as a right click, so the right button is sent on as Escape.
+  // (Escape from the keyboard and from noberu's menu already work.)
+  const escape = (type, target) => {
+    const event = new KeyboardEvent(type, { key: "Escape", code: "Escape", bubbles: true, cancelable: true, composed: true });
+    Object.defineProperty(event, "keyCode", { get: () => 27 });
+    Object.defineProperty(event, "which", { get: () => 27 });
+    target.dispatchEvent(event);
+  };
+  // Cancelling pointerdown also cancels the mousedown that would follow it,
+  // so the key is sent from the pointer events.
+  for (const type of ["pointerdown", "pointerup", "mousedown", "mouseup"]) {
+    window.addEventListener(type, (event) => {
+      if (event.button !== 2) return;
+      event.stopImmediatePropagation();
+      event.preventDefault();
+      if (type === "pointerdown") escape("keydown", event.target);
+      else if (type === "pointerup") escape("keyup", event.target);
     }, true);
   }
 

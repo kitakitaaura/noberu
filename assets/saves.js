@@ -164,7 +164,9 @@
 
   // --- RPG Maker (rpgmaker tab) -------------------------------------------
 
-  const RPGMV_KEY = /^noberu\.rpgmv\.(.+)\.(RPG (?:File(\d+)|Global|Config))(bak)?$/;
+  // Some games put their own word in front of "RPG" (Your Turn to Die saves
+  // "Kimi RPG File1"), so any dot-free prefix is allowed and kept.
+  const RPGMV_KEY = /^noberu\.rpgmv\.(.+)\.((?:[^.]*?)RPG (?:File(\d+)|Global|Config))(bak)?$/;
   const RPGMZ_KEY = /^rmmzsave\.(.+)\.([^.]+)$/;
   const FORAGE_DB = "localforage";
   const FORAGE_STORE = "keyvaluepairs";
@@ -173,15 +175,15 @@
   // same data (StorageManager.localFilePath / webStorageKey).
   function rpgmvFile(match) {
     const [, , kind, number, bak] = match;
-    const base = number ? `file${number}` : kind === "RPG Global" ? "global" : "config";
+    const base = number ? `file${number}` : /RPG Global$/.test(kind) ? "global" : "config";
     return `${base}.rpgsave${bak ? ".bak" : ""}`;
   }
 
-  function rpgmvKey(id, file) {
+  function rpgmvKey(id, file, prefix = "") {
     const match = /^(file(\d+)|global|config)\.rpgsave(\.bak)?$/i.exec(file.split("/").pop());
     if (!match) return null;
     const kind = match[2] ? `RPG File${match[2]}` : /^global/i.test(match[1]) ? "RPG Global" : "RPG Config";
-    return `noberu.rpgmv.${id}.${kind}${match[3] ? "bak" : ""}`;
+    return `noberu.rpgmv.${id}.${prefix}${kind}${match[3] ? "bak" : ""}`;
   }
 
   function scanRpgmv() {
@@ -196,7 +198,7 @@
       const match = RPGMV_KEY.exec(key);
       if (!match) continue;
       const bytes = (localStorage.getItem(key) || "").length;
-      if (!byGame.has(match[1])) byGame.set(match[1], { files: [], bytes: 0 });
+      if (!byGame.has(match[1])) byGame.set(match[1], { files: [], bytes: 0, prefix: match[2].replace(/RPG .*$/, "") });
       const game = byGame.get(match[1]);
       game.files.push({ path: rpgmvFile(match), bytes });
       game.bytes += bytes;
@@ -522,7 +524,7 @@
     if (set.kind === "rpgmv") {
       let count = 0;
       for (const path of paths) {
-        const key = rpgmvKey(set.group, path);
+        const key = rpgmvKey(set.group, path, set.prefix || "");
         if (!key) continue;
         localStorage.setItem(key, new TextDecoder().decode(unzipped[path]));
         count++;

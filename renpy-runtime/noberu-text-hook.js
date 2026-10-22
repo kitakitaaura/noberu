@@ -80,6 +80,16 @@ window.NOBERU_RENPY_TEXT_HOOK = [
   "        except Exception:",
   "            pass",
   "        return original_menu(items, *args, **kwargs)",
+  // store.menu is saved with the game once it changes, and pickle writes a
+  // function as the name it can import it by. A closure has none, so every
+  // save failed ("Can't pickle <type 'function'>"). Named as the function it
+  // replaces, it is saved as renpy.exports.display_menu - which it now is.
+  "    display_menu.__module__ = 'renpy.exports'",
+  "    display_menu.__name__ = 'display_menu'",
+  "    try:",
+  "        display_menu.__qualname__ = 'display_menu'",
+  "    except Exception:",
+  "        pass",
   "    renpy.exports.display_menu = display_menu",
   "    try:",
   "        if renpy.store.menu is original_menu:",

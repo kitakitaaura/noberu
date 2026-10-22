@@ -32,6 +32,13 @@
   // the engine zip replaces renpy/ and lib/, and a Mac .app is a second copy.
   const ENGINE_DIRS = /^(renpy|lib|[^/]*\.app)\//i;
 
+  // Except the images of Ren'Py 6's built-in themes (renpy/common/_roundrect
+  // and friends), which later engines dropped: a game styled with
+  // theme.roundrect shows "Couldn't find file" all over its menus without
+  // them (Ripples). The engine has none of these folders, so nothing of its
+  // own is replaced.
+  const OLD_THEME_IMAGES = /^renpy\/common\/_(roundrect|outline|theme_[^/]*|[a-z]+_theme)\/[^/]+\.(png|jpg|gif|ttf|otf)$/i;
+
   // Accepts either the folder holding the game (the one with the .exe and a
   // game/ subfolder) or the game/ folder itself. The user's own lib/ and
   // renpy/ are dropped - the engine zip replaces them. Other top-level
@@ -45,7 +52,7 @@
     for (let i = 0; i < files.length; i++) {
       if (IGNORED.test(paths[i])) continue;
       const name = hasGameDir ? paths[i] : "game/" + paths[i];
-      if (!name.includes("/") || ENGINE_DIRS.test(name)) continue;
+      if (!name.includes("/") || (ENGINE_DIRS.test(name) && !OLD_THEME_IMAGES.test(name))) continue;
       selected.push(files[i]);
       names.push(name);
     }
