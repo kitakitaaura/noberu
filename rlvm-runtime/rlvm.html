@@ -410,7 +410,25 @@
         Mod.onGameExit = () => {
           Mod.FS.syncfs(false, () => post("exited", {}));
         };
-        Mod.ccall("rlvm_start", null, ["string"], ["/game"]);
+        // Debugging a late scene: sessionStorage "noberu.rlvm.seen" = a SEEN
+        // number boots straight into it (rlvm's --start-seen).
+        let seen = NaN;
+        try { seen = parseInt(sessionStorage.getItem("noberu.rlvm.seen"), 10); } catch (error) { }
+        // "noberu.rlvm.dump" = a SEEN number prints that scene's bytecode to the
+        // console instead of playing.
+        let dump = NaN;
+        try { dump = parseInt(sessionStorage.getItem("noberu.rlvm.dump"), 10); } catch (error) { }
+        if (dump > 0) Mod.ccall("rlvm_dump_scene", null, ["string", "number"], ["/game", dump]);
+        else if (seen > 0) {
+          Mod.ccall("rlvm_start_at", null, ["string", "number"], ["/game", seen]);
+          // "noberu.rlvm.ints" = "F1107=1,F1102=0": variables to set first.
+          let ints = "";
+          try { ints = sessionStorage.getItem("noberu.rlvm.ints") || ""; } catch (error) { }
+          for (const [, bank, at, value] of ints.matchAll(/([A-Z])(\d+)=(-?\d+)/g)) {
+            Mod.ccall("rlvm_set_int", null, ["number", "number", "number"], [bank.charCodeAt(0), +at, +value]);
+          }
+        }
+        else Mod.ccall("rlvm_start", null, ["string"], ["/game"]);
         startPeriodicSaveSync(Mod);
         post("running", { root: root || "" });
       } catch (error) {
