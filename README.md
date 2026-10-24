@@ -231,9 +231,15 @@ in the wrong place.
 - **Free games** (`assets/free.js`): a list under the shelf of freeware that
   noberu plays, one click each. See [Free games](#free-games).
 - **The noberu menu** (`assets/menu.js`): screenshot (kept on the shelf, can be
-  the cover), the game's own save/load menu, skip, reading tools, volume,
-  fullscreen, report a problem, quit to games. It sits inside the running
-  frame, so it works in fullscreen too.
+  the cover), the game's own save/load menu, walkthrough, reading tools,
+  volume, fullscreen, report a problem, quit to games. It sits inside the
+  running frame, so it works in fullscreen too.
+- **Walkthroughs** (`assets/walkthrough.js`, `assets/walkthroughs/`): pick a
+  route in the menu and, at each choice, noberu shows the option that keeps you
+  on it, or picks it for you. CLANNAD (rlvm) only so far: 14 routes and endings,
+  following the Steam CLANNAD walkthrough and checked against the game's own
+  script by simulating its route logic. rlvm reports each choice
+  (`SelectLongOperation::ReportChoice`) and takes picks back (`rlvm_select`).
 - **Reading tools** (`assets/text.js`, `deinflect.js`, `text-hooks.js`): each
   line a game shows, in a bar over it. Point at (or tap) a word for its
   dictionary entry, with conjugations undone and each kanji explained;

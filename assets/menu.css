@@ -305,6 +305,147 @@
   background: var(--surface-hover);
 }
 
+/* --- walkthrough (assets/walkthrough.js) -------------------------------------------- */
+
+/* The bar over a choice: which option keeps you on the route. */
+.nb-wt-hint {
+  position: absolute;
+  left: 50%;
+  top: 0.75rem;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: max-content;
+  max-width: calc(100% - 5rem);
+  padding: 0.45rem 0.45rem 0.45rem 0.85rem;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius, 16px);
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  transform: translateX(-50%);
+  animation: nb-fade 0.14s ease;
+}
+
+.nb-wt-hint span {
+  overflow-wrap: anywhere;
+}
+
+.nb-wt-hint button,
+.nb-wt-back,
+.nb-wt-off {
+  flex: none;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill, 999px);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.nb-wt-hint button:hover,
+.nb-wt-back:hover,
+.nb-wt-off:hover {
+  background: var(--surface-hover);
+}
+
+.nb-wt-hint button[data-wt="pick"] {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.nb-wt-hint button[data-wt="hide"] {
+  padding: 0.3rem 0.55rem;
+}
+
+/* The menu's walkthrough page. */
+.nb-wt-note {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.nb-wt-group {
+  margin: 0.75rem 0 0.4rem;
+  color: var(--muted);
+  font-size: 0.7rem;
+  text-transform: lowercase;
+}
+
+.nb-wt-routes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: 0.4rem;
+}
+
+.nb-wt-routes button {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm, 12px);
+  background: var(--panel-soft);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.78rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nb-wt-routes button:hover {
+  border-color: var(--line-strong);
+}
+
+.nb-wt-routes button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.nb-wt-routes small {
+  color: var(--muted);
+  font-size: 0.64rem;
+}
+
+.nb-wt-auto {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.85rem 0 0.6rem;
+  font-size: 0.76rem;
+}
+
+.nb-wt-auto input {
+  accent-color: var(--accent);
+}
+
+.nb-wt-steps {
+  margin: 0 0 0.75rem;
+  font-size: 0.74rem;
+}
+
+.nb-wt-steps summary {
+  cursor: pointer;
+}
+
+.nb-wt-steps ol {
+  margin: 0.5rem 0 0;
+  padding-left: 1.4rem;
+  line-height: 1.5;
+}
+
+.nb-wt-steps li span {
+  display: inline-block;
+  min-width: 3.4rem;
+  color: var(--muted);
+}
+
 /* Phones (and short landscape screens): smaller tiles, three across. */
 @media (max-width: 760px), (max-height: 520px) and (pointer: coarse) {
   .nb-menu-card {
@@ -322,6 +463,10 @@
 
   .nb-menu-grid small {
     display: none;
+  }
+
+  .nb-wt-hint {
+    max-width: calc(100% - 1rem);
   }
 }
 

@@ -151,6 +151,10 @@
 
     let modulePromise = null;
 
+    // The walkthrough picks an option of the choice on screen; true if taken.
+    window.noberuSelect = (index) =>
+      !!(window.Module && window.Module.ccall && window.Module.ccall("rlvm_select", "number", ["number"], [index]));
+
     // Loads rlvm.js (the Emscripten glue) once and resolves when its runtime,
     // including the /game, /fonts and IDBFS-backed /home mounts, is ready.
     function loadModule() {
@@ -168,6 +172,17 @@
             if (!window.NoberuSay) return;
             const decoder = new TextDecoder("utf-8");
             window.NoberuSay({ text: decoder.decode(text), name: decoder.decode(name), kind: "line" });
+          },
+          // A choice on screen ({seen, line, options}) and the pick that
+          // closed it, for noberu's walkthrough (assets/walkthrough.js),
+          // which answers through window.noberuSelect.
+          noberuChoice: (json) => {
+            const host = window.top && window.top.NoberuWalkthrough;
+            if (host) host.choice(window, JSON.parse(json));
+          },
+          noberuChoiceMade: (index) => {
+            const host = window.top && window.top.NoberuWalkthrough;
+            if (host) host.made(window, index);
           },
           preRun: [
             function setUpVirtualFilesystem() {
@@ -415,10 +430,18 @@
         let seen = NaN;
         try { seen = parseInt(sessionStorage.getItem("noberu.rlvm.seen"), 10); } catch (error) { }
         // "noberu.rlvm.dump" = a SEEN number prints that scene's bytecode to the
-        // console instead of playing.
+        // console instead of playing (0: every scene, to /tmp/scenes.txt).
         let dump = NaN;
         try { dump = parseInt(sessionStorage.getItem("noberu.rlvm.dump"), 10); } catch (error) { }
-        if (dump > 0) Mod.ccall("rlvm_dump_scene", null, ["string", "number"], ["/game", dump]);
+        if (dump >= 0) {
+          Mod.ccall("rlvm_dump_scene", null, ["string", "number"], ["/game", dump]);
+          if (dump === 0) {
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(new Blob([Mod.FS.readFile("/tmp/scenes.txt")], { type: "text/plain" }));
+            a.download = "scenes.txt";
+            a.click();
+          }
+        }
         else if (seen > 0) {
           Mod.ccall("rlvm_start_at", null, ["string", "number"], ["/game", seen]);
           // "noberu.rlvm.ints" = "F1107=1,F1102=0": variables to set first.

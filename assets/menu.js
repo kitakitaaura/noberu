@@ -9,7 +9,8 @@
  * It lives inside the running game's frame wrapper, so it shows in native
  * fullscreen too. What it offers:
  *   screenshot (kept on the shelf, assets/shelf.js), the game's own menu
- *   (saves and loads), skip, reading tools (assets/text.js), volume,
+ *   (saves and loads), walkthrough (assets/walkthrough.js), reading tools
+ *   (assets/text.js), volume,
  *   fullscreen, report a problem (assets/report.js), and quit to the shelf.
  */
 (function () {
@@ -32,7 +33,7 @@
     resume: '<path d="M5 3.2v9.6L12.6 8z" fill="currentColor"/>',
     shot: '<rect x="1.8" y="4" width="12.4" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8.5" r="2.3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 4l1-1.6h3L10.5 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>',
     saves: '<path d="M2.5 2.5h8.5L13.5 5v8.5h-11z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M5 2.5v4h5v-4M5 13.5v-4h6v4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>',
-    skip: '<path d="M2.5 3.5 7.5 8l-5 4.5zM8 3.5 13 8l-5 4.5z" fill="currentColor"/>',
+    walk: '<circle cx="3.5" cy="12.5" r="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="12.5" cy="3.5" r="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5 12.5h4.2a2.2 2.2 0 0 0 0-4.4H6.8a2.2 2.2 0 0 1 0-4.4H11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-dasharray="1.6 1.8"/>',
     text: '<path d="M2.5 3h11M2.5 6.5h11M2.5 10h7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M11 10.5l1.6 3 1.6-3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>',
     full: '<path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
     report: '<path d="M8 1.8 14.5 13.5h-13z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 6v3.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="11.5" r=".9" fill="currentColor"/>',
@@ -43,7 +44,6 @@
 
   let menu = null;      // the open menu element
   let frame = null;     // the frame wrapper it belongs to
-  let skipping = new WeakSet();
   let sessionStart = new WeakMap();
 
   function setting(name, fallback) {
@@ -72,7 +72,7 @@
     return !!menu;
   }
 
-  function open(frameWrap) {
+  function open(frameWrap, page) {
     frameWrap = frameWrap || activeFrame() || document.querySelector(".play-frame-wrap.active");
     if (!frameWrap || !frameWrap.classList.contains("active")) return;
     fullView(frameWrap);
@@ -104,7 +104,7 @@
           <button type="button" data-m="resume" class="primary">${icon("resume")}<span>resume</span></button>
           <button type="button" data-m="shot">${icon("shot")}<span>screenshot</span></button>
           ${gameMenu === null ? "" : `<button type="button" data-m="gamemenu">${icon("saves")}<span>save / load</span><small>the game's own menu</small></button>`}
-          ${frameWrap.id === "play-frame-wrap" ? "" : `<button type="button" data-m="skip" aria-pressed="${skipping.has(frameWrap)}">${icon("skip")}<span>${skipping.has(frameWrap) ? "stop skipping" : "skip"}</span><small>holds ctrl</small></button>`}
+          <button type="button" data-m="walk">${icon("walk")}<span>walkthrough</span><small data-walk>route picks</small></button>
           <button type="button" data-m="text" aria-pressed="${!!textOn}">${icon("text")}<span>reading tools</span><small>text, dictionary, translate</small></button>
           <button type="button" data-m="full">${icon("full")}<span>${full ? "leave fullscreen" : "fullscreen"}</span></button>
           <button type="button" data-m="report">${icon("report")}<span>report a problem</span></button>
@@ -131,6 +131,21 @@
     });
     menu.addEventListener("keydown", onKey);
     menu.querySelector("[data-m]").focus();
+    if (window.NoberuWalkthrough) {
+      const card = menu;
+      window.NoberuWalkthrough.summary(frameWrap).then((text) => {
+        const small = card.querySelector("[data-walk]");
+        if (small && text) small.textContent = text;
+      });
+    }
+    if (page === "walkthrough") walkthrough(frameWrap);
+  }
+
+  // The walkthrough's page takes over the menu card; "back" brings the menu back.
+  function walkthrough(frameWrap) {
+    const card = menu && menu.querySelector(".nb-menu-card");
+    if (!card || !window.NoberuWalkthrough) return;
+    window.NoberuWalkthrough.panel(frameWrap, card, () => open(frameWrap));
   }
 
   // On a phone the game outside full screen is a small box; the menu (and the
@@ -221,15 +236,8 @@
       }, 60);
       return;
     }
-    if (name === "skip") {
-      if (skipping.has(frameWrap)) {
-        skipping.delete(frameWrap);
-        sendKey(frameWrap, "Control", false, false);
-      } else {
-        skipping.add(frameWrap);
-        sendKey(frameWrap, "Control", true, true);
-      }
-      close();
+    if (name === "walk") {
+      walkthrough(frameWrap);
       return;
     }
     if (name === "text") {
@@ -331,10 +339,7 @@
   // The frame is emptied and its src removed, as beam does before restoring
   // saves: the tab loads the engine afresh on its next boot.
   async function quit(frameWrap) {
-    if (skipping.has(frameWrap)) {
-      skipping.delete(frameWrap);
-      sendKey(frameWrap, "Control", false, false);
-    }
+    if (window.NoberuWalkthrough) window.NoberuWalkthrough.clear(frameWrap);
     if (window.NoberuText) window.NoberuText.off(frameWrap);
     if (document.fullscreenElement === frameWrap) await document.exitFullscreen().catch(() => { });
     const iframe = frameWrap.querySelector("iframe");
@@ -393,7 +398,7 @@
     if (started) sessionStart.set(frameWrap, Date.now());
     else {
       if (frame === frameWrap) close(false);
-      skipping.delete(frameWrap);
+      if (window.NoberuWalkthrough) window.NoberuWalkthrough.forget(frameWrap);
     }
   });
 
