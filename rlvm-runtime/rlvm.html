@@ -173,7 +173,7 @@
             const decoder = new TextDecoder("utf-8");
             window.NoberuSay({ text: decoder.decode(text), name: decoder.decode(name), kind: "line" });
           },
-          // A choice on screen ({seen, line, options}) and the pick that
+          // A choice on screen ({seen, line, pos, options}) and the pick that
           // closed it, for noberu's walkthrough (assets/walkthrough.js),
           // which answers through window.noberuSelect.
           noberuChoice: (json) => {

@@ -4,8 +4,10 @@
  *
  * A guide (assets/walkthroughs/<game>.json, built by
  * tools/walkthrough/build.py from the game's own script) lists each route's
- * choices by where they sit in the script ("scene:line") and which option to
- * take. The engine reports each choice as it comes up (only rlvm so far:
+ * choices by where they sit in the script ("scene:line", or "scene:pos", the
+ * select's instruction number, when the guide says "key": "pos") and which
+ * option to take. A choice that comes back (a hub the story loops through)
+ * is listed once per visit: the k-th time it comes up, the k-th entry. The engine reports each choice as it comes up (only rlvm so far:
  * engine/long_operations/select_long_operation.cc) and takes picks back
  * through the frame's noberuSelect().
  *
@@ -19,10 +21,12 @@
   // Which guide goes with which game: the frame it runs in and its name.
   const GUIDES = [
     { id: "clannad", frame: "rlvm-frame-wrap", name: /clannad/i, url: "assets/walkthroughs/clannad.json?v=20261023b" },
+    { id: "tomoyo-after", frame: "rlvm-frame-wrap", name: /tomoyo\s*after/i, url: "assets/walkthroughs/tomoyo-after.json?v=20261024" },
   ];
 
   const loaded = new Map();       // guide id -> Promise<data>
   const pending = new WeakMap();  // frameWrap -> { choice, timer }
+  const visits = new WeakMap();   // frameWrap -> { seen, key, count: Map(key -> answered visits) }
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   function store(name, value) {
@@ -37,7 +41,13 @@
   function load(guide) {
     if (!loaded.has(guide.id)) {
       loaded.set(guide.id, fetch(guide.url).then((r) => r.json()).then((data) => {
-        for (const route of data.routes) route.at = new Map(route.path.map(([key, option, matters]) => [key, { option, matters }]));
+        for (const route of data.routes) {
+          route.at = new Map();
+          for (const [key, option, matters] of route.path) {
+            if (!route.at.has(key)) route.at.set(key, []);
+            route.at.get(key).push({ option, matters });
+          }
+        }
         return data;
       }).catch(() => null));
     }
@@ -76,7 +86,7 @@
         return data;
       }
       const known = choice && data.choices[keyOf(data, choice)];
-      if (known && known.join("\n") === choice.options.map((o) => bare(o.text)).join("\n")) {
+      if (known && texts(known) === texts(choice.options.map((o) => o.text))) {
         found.set(frameWrap, data);
         return data;
       }
@@ -93,6 +103,8 @@
 
   // rlvm prints Clannad's options with the quote marks around them.
   const bare = (text) => String(text).replace(/^"(.*)"$/s, "$1");
+  // A choice's options as one string to compare (rlBabel games pad them with spaces).
+  const texts = (options) => options.map((o) => bare(o).trim()).join("\n");
 
   function frameOf(win) {
     for (const wrap of document.querySelectorAll(".play-frame-wrap")) {
@@ -119,6 +131,7 @@
   // A new game in the frame may be another one.
   function forget(frameWrap) {
     found.delete(frameWrap);
+    visits.delete(frameWrap);
     delete frameWrap.dataset.wtNudged;
     clear(frameWrap);
   }
@@ -141,16 +154,30 @@
   // the choice the script places at line 733), so when "scene:line" isn't in
   // the guide, the same scene's choice with the same options at or after that
   // line is.
+  //
+  // A guide keyed by instruction number ("key": "pos", for scripts without
+  // line markers) takes the engine's pos as it is.
   function keyOf(data, c) {
+    const byPos = data.key === "pos";
+    if (byPos && c.pos !== undefined) return `${c.seen}:${c.pos}`;
     const exact = `${c.seen}:${c.line}`;
-    if (data.choices[exact]) return exact;
-    const texts = c.options.map((o) => bare(o.text)).join("\n");
+    if (!byPos && data.choices[exact]) return exact;
+    const own = texts(c.options.map((o) => o.text));
     const near = Object.keys(data.choices)
       .map((k) => k.split(":").map(Number))
-      .filter(([seen, line]) => seen === c.seen && line >= c.line)
+      .filter(([seen, line]) => seen === c.seen && (byPos || line >= c.line))
       .sort((a, b) => a[1] - b[1]);
-    const same = near.find(([seen, line]) => data.choices[`${seen}:${line}`].join("\n") === texts);
+    const same = near.find(([seen, line]) => texts(data.choices[`${seen}:${line}`]) === own);
     return same ? `${same[0]}:${same[1]}` : exact;
+  }
+
+  // How often this choice was answered already: counted per scene, so
+  // leaving the scene (or a new game) starts over.
+  function visit(frameWrap, c, key) {
+    let v = visits.get(frameWrap);
+    if (!v || v.seen !== c.seen) visits.set(frameWrap, v = { seen: c.seen, key: null, count: new Map() });
+    v.key = key;
+    return v.count.get(key) || 0;
   }
 
   async function choice(win, c) {
@@ -161,6 +188,7 @@
     if (!data) return;
     const route = routeOf(data);
     const key = keyOf(data, c);
+    const visited = visit(frameWrap, c, key);
     const hint = document.createElement("div");
     hint.className = "nb-wt-hint";
     hint.setAttribute("role", "status");
@@ -171,12 +199,13 @@
       frameWrap.dataset.wtNudged = "1";
       hint.innerHTML = `<span>A walkthrough is ready for this game.</span><button type="button" data-wt="routes">pick a route</button><button type="button" data-wt="hide" aria-label="hide">×</button>`;
     } else {
-      const step = route.at.get(key);
+      const steps = route.at.get(key);
+      const step = steps && steps[Math.min(visited, steps.length - 1)];
       const shown = c.options.map((o, i) => ({ ...o, i })).filter((o) => o.shown);
       const want = step && shown.find((o) => o.i === step.option);
       if (step && want) {
         const label = step.matters ? "choose" : "either works · walkthrough took";
-        hint.innerHTML = `<span><b>${escapeHtml(route.name)}</b> · ${label} “${escapeHtml(bare(want.text))}”</span><button type="button" data-wt="pick">choose it</button><button type="button" data-wt="hide" aria-label="hide">×</button>`;
+        hint.innerHTML = `<span><b>${escapeHtml(route.name)}</b> · ${label} “${escapeHtml(bare(want.text).trim())}”</span><button type="button" data-wt="pick">choose it</button><button type="button" data-wt="hide" aria-label="hide">×</button>`;
         if (autoPick()) {
           pending.set(frameWrap, { choice: c, timer: setTimeout(() => pick(frameWrap, step.option), 900) });
         }
@@ -197,7 +226,13 @@
 
   function made(win) {
     const frameWrap = frameOf(win);
-    if (frameWrap) clear(frameWrap);
+    if (!frameWrap) return;
+    clear(frameWrap);
+    const v = visits.get(frameWrap);
+    if (v && v.key) {
+      v.count.set(v.key, (v.count.get(v.key) || 0) + 1);
+      v.key = null;
+    }
   }
 
   // --- the menu's page ---------------------------------------------------------------
@@ -209,7 +244,7 @@
     const head = card.querySelector(".nb-menu-head span");
     if (!data) {
       head.textContent = "not for this game yet";
-      card.insertAdjacentHTML("beforeend", `<p class="nb-wt-note">There's no walkthrough for this game yet. CLANNAD has one.</p>`);
+      card.insertAdjacentHTML("beforeend", `<p class="nb-wt-note">There's no walkthrough for this game yet. CLANNAD and Tomoyo After have one.</p>`);
       return;
     }
     const render = () => {
