@@ -60,6 +60,29 @@ The local patch makes `warpMouse` post the equivalent `SDL_MOUSEMOTION` on
 the web build instead. The phone d-pad (assets/touch.js) goes through the
 same path.
 
+## Walkthrough
+
+Every `select` / `selgosub` / `selnum` the script shows is reported to
+noberu's walkthrough (`assets/walkthrough.js`) as `{seen, line, pos,
+options}`: `seen` is the label the select sits under, `line` its line counted
+from that label (the label's own line is 0), `pos` its line in the whole
+script; option texts are decoded like the text hook's, backticks removed.
+The engine (`selectCommand`, local patch) calls `Module.noberuChoiceBegin /
+Option / End`, and `Module.noberuChoiceMade(index)` once it is answered
+(`-1` when it went away unanswered, e.g. a load). `window.noberuSelect(i)`
+picks option `i` through the `ons_select` export, which pushes a pick event
+the select's wait loop takes as a click on that option.
+
+Debug switches (sessionStorage, read at boot; tools/walkthrough uses them):
+
+- `noberu.ons.dump` = `"1"`: once the game starts, the whole script as the
+  engine read it (nscript.dat decoded, or 0.txt.. joined) is saved as a
+  download, `script.txt`.
+- `noberu.ons.start` = `"f100"`: the story starts at `*f100` instead of
+  `*start`; `"title>f100"`: the first time the script enters `*title`, it
+  goes to `*f100` instead (after the game's own start-up).
+- `noberu.ons.vars` = `"%210=1,%215=1"`: variables set at that moment.
+
 ## Saves
 
 `/save` is IDBFS. Each game saves to `/save/<folder name>`, and the engine

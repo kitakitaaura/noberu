@@ -140,7 +140,47 @@
       fitCanvas();
       canvasEl.focus();
       post("running", { width: g_screen_width, height: g_screen_height });
+      // Debugging (tools/walkthrough): sessionStorage "noberu.ons.dump" = "1"
+      // saves the whole script, as the engine read it, as a download script.txt.
+      if (debugSwitch("dump") === "1") {
+        g_onsyuri_module._ons_dump_script();
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(new Blob([g_onsyuri_module.FS.readFile("/tmp/script.txt")], { type: "text/plain" }));
+        a.download = "script.txt";
+        a.click();
+      }
     });
+
+    function debugSwitch(name) {
+      try { return sessionStorage.getItem("noberu.ons." + name) || ""; } catch (error) { return ""; }
+    }
+
+    // --- walkthrough --------------------------------------------------------
+
+    // Each select the script shows ({seen: its label, line: from that label,
+    // pos: in the whole script, options}) and the pick that closed it, for
+    // noberu's walkthrough (assets/walkthrough.js). The engine hands the
+    // options over as the script's bytes (ONScripter_command.cpp).
+    let choiceOnScreen = null;
+    let textDecoder = new TextDecoder("shift_jis");
+    g_onsyuri_module.noberuChoiceBegin = (label, line, pos) => {
+      choiceOnScreen = { seen: label, line: line, pos: pos, options: [] };
+    };
+    g_onsyuri_module.noberuChoiceOption = (bytes, shown) => {
+      if (choiceOnScreen) choiceOnScreen.options.push({ text: textDecoder.decode(bytes).replace(/`/g, ""), shown: shown });
+    };
+    g_onsyuri_module.noberuChoiceEnd = () => {
+      const host = window.top && window.top.NoberuWalkthrough;
+      if (host && choiceOnScreen) host.choice(window, choiceOnScreen);
+    };
+    g_onsyuri_module.noberuChoiceMade = (index) => {
+      choiceOnScreen = null;
+      const host = window.top && window.top.NoberuWalkthrough;
+      if (host) host.made(window, index);
+    };
+    // The walkthrough picks an option of the choice on screen; true if taken.
+    window.noberuSelect = (index) =>
+      !!(g_onsyuri_module._ons_select && g_onsyuri_module._ons_select(index));
 
     // --- lazy game files ----------------------------------------------------
 
@@ -358,9 +398,19 @@
         const args = ["--root", GAME_DIR, "--font", fontPath, "--save-dir", saveDir,
           "--enc:" + encoding];
         if (englishMenu) args.push("--english-menu");
+        // Debugging: sessionStorage "noberu.ons.start" = "f100" starts the
+        // story at *f100 instead of *start, or "title>f100" goes there the
+        // first time the script enters *title; "noberu.ons.vars" =
+        // "%10=1,%216=1" sets variables at that moment.
+        const start = debugSwitch("start");
+        if (start) {
+          args.push("--noberu-start", start);
+          if (debugSwitch("vars")) args.push("--noberu-vars", debugSwitch("vars"));
+        }
         // Each line the engine shows, for noberu's reading tools
         // (assets/text.js): it hands over the script's own bytes.
         const decoder = new TextDecoder(encoding === "sjis" ? "shift_jis" : encoding === "gbk" ? "gbk" : "utf-8");
+        textDecoder = decoder;
         Mod.noberuText = (bytes) => {
           if (!window.NoberuSay) return;
           // ONScripter-EN marks single-byte text with backticks.

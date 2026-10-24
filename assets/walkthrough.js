@@ -5,10 +5,13 @@
  * A guide (assets/walkthroughs/<game>.json, built by
  * tools/walkthrough/build.py from the game's own script) lists each route's
  * choices by where they sit in the script ("scene:line", or "scene:pos", the
- * select's instruction number, when the guide says "key": "pos") and which
+ * select's instruction number, when the guide says "key": "pos"; for
+ * ONScripter "label:line", the line counted from the label) and which
  * option to take. A choice that comes back (a hub the story loops through)
- * is listed once per visit: the k-th time it comes up, the k-th entry. The engine reports each choice as it comes up (only rlvm so far:
- * engine/long_operations/select_long_operation.cc) and takes picks back
+ * is listed once per visit: the k-th time it comes up, the k-th entry. The
+ * engine reports each choice as it comes up (rlvm:
+ * engine/long_operations/select_long_operation.cc; ONScripter:
+ * selectCommand, through onscripter-runtime/ons.html) and takes picks back
  * through the frame's noberuSelect().
  *
  *   NoberuWalkthrough.choice(win, {seen, line, options})   from the engine
@@ -22,6 +25,7 @@
   const GUIDES = [
     { id: "clannad", frame: "rlvm-frame-wrap", name: /clannad/i, url: "assets/walkthroughs/clannad.json?v=20261023b" },
     { id: "tomoyo-after", frame: "rlvm-frame-wrap", name: /tomoyo\s*after/i, url: "assets/walkthroughs/tomoyo-after.json?v=20261024" },
+    { id: "tsukihime", frame: "ons-frame-wrap", name: /tsukihime/i, url: "assets/walkthroughs/tsukihime.json?v=20261024" },
   ];
 
   const loaded = new Map();       // guide id -> Promise<data>
@@ -60,10 +64,12 @@
   }
 
   // What the game calls itself: rlvm reads Gameexe.ini's #CAPTION and
-  // #REGNAME, which are in the frame's file system. Played from the shelf,
-  // its name there also counts.
+  // #REGNAME, which are in the frame's file system; ONScripter puts the
+  // script's caption in the frame's title. Played from the shelf, its name
+  // there also counts.
   function gameLabel(frameWrap) {
     let label = gameName();
+    try { label += " " + frameWrap.querySelector("iframe").contentDocument.title; } catch (error) { }
     try {
       const fs = frameWrap.querySelector("iframe").contentWindow.Module.FS;
       const ini = new TextDecoder("latin1").decode(fs.readFile("/game/Gameexe.ini")).slice(0, 4000);
@@ -106,6 +112,10 @@
   // A choice's options as one string to compare (rlBabel games pad them with spaces).
   const texts = (options) => options.map((o) => bare(o).trim()).join("\n");
 
+  // How the game draws an option: a guide's "display" pairs replace what a
+  // game's font draws differently (Tsukihime's "||" is an ellipsis).
+  const shownAs = (data, text) => (data.display || []).reduce((t, [from, to]) => t.split(from).join(to), text);
+
   function frameOf(win) {
     for (const wrap of document.querySelectorAll(".play-frame-wrap")) {
       const iframe = wrap.querySelector("iframe");
@@ -114,8 +124,10 @@
     return null;
   }
 
-  // "2416" -> "Apr 16": the script's scenes are numbered by route and date.
-  function date(key) {
+  // Where a choice is in the story: the guide's own name for it ("where"),
+  // or "2416" -> "Apr 16" where scenes are numbered by route and date.
+  function date(data, key) {
+    if (data.where) return data.where[key] || "";
     const scene = Number(key.split(":")[0]) % 1000;
     const month = Math.floor(scene / 100);
     const day = scene % 100;
@@ -163,9 +175,10 @@
     const exact = `${c.seen}:${c.line}`;
     if (!byPos && data.choices[exact]) return exact;
     const own = texts(c.options.map((o) => o.text));
+    // Scenes are numbers (rlvm) or labels (ONScripter).
     const near = Object.keys(data.choices)
-      .map((k) => k.split(":").map(Number))
-      .filter(([seen, line]) => seen === c.seen && (byPos || line >= c.line))
+      .map((k) => [k.slice(0, k.lastIndexOf(":")), Number(k.slice(k.lastIndexOf(":") + 1))])
+      .filter(([seen, line]) => seen === String(c.seen) && (byPos || line >= c.line))
       .sort((a, b) => a[1] - b[1]);
     const same = near.find(([seen, line]) => texts(data.choices[`${seen}:${line}`]) === own);
     return same ? `${same[0]}:${same[1]}` : exact;
@@ -188,6 +201,10 @@
     if (!data) return;
     const route = routeOf(data);
     const key = keyOf(data, c);
+    // Choices that don't change the story, by key or by their options
+    // (Tsukihime's "skip this scene?", "take Ciel-sensei's lesson?").
+    const own = texts(c.options.map((o) => o.text));
+    if (data.any && data.any.some((a) => a === key || (Array.isArray(a) && texts(a) === own))) return;
     const visited = visit(frameWrap, c, key);
     const hint = document.createElement("div");
     hint.className = "nb-wt-hint";
@@ -205,7 +222,7 @@
       const want = step && shown.find((o) => o.i === step.option);
       if (step && want) {
         const label = step.matters ? "choose" : "either works · walkthrough took";
-        hint.innerHTML = `<span><b>${escapeHtml(route.name)}</b> · ${label} “${escapeHtml(bare(want.text).trim())}”</span><button type="button" data-wt="pick">choose it</button><button type="button" data-wt="hide" aria-label="hide">×</button>`;
+        hint.innerHTML = `<span><b>${escapeHtml(route.name)}</b> · ${label} “${escapeHtml(shownAs(data, bare(want.text).trim()))}”</span><button type="button" data-wt="pick">choose it</button><button type="button" data-wt="hide" aria-label="hide">×</button>`;
         if (autoPick()) {
           pending.set(frameWrap, { choice: c, timer: setTimeout(() => pick(frameWrap, step.option), 900) });
         }
@@ -224,12 +241,14 @@
     frameWrap.appendChild(hint);
   }
 
-  function made(win) {
+  // index < 0: the choice went away unanswered (a save was loaded).
+  function made(win, index) {
     const frameWrap = frameOf(win);
     if (!frameWrap) return;
     clear(frameWrap);
     const v = visits.get(frameWrap);
-    if (v && v.key) {
+    if (v && v.key && index < 0) v.key = null;
+    else if (v && v.key) {
       v.count.set(v.key, (v.count.get(v.key) || 0) + 1);
       v.key = null;
     }
@@ -244,7 +263,7 @@
     const head = card.querySelector(".nb-menu-head span");
     if (!data) {
       head.textContent = "not for this game yet";
-      card.insertAdjacentHTML("beforeend", `<p class="nb-wt-note">There's no walkthrough for this game yet. CLANNAD and Tomoyo After have one.</p>`);
+      card.insertAdjacentHTML("beforeend", `<p class="nb-wt-note">There's no walkthrough for this game yet. CLANNAD, Tomoyo After and Tsukihime have one.</p>`);
       return;
     }
     const render = () => {
@@ -259,7 +278,7 @@
             <small>${count(r.path.filter((p) => p[2]).length)}${r.light ? " · gives a light" : ""}</small>
           </button>`).join("")}</div>`).join("");
       const steps = current ? current.path.filter((p) => p[2]).map(([key, option]) => `
-          <li><span>${escapeHtml(date(key))}</span>${escapeHtml(data.choices[key][option])}</li>`).join("") : "";
+          <li><span>${escapeHtml(date(data, key))}</span>${escapeHtml(shownAs(data, data.choices[key][option]))}</li>`).join("") : "";
       card.querySelector(".nb-wt-body")?.remove();
       card.insertAdjacentHTML("beforeend", `
         <div class="nb-wt-body">
