@@ -138,6 +138,7 @@
 
     let reply = null;
     let failed = false;
+    let resetAt = 0;
     try {
       const res = await fetch(`${server()}/chat`, {
         method: "POST",
@@ -146,6 +147,7 @@
       });
       const data = await res.json().catch(() => ({}));
       reply = data.reply || null;
+      resetAt = Number(data.resetAt) || 0;
       failed = !res.ok;
     } catch (error) {
       failed = true;
@@ -156,7 +158,11 @@
       log.push({ role: "assistant", content: reply });
       bubble("bot", reply);
     } else {
-      bubble("bot", reply || "The Golden Witch cannot be reached right now. Try again in a moment.", "bt-error");
+      // When she is out of replies or free magic, say when it comes back in the reader's own timezone.
+      const back = resetAt > Date.now()
+        ? ` She is back at ${new Date(resetAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} your time.`
+        : "";
+      bubble("bot", (reply || "The Golden Witch cannot be reached right now. Try again in a moment.") + back, "bt-error");
       log.pop(); // a failed turn is not part of the conversation
     }
     save();
