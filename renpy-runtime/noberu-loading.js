@@ -5,7 +5,8 @@
 // every line the engine prints, Python's import log included. Inside noberu
 // the frame should look like the other runtimes (kirikiri-runtime's
 // noberu-skin.css): a black stage, a hairline bar in the middle and one quiet
-// line of status, with the same layout on a phone.
+// line of status, with the same layout on a phone. noberu's wordmark sits
+// above the bar, drawn as the site's header draws it (assets/theme.css).
 //
 // While the game loads this overlay covers the stage and the shells' own
 // status boxes are hidden (html.noberu-loading-on). Once the game has drawn its
@@ -21,6 +22,21 @@
   "use strict";
 
   const CSS = `
+    /* The site's bundled IBM Plex Mono (assets/theme.css); the URLs resolve
+       against this page, one folder down. */
+    @font-face {
+      font-family: "IBM Plex Mono";
+      font-weight: 400;
+      font-display: swap;
+      src: url("../assets/fonts/plex-mono-latin-400.woff2") format("woff2");
+    }
+    @font-face {
+      font-family: "IBM Plex Mono";
+      font-weight: 600;
+      font-display: swap;
+      src: url("../assets/fonts/plex-mono-latin-600.woff2") format("woff2");
+    }
+
     :root {
       --nb-stage: #000;
       --nb-panel: #0b0b0b;
@@ -29,8 +45,10 @@
       --nb-line: rgba(255, 255, 255, 0.09);
       --nb-line-strong: rgba(255, 255, 255, 0.16);
       --nb-accent: #2f8af9;
-      --nb-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas,
-        "IBM Plex Mono", "Courier New", monospace;
+      --nb-mono: "IBM Plex Mono", ui-monospace, "SF Mono", SFMono-Regular, Menlo,
+        Consolas, "Courier New", monospace;
+      --nb-jp: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI",
+        "Yu Gothic", "Noto Sans CJK JP", sans-serif;
     }
 
     #noberu-loading {
@@ -50,6 +68,38 @@
       letter-spacing: 0.02em;
       text-align: center;
       transition: opacity 0.3s ease;
+    }
+
+    /* The header's wordmark: glyph, name, and its reading. */
+    #noberu-loading .nb-mark {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45em;
+      margin-bottom: 12px;
+      color: var(--nb-ink);
+      font: 600 20px/1 var(--nb-mono);
+      letter-spacing: -0.01em;
+    }
+
+    #noberu-loading .nb-mark svg {
+      width: 1.3em;
+      height: 1.3em;
+      flex: none;
+      color: var(--nb-accent);
+    }
+
+    #noberu-loading .nb-mark .nb-sub {
+      align-self: flex-end;
+      color: var(--nb-muted);
+      font: 400 0.62em/1 var(--nb-jp);
+      letter-spacing: 0.04em;
+    }
+
+    /* A frame too short for all three (the tab's small frame on a phone):
+       the bar and the line matter more. */
+    @media (max-height: 200px) {
+      #noberu-loading { gap: 8px; }
+      #noberu-loading .nb-mark { display: none; }
     }
 
     #noberu-loading.leaving {
@@ -209,6 +259,12 @@
   root.setAttribute("role", "status");
   root.setAttribute("aria-live", "polite");
   root.innerHTML =
+    '<div class="nb-mark" aria-label="noberu">' +
+    '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
+    '<rect x="2.5" y="5" width="19" height="13" rx="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/>' +
+    '<path d="M6.5 9.6h8.5M6.5 13.2h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>' +
+    '<path d="M16.2 12.4h2.6l-1.3 1.7z" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>' +
+    '</svg><span aria-hidden="true">noberu</span><span class="nb-sub" lang="ja" aria-hidden="true">のべる</span></div>' +
     '<div class="nb-bar unknown"><div class="nb-fill"></div></div>' +
     '<div class="nb-line">loading...</div>' +
     '<div class="nb-card" role="alert"><h2>The game stopped</h2><p></p></div>';
