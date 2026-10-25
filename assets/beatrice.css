@@ -1,0 +1,168 @@
+/* The "talk to Beatrice" dialog (assets/beatrice.js). */
+
+.bt-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10500;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: var(--backdrop);
+}
+
+.bt-backdrop[hidden] {
+  display: none;
+}
+
+.bt-card {
+  display: flex;
+  flex-direction: column;
+  width: min(34rem, 100%);
+  height: min(36rem, 100%);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md, 14px);
+  background: var(--panel);
+  color: var(--ink);
+  overflow: hidden;
+}
+
+.bt-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-soft);
+}
+
+.bt-head b {
+  margin-right: auto;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.bt-spoilers {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.bt-spoilers select {
+  min-height: 1.9rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.bt-close {
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.bt-close:hover {
+  background: var(--surface-hover);
+}
+
+.bt-log {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.9rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.bt-msg {
+  max-width: 88%;
+  padding: 0.55rem 0.8rem;
+  border-radius: 14px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.bt-bot {
+  align-self: flex-start;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.bt-me {
+  align-self: flex-end;
+  background: var(--accent-soft);
+}
+
+.bt-wait {
+  color: var(--muted);
+}
+
+.bt-error {
+  color: var(--ink-2);
+  border-style: dashed;
+}
+
+.bt-red {
+  display: block;
+  margin: 0.3rem 0;
+  color: var(--red);
+  font-weight: 600;
+}
+
+.bt-form {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.7rem 0.9rem;
+  border-top: 1px solid var(--line);
+}
+
+.bt-form input {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.4rem;
+  padding: 0 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  /* 16px stops iOS zooming the page when the field is focused */
+  font-size: 16px;
+}
+
+.bt-form.busy .retro-button {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.bt-note {
+  margin: 0;
+  padding: 0 0.9rem 0.7rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+@media (max-width: 600px) {
+  .bt-backdrop {
+    padding: 0;
+    place-items: end stretch;
+  }
+
+  .bt-card {
+    width: 100%;
+    height: min(85dvh, 100%);
+    border-radius: 14px 14px 0 0;
+  }
+}
