@@ -20,6 +20,11 @@ in `../index.html` reads `game/script_version.txt` and loads the matching page:
 Shared:
 
 - `stage.js`: builds the `game.zip` both runtimes boot from (below).
+- `noberu-loading.js`: the loading screen, in noberu's style (the same look
+  as kirikiri-runtime's `noberu-skin.css`): a hairline bar and one line of
+  status in the middle, an error card when something fails. Ren'Py's own
+  status boxes are hidden while the game loads; what the engine prints after
+  that shows as a small card at the bottom.
 - `dev.js`: the `?autoload=` path, dev only.
 
 `renpy.html` is written here around Ren'Py's own `renpy-pre.js`. `renpy7.html`

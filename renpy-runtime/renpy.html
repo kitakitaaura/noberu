@@ -107,6 +107,7 @@
     </form>
   </div>
 
+  <script src="noberu-loading.js"></script>
   <script src="noberu-text-hook.js"></script>
   <script src="noberu-video.js"></script>
   <script src="stage.js"></script>
@@ -163,13 +164,22 @@
 
 
     function post(type, detail) {
+      if (type === "error") NoberuLoading.error(detail && detail.message);
       window.parent.postMessage(
         Object.assign({ source: "renpy-runtime", type: type }, detail || {}), "*");
     }
 
     function status(text) {
+      NoberuLoading.say(text);
       post("status", { text: text });
     }
+
+    // renpy-pre.js reports a fatal error by writing it into its status box,
+    // which noberu's loader hides; show it on the error card instead.
+    new MutationObserver(() => {
+      const text = document.getElementById("statusTextDiv").innerText;
+      if (/More information may be available/.test(text)) NoberuLoading.error(text.trim());
+    }).observe(document.getElementById("statusTextDiv"), { childList: true, subtree: true, characterData: true });
 
     // ---- boot ------------------------------------------------------------
 
@@ -214,12 +224,26 @@
       // cleared at its first frame, below.
       Module.noberuFastYield = true;
 
+      // Its download progress (the engine's data) fills noberu's bar.
+      const preSetStatus = Module.setStatus;
+      Module.setStatus = function (text) {
+        const amount = /\((\d+(?:\.\d+)?)\/(\d+)\)/.exec(text || "");
+        if (amount) {
+          const mb = (n) => Math.round(Number(n) / (1024 * 1024));
+          status(`loading the Ren'Py engine... ${mb(amount[1])} of ${mb(amount[2])} MB`);
+        }
+        return preSetStatus.apply(this, arguments);
+      };
+
       // renpy-pre.js has now created Module and queued its own preRun steps;
       // ours runs alongside them and the engine waits for all of them.
       Module.preRun.push(function () {
         Module.addRunDependency("installGame");
         NoberuRenPyStage.install(Module.FS || FS, staged, status, root)
-          .then(() => Module.removeRunDependency("installGame"))
+          .then(() => {
+            status("starting the game...");
+            Module.removeRunDependency("installGame");
+          })
           .catch((error) => {
             post("error", { message: "Could not install the game: " + error.message });
           });
@@ -231,6 +255,7 @@
       const enginePresplashEnd = window.presplashEnd;
       window.presplashEnd = function () {
         Module.noberuFastYield = false;
+        NoberuLoading.done();
         try {
           if (enginePresplashEnd) enginePresplashEnd();
         } finally {

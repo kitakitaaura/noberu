@@ -732,6 +732,7 @@
     window.setFullscreen = setFullscreen;
 
     </script>
+    <script src="noberu-loading.js"></script>
     <script src="noberu-text-hook.js"></script>
     <script src="noberu-video.js"></script>
     <script src="stage.js"></script>
@@ -836,31 +837,40 @@
       }
 
       function post(type, detail) {
+        if (type === "error") NoberuLoading.error(detail && detail.message);
         window.parent.postMessage(
           Object.assign({ source: "renpy-runtime", type: type }, detail || {}), "*");
       }
 
       function status(text) {
+        NoberuLoading.say(text);
         post("status", { text: text });
       }
 
-      // Ren'Py's shell writes progress into #status; mirror it to the tab
-      // until the game is actually up, after which the tab would keep
-      // redrawing its overlay over a running game.
-      const statusEl = document.getElementById("status");
-      const statusMirror = new MutationObserver(() => {
-        const text = statusEl.textContent.trim().split(/\s{2,}|\n/).pop();
-        if (text) status(text);
-      });
-      statusMirror.observe(statusEl, { childList: true, subtree: true, characterData: true });
+      // The shell's own progress (its data packages, "Preparing... (5/448)")
+      // fills noberu's bar; its errors become the error card. Its other
+      // lines, Python's import log among them, stay out of the loader.
+      // Once the game itself is starting, its count of run dependencies
+      // means nothing to a player, so the bar is left to slide.
+      let gameStarting = false;
+      const shellSetStatus = Module.setStatus;
+      Module.setStatus = function (text) {
+        const amount = /\((\d+(?:\.\d+)?)\/(\d+)\)/.exec(text || "");
+        if (amount && !gameStarting) NoberuLoading.progress(Number(amount[1]), Number(amount[2]));
+        else if (/^Error: /.test(text || "")) NoberuLoading.error(text.replace(/^Error: /, ""));
+        return shellSetStatus.apply(this, arguments);
+      };
+
+      // The shell's own lines (#status) are not passed on to the tab: they
+      // include Python's import log. status() above says what is happening.
 
       // Ren'Py calls this once the game has drawn its first frame, which is
       // the real "running" moment - index.js loading only means the engine
       // started downloading itself.
       const shellPresplashEnd = window.presplashEnd;
       window.presplashEnd = function () {
-        statusMirror.disconnect();
         Module.noberuFastYield = false;
+        NoberuLoading.done();
         try {
           shellPresplashEnd();
         } finally {
@@ -957,6 +967,8 @@
           NoberuRenPyStage.install(Module.FS || FS, staged, status, root)
             .then(() => {
               installShims(Module.FS || FS);
+              gameStarting = true;
+              status("starting the game...");
               Module.removeRunDependency("installGame");
             })
             .catch((error) => {
