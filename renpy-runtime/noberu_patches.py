@@ -79,22 +79,134 @@ def patch_webaudio():
     renpysound.queue = wrap(renpysound.queue)
 
 
+# Web video frames: webaudio.read_video makes a new GL texture for every
+# frame and has the browser upload the <video> into it, and those textures are
+# never deleted. A 1080p movie leaked 8 MB of GPU memory a frame: Cinderella
+# Phenomenon's animated title grew the GPU process by ~240 MB a second, to
+# gigabytes within a minute. Each channel now keeps one texture and the
+# browser re-uploads into it; a new one is made only when the video's size or
+# Ren'Py's texture loader (a GL restart) changes.
+
+def patch_video():
+    import renpy
+    import renpy.audio.renpysound as renpysound
+    import renpy.audio.webaudio as webaudio
+    import renpy.gl2.gl2texture as gl2texture
+
+    if not hasattr(webaudio, "read_video") or not hasattr(webaudio, "channel_size"):
+        return
+
+    textures = {}  # channel -> (size, loader, Texture)
+    original = renpysound.read_video
+
+    def read_video(channel, retried=False):
+        if not webaudio.video_supported():
+            return None
+
+        size = webaudio.channel_size.get(channel)
+        if size is None:
+            info = webaudio.call_str("get_video_size", channel)
+            if len(info) == 0:
+                return None
+            size = [int(s) for s in info.split("x")]
+            webaudio.channel_size[channel] = size
+
+        loader = renpy.display.draw.texture_loader
+        held = textures.get(channel)
+        if held is None or held[0] != size or held[1] is not loader:
+            held = (size, loader, gl2texture.Texture(size, loader, generate=True))
+            textures[channel] = held
+
+        res = webaudio.call_int("read_video", channel, held[2].get_number(), *size)
+        if res == 0:
+            return held[2]
+        if res == -1:
+            # The video's size changed: fetch it again.
+            del webaudio.channel_size[channel]
+            return read_video(channel, retried)
+        if res == -2 and not retried:
+            # Our texture is gone (the GL context was rebuilt): make another.
+            textures.pop(channel, None)
+            return read_video(channel, True)
+        return None
+
+    def hook(channel, *args, **kwargs):
+        # webaudio's own proxy hands audio-only channels back to renpysound.
+        if webaudio.video_only and channel in webaudio.audio_channels:
+            return original(channel, *args, **kwargs)
+        return read_video(channel)
+
+    renpysound.read_video = hook
+
+
+# GL textures on Python 2 (the 7.x runtime): Ren'Py frees a texture from
+# Texture.__del__, which queues its GL name for TextureLoader.cleanup(). That
+# __del__ is written in Cython, where it only works on Python 3, so on the
+# 7.x runtime it does not exist and no texture was ever freed: every image the
+# cache let go of, every transition's render-to-texture and every video frame
+# stayed in GPU memory. Butterfly Soup gained ~400 MB a scene change.
+#
+# The loader's free list is not reachable from Python, so this deletes the GL
+# texture straight from the Emscripten GL table instead. The loader still
+# lists the name and may delete it again when GL shuts down; Emscripten skips
+# a name it has already freed, and never hands one out twice.
+
+def patch_textures(gl2texture):
+    Texture = gl2texture.Texture
+    if hasattr(Texture, "__del__") or sys.version_info[0] != 2:
+        return
+
+    import emscripten
+
+    def free_texture(self):
+        try:
+            number = self.number
+            if self.loaded and number:
+                emscripten.run_script(
+                    "(function(n){var t=GL.textures[n];if(t){GLctx.deleteTexture(t);t.name=0;GL.textures[n]=null}})(%d)"
+                    % number)
+        except Exception:
+            pass  # shutting down, or no GL any more
+
+    Texture.__del__ = free_texture
+
+
 # renpy.audio.webaudio replaces renpysound's functions when it is imported,
-# which Ren'Py does from audio.init() once the game has loaded. Watch for that
-# import, patch on top of it, then step out of the way.
+# which Ren'Py does from audio.init() once the game has loaded; the GL
+# texture module comes in when the display starts. Watch the imports, patch
+# each once it is there, then step out of the way.
 real_import = builtins.__import__
+pending = set(["webaudio", "textures"])
 
 
 def watching_import(name, *args, **kwargs):
     module = real_import(name, *args, **kwargs)
-    if name == "renpy.audio.webaudio":
+
+    # The module is in sys.modules while it is still being imported, before
+    # Texture exists.
+    gl2texture = sys.modules.get("renpy.gl2.gl2texture")
+    if "textures" in pending and getattr(gl2texture, "Texture", None) is not None:
+        pending.discard("textures")
+        try:
+            patch_textures(gl2texture)
+        except Exception as error:
+            print("noberu: texture patch failed: %r" % (error,))
+
+    if "webaudio" in pending and name == "renpy.audio.webaudio":
         webaudio = sys.modules.get(name)
         if webaudio is not None and hasattr(webaudio, "can_play_types"):
-            builtins.__import__ = real_import
+            pending.discard("webaudio")
             try:
                 patch_webaudio()
             except Exception as error:
                 print("noberu: web audio patch failed: %r" % (error,))
+            try:
+                patch_video()
+            except Exception as error:
+                print("noberu: web video patch failed: %r" % (error,))
+
+    if not pending:
+        builtins.__import__ = real_import
     return module
 
 

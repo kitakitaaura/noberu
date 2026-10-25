@@ -1,8 +1,10 @@
 # Local Ren'Py Runtime Artifacts
 
 Nothing here was ported. Ren'Py ships an official Emscripten target, and these
-are the stock files from its web support packages
-(`renpy.org/dl/<version>/renpy-<version>-web.zip`).
+are the files from its web support packages
+(`renpy.org/dl/<version>/renpy-<version>-web.zip`), with two small edits to
+the Emscripten glue (`patch-glue.py`, below) and noberu's Python patches in
+the engine zips (`noberu_patches.py`).
 
 There are two of them, because Ren'Py 8 runs Python 3 and Ren'Py 7 runs
 Python 2 and neither can load the other's compiled bytecode. The "ren'py" tab
@@ -45,9 +47,17 @@ engine's filesystem directly, from a run dependency the engine waits on.
   game costs 2.8 GB. Installing the files instead stores each one once, and
   skips the CRC32 pass a zip needs over every byte. Measured on the test game:
   `/game.zip` went from the whole game to the 4 MB engine zip.
-- **Memory:** `FS.writeFile(..., { canOwn: true })` hands the browser's own
-  buffer to the filesystem rather than copying it in, and files are read one at
-  a time, so the peak is the largest single file rather than the whole game.
+- **Files read as needed** (`stage.js`): files of 512 KB or more (in practice
+  the `.rpa` archives) are placeholders that report their real size and read
+  their bytes from the picked `File` when Ren'Py asks, in 1 MB blocks kept in
+  a least-recently-used cache (192 MB, 96 MB on touch screens). Ren'Py reads
+  synchronously, so a block is read with a synchronous `XMLHttpRequest` of a
+  `blob:` URL, as rlvm-runtime does. Each request starts with one padding
+  byte: text decoding sniffs for a byte order mark even under
+  `x-user-defined`, and a block starting `FF FE` came back as UTF-16 at half
+  its length. A file the game writes to is read in whole first and becomes an
+  ordinary file. Smaller files are written in whole with `canOwn`. KSRE went
+  from 1.4 GB of buffers to ~120 MB.
 - **Saves:** both runtimes mount IDBFS at `/home/web_user/.renpy`, which is its
   own IndexedDB database (rlvm's is `/home`, so they do not collide). Ren'Py
   gives each game a folder named after its `config.save_directory` and calls
@@ -57,6 +67,23 @@ engine's filesystem directly, from a run dependency the engine waits on.
   menu, reload the page, load the slot back.
 - **Rendering:** WebGL via Ren'Py's GLES renderer. Single-threaded, so
   background image preloading is unavailable and loading can hitch.
+- **Glue edits** (`patch-glue.py`, run on `renpy.js` and `v7/index.js`):
+  1. Ren'Py draws from client-side vertex arrays, which the Emscripten glue
+     copied into a ring of small buffers with `bufferSubData`. Overwriting a
+     buffer the GPU may still be reading makes ANGLE (Metal on Macs and
+     iPhones) wait, on every draw: KSRE's snow scene ran at 2-4 fps with
+     700 ms frames. `bufferData` gives each upload fresh storage; 60 fps.
+  2. While the game loads, `emscripten_sleep(0)` resumes from a
+     `MessageChannel` message instead of `setTimeout`, which browsers clamp to
+     4 ms; KSRE yields ~780 times before its first frame. Both pages set
+     `Module.noberuFastYield` at boot and clear it at the first frame.
+- **Textures** (`noberu_patches.py`): Ren'Py frees a GL texture from
+  `Texture.__del__`, which is Cython and only exists on Python 3, so the 7.x
+  runtime never freed one: Butterfly Soup's GPU memory grew ~400 MB a scene
+  change. On Python 2 the patch gives `Texture` a `__del__` that deletes the
+  texture from Emscripten's GL table. Web video also made a new texture for
+  every frame (Cinderella Phenomenon's opening movie: +240 MB/s on the 7.x
+  runtime); each video channel now keeps one and re-uploads into it.
 - **Render scale:** both pages override `window.devicePixelRatio` before the GL
   context exists. Left alone, SDL sizes the canvas by the browser's ratio, so a
   1080p game renders at 3840x2160 on a Retina screen - 4x the pixels - and is
@@ -122,27 +149,9 @@ Both pages expose the same thing, so the tab does not care which one it got:
   the age gate, name entry, story, save and load all work. 6.99 games ship no
   `script_version.txt`, so the tab reads `renpy/__init__.py` when the whole
   folder was picked, and otherwise treats a game with no marker as old.
-- **Size.** The whole game still has to fit in memory at once; there is no
-  lazy reading. Past `BIG_GAME_BYTES` the tab warns and boots anyway — 1.2 GB
-  on 8.x, 900 MB on the older 7.x build.
+- **Size.** Archives are read as needed, so a big game no longer has to fit in
+  memory; loose files under 512 KB still are read in whole.
 - Video is limited to formats the browser plays, and Live2D does not work.
-
-Going below that means Ren'Py's progressive download path
-(`renpy/webloader.py`): files listed in `game/renpyweb_remote_files.txt` are
-indexed as present, `load_from_remote_file` raises `DownloadNeeded` when one is
-opened, and webloader fetches it by XHR from the document-relative `game/<path>`
-and unlinks it again later. Serving those from the picked `File`s would keep a
-big game out of memory entirely.
-
-The catch is archives: `index_archives()` opens every `.rpa` at startup, so an
-archive can never be remote — only loose files can. A `.rpa`-packed game (Katawa
-Shoujo Re-Engineered is five archives, 1.4 GB, 779 MB of it `images.rpa`) would
-first need its archives read in JS: RPA-3.0 is a header line with the index
-offset and XOR key, then a zlib-compressed pickle of `{path: [(offset, length,
-prefix)]}`. With `fflate` (already vendored) each entry could be exposed as a
-`Blob` slice of the original file, the way onscripter-ru reads its game data.
-Ren'Py wants pixel dimensions for remote images, so image headers would have to
-be parsed too.
 
 ## Rebuilding an engine zip
 
@@ -154,11 +163,14 @@ From a Ren'Py SDK of the matching version with its web package installed at
 mkdir /tmp/zx && cd /tmp/zx && unzip -q /tmp/out/game.zip
 zip -qr -X -9 engine-<version>.zip renpy main.py
 sh patch-engine.sh engine-<version>.zip
+python3 patch-glue.py renpy.js        # or v7/index.js
 ```
 
 `patch-engine.sh` is the one edit to the stock engine: it adds
 `noberu_patches.py` and has `main.py` import it before Ren'Py starts. Skip it
-and archived audio goes silent again (below).
+and archived audio goes silent again, and the 7.x runtime leaks every texture.
+`patch-glue.py` edits the Emscripten glue that comes with the engine (see
+"Glue edits"); skip it and big games crawl.
 
 The `game/`, `_placeholders/` and `the_question.py` entries are the sample
 game's and are left out. Bump `ENGINE_ZIP` and `ENGINE_VERSION` in the matching

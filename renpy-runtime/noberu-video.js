@@ -9,32 +9,47 @@
 //
 // So a video channel's file is read out of the filesystem into a Blob, and
 // the player is handed a blob: URL for it. Both runtime pages load this
-// before the engine; it waits for renpyAudio to appear, then wraps it once.
+// before the engine. Its methods are wrapped as _audio.js assigns them: a game
+// can queue a movie straight away (KSRE's studio logo, once its adult-content
+// question has been answered), too soon for anything that polls.
 (function () {
   "use strict";
 
   const TYPES = { webm: "video/webm", ogv: "video/ogg", ogg: "video/ogg", mp4: "video/mp4", m4v: "video/mp4", mkv: "video/x-matroska" };
 
+  // Calls `make(fn)` for whatever function gets assigned to audio[name],
+  // now or later, and stores that instead.
+  function intercept(audio, name, make) {
+    let current = typeof audio[name] === "function" ? make(audio[name]) : audio[name];
+    Object.defineProperty(audio, name, {
+      configurable: true,
+      enumerable: true,
+      get: () => current,
+      set: (value) => { current = typeof value === "function" ? make(value) : value; },
+    });
+  }
+
   function wrap(audio) {
-    if (audio.__noberuVideo) return;
+    if (!audio || typeof audio !== "object" || audio.__noberuVideo) return;
     audio.__noberuVideo = true;
     const video = new Set();  // channels set to play video
     const urls = new Map();   // channel -> the blob: URL it is playing
 
-    const setVideo = audio.set_video;
-    audio.set_video = function (channel, isVideo) {
+    intercept(audio, "set_video", (setVideo) => function (channel, isVideo) {
       if (isVideo) video.add(channel);
       else video.delete(channel);
       return setVideo.apply(this, arguments);
-    };
+    });
 
-    const queue = audio.queue;
-    audio.queue = function (channel, file, name) {
+    intercept(audio, "queue", (queue) => function (channel, file, name) {
       const args = [...arguments];
       if (video.has(channel) && typeof file === "string" && !file.startsWith("url:")) {
         try {
           const fs = (window.Module && window.Module.FS) || window.FS;
-          const data = fs.readFile(file);
+          // A big loose movie is still the picked File (stage.js reads those
+          // as needed), so the player can have it as is.
+          const picked = window.NoberuRenPyStage && window.NoberuRenPyStage.fileAt(fs, file);
+          const data = picked || fs.readFile(file);
           const ext = String(name || file).split(".").pop().toLowerCase();
           const url = URL.createObjectURL(new Blob([data], TYPES[ext] ? { type: TYPES[ext] } : {}));
           if (urls.has(channel)) URL.revokeObjectURL(urls.get(channel));
@@ -45,16 +60,18 @@
         }
       }
       return queue.apply(this, args);
-    };
+    });
   }
 
-  const started = Date.now();
-  const timer = setInterval(() => {
-    if (window.renpyAudio && typeof window.renpyAudio.queue === "function") {
-      clearInterval(timer);
-      wrap(window.renpyAudio);
-    } else if (Date.now() - started > 600000) {
-      clearInterval(timer);
-    }
-  }, 200);
+  // _audio.js runs `renpyAudio = {}` (a global) before adding its methods.
+  let audio = window.renpyAudio;
+  wrap(audio);
+  Object.defineProperty(window, "renpyAudio", {
+    configurable: true,
+    get: () => audio,
+    set: (value) => {
+      audio = value;
+      wrap(value);
+    },
+  });
 })();

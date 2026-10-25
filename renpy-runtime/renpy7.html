@@ -329,6 +329,9 @@
         // standard library ("No module named site") and quits before the game
         // is ever extracted.
         locateFile: function (path) { return "v7/" + path; },
+        // noberu (patch-glue.py): unclamped zero-delay yields while the game
+        // loads; cleared at its first frame.
+        noberuFastYield: true,
         preRun: [],
         postRun: [],
         print: (function() {
@@ -749,8 +752,8 @@
       const ENGINE_ZIP = "v7/engine-7.8.7.zip";
       const ENGINE_VERSION = [7, 8, 7];
 
-      // Past this the wasm heap is likely to run out while unpacking. This
-      // build is 32-bit with a lower ceiling than the 8.x one, so warn earlier.
+      // Past this much read in whole (small loose files) memory may run out.
+      // This build has a lower ceiling than the 8.x one, so warn earlier.
       const BIG_GAME_BYTES = 900 * 1024 * 1024;
 
       // Render at 1 CSS pixel per game pixel. SDL otherwise sizes the canvas by
@@ -857,6 +860,7 @@
       const shellPresplashEnd = window.presplashEnd;
       window.presplashEnd = function () {
         statusMirror.disconnect();
+        Module.noberuFastYield = false;
         try {
           shellPresplashEnd();
         } finally {
@@ -934,10 +938,10 @@
           },
         });
 
-        if (staged.bytes > BIG_GAME_BYTES) {
+        if (staged.inMemoryBytes > BIG_GAME_BYTES) {
           post("warning", {
-            message: `This game is ${Math.round(staged.bytes / (1024 * 1024))} MB, which has to ` +
-              "fit in memory all at once. It may run out and crash.",
+            message: `This game has ${Math.round(staged.inMemoryBytes / (1024 * 1024))} MB of small files, ` +
+              "which have to fit in memory all at once. It may run out and crash.",
           });
         }
 

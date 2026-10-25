@@ -89,6 +89,8 @@
       names: picked.names,
       version: version,
       bytes: picked.files.reduce((sum, f) => sum + f.size, 0),
+      // What install() reads in whole; bigger files are read as needed.
+      inMemoryBytes: picked.files.reduce((sum, f) => sum + (f.size < LAZY_MIN_BYTES ? f.size : 0), 0),
       count: picked.files.length,
     };
   }
@@ -106,12 +108,194 @@
     }
   }
 
+  // ---- files read as needed ----------------------------------------------
+  //
+  // Ren'Py reads its files synchronously, from the middle of Python, so a
+  // file the game opens has to be readable right then. Writing every byte in
+  // up front did that at the cost of the whole game in memory: KSRE kept
+  // 1.4 GB of buffers alive for a game that reads a few MB a scene.
+  //
+  // Big files are now placeholders instead: MEMFS nodes that report their
+  // real size and read their bytes from the picked File when asked, in 1 MB
+  // blocks kept in a shared least-recently-used cache. A synchronous
+  // XMLHttpRequest of a blob: URL is the one way a page can read a File
+  // without yielding (rlvm-runtime/rlvm.html does the same); such requests
+  // may not ask for binary, so the bytes come back as "x-user-defined" text,
+  // one char code per byte. A game that writes to one of these files gets a
+  // full in-memory copy first, and from then on it is an ordinary file.
+
+  const LAZY_MIN_BYTES = 512 * 1024;
+  const BLOCK = 1024 * 1024;
+  // Several blocks in one request when a read spans them.
+  const MAX_REQUEST = 16 * BLOCK;
+  const touch = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
+  const CACHE_BYTES = (touch ? 96 : 192) * 1024 * 1024;
+
+  const cache = new Map(); // "id:block" -> Uint8Array, oldest first
+  let cachedBytes = 0;
+  let nextId = 1;
+  const lazyStats = { requests: 0, bytes: 0, ms: 0, hits: 0, evictions: 0 };
+
+  // Text decoding still sniffs for a byte order mark, which beats the
+  // charset asked for: a block that happened to start FF FE came back as
+  // UTF-16, half its length. So every request starts with one zero byte,
+  // dropped again below.
+  const PAD = new Uint8Array(1);
+
+  function readSync(file, start, end) {
+    const url = URL.createObjectURL(new Blob([PAD, file.slice(start, end)]));
+    try {
+      const xhr = new XMLHttpRequest();
+      xhr.open("GET", url, false);
+      xhr.overrideMimeType("text/plain; charset=x-user-defined");
+      xhr.send();
+      const text = xhr.responseText;
+      if (text.length !== end - start + 1) throw new Error(`read ${text.length - 1} of ${end - start} bytes at ${start}`);
+      const bytes = new Uint8Array(text.length - 1);
+      for (let i = 0; i < bytes.length; i++) bytes[i] = text.charCodeAt(i + 1) & 0xff;
+      return bytes;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  function remember(key, bytes) {
+    cache.set(key, bytes);
+    cachedBytes += bytes.length;
+    while (cachedBytes > CACHE_BYTES && cache.size > 1) {
+      const [oldest, data] = cache.entries().next().value;
+      cache.delete(oldest);
+      cachedBytes -= data.length;
+      lazyStats.evictions++;
+    }
+  }
+
+  // Block `n` of a lazy node, fetching it (and any missing blocks after it,
+  // up to `last`) in one request.
+  function block(lazy, n, last) {
+    const key = lazy.id + ":" + n;
+    const hit = cache.get(key);
+    if (hit) {
+      cache.delete(key); // re-insert as newest
+      cache.set(key, hit);
+      lazyStats.hits++;
+      return hit;
+    }
+    let end = n;
+    while (end < last && end - n + 1 < MAX_REQUEST / BLOCK && !cache.has(lazy.id + ":" + (end + 1))) end++;
+    const start = n * BLOCK;
+    const stop = Math.min(lazy.file.size, (end + 1) * BLOCK);
+    const t = performance.now();
+    const bytes = readSync(lazy.file, start, stop);
+    lazyStats.requests++;
+    lazyStats.bytes += bytes.length;
+    lazyStats.ms += performance.now() - t;
+    for (let b = n; b <= end; b++) {
+      const piece = bytes.subarray((b - n) * BLOCK, Math.min(bytes.length, (b - n + 1) * BLOCK));
+      // A copy, so evicting one block does not keep the whole request alive.
+      remember(lazy.id + ":" + b, end === n ? piece : piece.slice());
+    }
+    return cache.get(key);
+  }
+
+  function readLazy(lazy, buffer, offset, length, position) {
+    const size = Math.min(lazy.file.size - position, length);
+    if (size <= 0) return 0;
+    const last = Math.floor((position + size - 1) / BLOCK);
+    let done = 0;
+    while (done < size) {
+      const at = position + done;
+      const n = Math.floor(at / BLOCK);
+      const data = block(lazy, n, last);
+      const from = at - n * BLOCK;
+      const count = Math.min(size - done, data.length - from);
+      buffer.set(data.subarray(from, from + count), offset + done);
+      done += count;
+    }
+    return size;
+  }
+
+  // Turns a placeholder into an ordinary MEMFS file holding all its bytes.
+  function materialize(node) {
+    const lazy = node.noberuLazy;
+    if (!lazy) return;
+    const bytes = new Uint8Array(lazy.file.size);
+    readLazy(lazy, bytes, 0, bytes.length, 0);
+    delete node.noberuLazy;
+    node.contents = bytes;
+    node.usedBytes = bytes.length;
+  }
+
+  // One set of stream and node operations for every placeholder, wrapping the
+  // ones MEMFS gave the node.
+  function lazyOps(FS, stream, nodeOps) {
+    const ops = Object.assign({}, stream, {
+      read(s, buffer, offset, length, position) {
+        const lazy = s.node.noberuLazy;
+        if (!lazy) return stream.read.apply(this, arguments);
+        try {
+          return readLazy(lazy, buffer, offset, length, position);
+        } catch (error) {
+          // EIO for Python to raise, rather than a JS error inside a syscall.
+          console.error("noberu: could not read " + lazy.file.name + ":", error);
+          throw new FS.ErrnoError(29);
+        }
+      },
+    });
+    for (const name of ["write", "allocate", "mmap", "msync"]) {
+      if (typeof stream[name] !== "function") continue;
+      ops[name] = function (s) {
+        materialize(s.node);
+        return stream[name].apply(this, arguments);
+      };
+    }
+    const node = Object.assign({}, nodeOps, {
+      setattr(n, attr) {
+        if (attr && attr.size !== undefined && n.noberuLazy) {
+          // Truncated to nothing (a rewrite): no need to read it first.
+          if (attr.size === 0) {
+            delete n.noberuLazy;
+            n.contents = null;
+            n.usedBytes = 0;
+          } else {
+            materialize(n);
+          }
+        }
+        return nodeOps.setattr.apply(this, arguments);
+      },
+    });
+    return { stream: ops, node: node };
+  }
+
+  let ops = null;
+  function writeLazy(FS, path, file) {
+    FS.writeFile(path, new Uint8Array(0));
+    const node = FS.lookupPath(path).node;
+    if (!ops) ops = lazyOps(FS, node.stream_ops, node.node_ops);
+    node.noberuLazy = { id: nextId++, file: file };
+    node.contents = null;
+    node.usedBytes = file.size;
+    node.stream_ops = ops.stream;
+    node.node_ops = ops.node;
+  }
+
+  // The File behind a placeholder, for players that take a blob: URL
+  // (noberu-video.js) rather than reading through the filesystem.
+  function fileAt(FS, path) {
+    try {
+      const node = FS.lookupPath(path).node;
+      return node.noberuLazy ? node.noberuLazy.file : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
   // Writes the picked game into the engine's filesystem. Called from a run
   // dependency, so the engine waits for it before starting the game.
   //
-  // `canOwn` hands the browser's own buffer to the filesystem rather than
-  // copying it in, and reading one file at a time keeps the peak at the largest
-  // single file rather than the whole game.
+  // Big files become placeholders read as needed (above). The rest are read
+  // in whole; `canOwn` hands the browser's own buffer to the filesystem
+  // rather than copying it in.
   async function install(FS, staged, onStatus, key) {
     const overlay = key ? loadOverlay(key) : null;
     const totalMB = Math.round(staged.bytes / (1024 * 1024));
@@ -125,8 +309,12 @@
       const slash = name.lastIndexOf("/");
       if (slash > 0) mkdirp(FS, "/" + name.slice(0, slash));
 
-      FS.writeFile("/" + name, new Uint8Array(await staged.files[i].arrayBuffer()),
-        { canOwn: true });
+      if (staged.files[i].size >= LAZY_MIN_BYTES) {
+        writeLazy(FS, "/" + name, staged.files[i]);
+      } else {
+        FS.writeFile("/" + name, new Uint8Array(await staged.files[i].arrayBuffer()),
+          { canOwn: true });
+      }
 
       done += staged.files[i].size;
       const now = Date.now();
@@ -138,9 +326,36 @@
 
     if (overlay) {
       const changes = await overlay;
-      applyOverlay(FS, changes);
-      trackWrites(FS, key, changes);
+      // The engine's data packages may still be unpacking (the game now
+      // installs in a moment), and files they write are not the game's. So
+      // only the game's own folders are replayed now; the rest, and tracking,
+      // wait until the engine's files are all in.
+      const roots = new Set(staged.names.map((name) => name.split("/")[0]));
+      const inGame = (path) => roots.has(path.split("/")[1]);
+      applyOverlay(FS, changes, inGame);
+      afterEngineFiles(() => {
+        if (applyOverlay(FS, changes, (path) => !inGame(path), true)) saveOverlay(key, changes);
+        trackWrites(FS, key, changes);
+      });
     }
+  }
+
+  // Runs `fn` once every run dependency (data packages included) is done,
+  // just before the engine's main().
+  function afterEngineFiles(fn) {
+    const M = global.Module;
+    if (!M || M.calledRun) {
+      fn();
+      return;
+    }
+    const previous = M.onRuntimeInitialized;
+    M.onRuntimeInitialized = function () {
+      try {
+        fn();
+      } finally {
+        if (previous) previous.apply(this, arguments);
+      }
+    };
   }
 
   // Files a game writes into its own folder. Desktop Ren'Py games can write
@@ -152,8 +367,10 @@
   const OVERLAY_DB = "noberu-renpy-overlay";
   const OVERLAY_MAX_BYTES = 1024 * 1024;
   // Not the game's own files: the engine, saves, caches, compiled scripts
-  // and the logs Ren'Py drops at the top level.
-  const UNTRACKED = /^\/(home|tmp|dev|proc|renpy|lib)\/|^\/game\/(cache|saves)\/|\.rpy[bcm]?c?$|^\/[^/]*$/;
+  // and the logs Ren'Py drops at the top level. Python 2 also rewrites the
+  // engine's own .pyo files (in folders like /http/) on every boot; replaying
+  // those collided with the engine's data package creating the same paths.
+  const UNTRACKED = /^\/(home|tmp|dev|proc|renpy|lib)\/|^\/game\/(cache|saves)\/|\.rpy[bcm]?c?$|\.py[co]$|\/__pycache__\/|^\/[^/]*$/;
 
   function openOverlayDb() {
     return new Promise((resolve, reject) => {
@@ -187,8 +404,18 @@
     }
   }
 
-  function applyOverlay(FS, changes) {
+  // Replays the entries `which` picks. With `skipExisting`, a file that is
+  // already there belongs to the engine (an older noberu tracked those too)
+  // and is dropped from the record; returns whether anything was.
+  function applyOverlay(FS, changes, which, skipExisting) {
+    let dropped = false;
     for (const [path, data] of Object.entries(changes)) {
+      if (!which(path)) continue;
+      if (UNTRACKED.test(path) || (skipExisting && data !== null && exists(FS, path))) {
+        delete changes[path];
+        dropped = true;
+        continue;
+      }
       try {
         if (data === null) {
           FS.unlink(path);
@@ -199,6 +426,16 @@
       } catch (error) {
         // Already gone, or never there: either way the game sees what it left.
       }
+    }
+    return dropped;
+  }
+
+  function exists(FS, path) {
+    try {
+      FS.stat(path);
+      return true;
+    } catch (error) {
+      return false;
     }
   }
 
@@ -274,5 +511,10 @@
     };
   }
 
-  global.NoberuRenPyStage = { prepare: prepare, install: install };
+  global.NoberuRenPyStage = {
+    prepare: prepare,
+    install: install,
+    fileAt: fileAt,
+    lazyStats: () => Object.assign({ cachedMB: Math.round(cachedBytes / 1048576), blocks: cache.size }, lazyStats),
+  };
 })(window);

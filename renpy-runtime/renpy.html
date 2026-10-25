@@ -131,16 +131,15 @@
     // game/ folder onto it in the browser and hands Ren'Py the result as a
     // blob: URL through window.gameZipURL, which its pre-js reads.
     //
-    // Nothing is copied while stitching: the Blob is assembled from the File
-    // objects themselves, so JS memory stays flat. Ren'Py then reads the whole
-    // zip into the wasm heap and unpacks it there, so the game still has to
-    // fit in memory twice over - see BIG_GAME_BYTES.
+    // Only the engine is a zip now: stage.js writes the game's files into
+    // the filesystem itself, reading its big archives as needed, so only the
+    // small files have to fit in memory - see BIG_GAME_BYTES.
 
     const ENGINE_ZIP = "engine-8.5.3.zip";
     const ENGINE_VERSION = [8, 5, 3];
 
-    // Past this the wasm heap is likely to run out while unpacking. Warn
-    // rather than refuse: the real ceiling depends on the browser.
+    // Past this much read in whole (small loose files) memory may run out.
+    // Warn rather than refuse: the real ceiling depends on the browser.
     const BIG_GAME_BYTES = 1200 * 1024 * 1024;
 
     const canvasEl = document.getElementById("canvas");
@@ -192,10 +191,10 @@
         },
       });
 
-      if (staged.bytes > BIG_GAME_BYTES) {
+      if (staged.inMemoryBytes > BIG_GAME_BYTES) {
         post("warning", {
-          message: `This game is ${Math.round(staged.bytes / (1024 * 1024))} MB, which has to fit ` +
-            "in memory all at once. It may run out and crash.",
+          message: `This game has ${Math.round(staged.inMemoryBytes / (1024 * 1024))} MB of small files, which ` +
+            "have to fit in memory all at once. It may run out and crash.",
         });
       }
 
@@ -210,6 +209,10 @@
       // renpy-pre.js sets up Module and the DOM hooks; renpy.js is the
       // Emscripten runtime and starts as soon as it loads.
       await loadScript("renpy-pre.js");
+
+      // Unclamped zero-delay yields while the game loads (patch-glue.py);
+      // cleared at its first frame, below.
+      Module.noberuFastYield = true;
 
       // renpy-pre.js has now created Module and queued its own preRun steps;
       // ours runs alongside them and the engine waits for all of them.
@@ -227,6 +230,7 @@
       // started up.
       const enginePresplashEnd = window.presplashEnd;
       window.presplashEnd = function () {
+        Module.noberuFastYield = false;
         try {
           if (enginePresplashEnd) enginePresplashEnd();
         } finally {
