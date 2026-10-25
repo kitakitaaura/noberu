@@ -11,8 +11,9 @@
  * is listed once per visit: the k-th time it comes up, the k-th entry. The
  * engine reports each choice as it comes up (rlvm:
  * engine/long_operations/select_long_operation.cc; ONScripter:
- * selectCommand, through onscripter-runtime/ons.html) and takes picks back
- * through the frame's noberuSelect().
+ * selectCommand, through onscripter-runtime/ons.html; Ren'Py:
+ * renpy-runtime/noberu-text-hook.js, "label:n" = the n-th menu under that
+ * label) and takes picks back through the frame's noberuSelect().
  *
  *   NoberuWalkthrough.choice(win, {seen, line, options})   from the engine
  *   NoberuWalkthrough.made(win, index)                     from the engine
@@ -26,6 +27,7 @@
     { id: "clannad", frame: "rlvm-frame-wrap", name: /clannad/i, url: "assets/walkthroughs/clannad.json?v=20261023b" },
     { id: "tomoyo-after", frame: "rlvm-frame-wrap", name: /tomoyo\s*after/i, url: "assets/walkthroughs/tomoyo-after.json?v=20261024" },
     { id: "tsukihime", frame: "ons-frame-wrap", name: /tsukihime/i, url: "assets/walkthroughs/tsukihime.json?v=20261024" },
+    { id: "ksre", frame: "renpy-frame-wrap", name: /katawa/i, url: "assets/walkthroughs/ksre.json?v=20261025" },
   ];
 
   const loaded = new Map();       // guide id -> Promise<data>
@@ -263,7 +265,7 @@
     const head = card.querySelector(".nb-menu-head span");
     if (!data) {
       head.textContent = "not for this game yet";
-      card.insertAdjacentHTML("beforeend", `<p class="nb-wt-note">There's no walkthrough for this game yet. CLANNAD, Tomoyo After and Tsukihime have one.</p>`);
+      card.insertAdjacentHTML("beforeend", `<p class="nb-wt-note">There's no walkthrough for this game yet. CLANNAD, Tomoyo After, Tsukihime and Katawa Shoujo have one.</p>`);
       return;
     }
     const render = () => {

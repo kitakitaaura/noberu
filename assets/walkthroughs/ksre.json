@@ -1,0 +1,1330 @@
+{
+ "id": "ksre",
+ "title": "Katawa Shoujo: Re-Engineered",
+ "note": "Follows the NookGaming walkthrough, checked against the game's own script and by playing each ending. Start a new game for an ending.",
+ "where": {
+  "a1_friday.exercise:0": "Act 1 · Friday",
+  "a1_friday.home_field_advantage:0": "Act 1 · Friday",
+  "a1_friday.slow_recovery:0": "Act 1 · Friday",
+  "a1_friday.mind_your_step:0": "Act 1 · Friday",
+  "a1c11o2:0": "Act 1 · Friday",
+  "a1_monday.gateway_effect:0": "Act 1 · Monday",
+  "a1_monday.in_the_nursery:0": "Act 1 · Monday",
+  "a1_saturday.creative_pain:0": "Act 1 · Saturday",
+  "a1_saturday.sip_p2:0": "Act 1 · Saturday",
+  "a1_thursday.cold_war:0": "Act 1 · Thursday",
+  "a1_tuesday.risk_vs_reward:0": "Act 1 · Tuesday",
+  "a1_tuesday.shared_library:0": "Act 1 · Tuesday",
+  "a1_tuesday.bizarre_and_surreal:0": "Act 1 · Tuesday",
+  "a1_wednesday.lunch_evolution_theory:0": "Act 1 · Wednesday",
+  "a1_wednesday.waylay:0": "Act 1 · Wednesday",
+  "a2_emi.famous_last_words:0": "Act 2 · Emi",
+  "a2_hanako:0": "Act 2 · Hanako",
+  "a2_lilly.a_brief_history_of_thyme:0": "Act 2 · Lilly",
+  "a2_rin.studies_in_grayscale:0": "Act 2 · Rin",
+  "a2_rin.things_you_like:0": "Act 2 · Rin",
+  "a2_rin.underwater_and_maple:0": "Act 2 · Rin",
+  "a2_rin.in_her_own_image:0": "Act 2 · Rin",
+  "a2_rin.dandelions:0": "Act 2 · Rin",
+  "a3_emi.definitions:0": "Act 3 · Emi",
+  "a3_emi.phantom_pain:0": "Act 3 · Emi",
+  "a3_emi.debate_expresses_doubt:0": "Act 3 · Emi",
+  "a3_emi.guess_whos_coming_never_mind:0": "Act 3 · Emi",
+  "a3_emi.instant_replay:0": "Act 3 · Emi",
+  "a3_hanako.shady_encounter:0": "Act 3 · Hanako",
+  "a3_hanako.beginning_of_the_end:0": "Act 3 · Hanako",
+  "a3_lilly.minor_discord:0": "Act 3 · Lilly",
+  "a3_lilly.minor_discord:1": "Act 3 · Lilly",
+  "a3_lilly.prelude:0": "Act 3 · Lilly",
+  "a3_lilly.the_momentary_present:0": "Act 3 · Lilly",
+  "a3_rin.badaan:0": "Act 3 · Rin",
+  "a3_rin.rosetinted_glasses:0": "Act 3 · Rin",
+  "a3_rin.boundless:0": "Act 3 · Rin",
+  "a3_rin.things_you_hate:0": "Act 3 · Rin",
+  "a3_shizune.tongue_tied:0": "Act 3 · Shizune",
+  "a4_hanako.faraway_presence:0": "Act 4 · Hanako",
+  "a4_lilly.out_and_about:0": "Act 4 · Lilly",
+  "a4_rin.the_scene:0": "Act 4 · Rin"
+ },
+ "choices": {
+  "a1_friday.exercise:0": [
+   "Will I be able to do more?",
+   "Go for it.",
+   "Take it easy."
+  ],
+  "a1_friday.home_field_advantage:0": [
+   "I don't really want to talk about it with these two.",
+   "Try to dodge the subject.",
+   "Kick them out of my room."
+  ],
+  "a1_friday.slow_recovery:0": [
+   "Yeah, I sure was having fun fun fun at the nurse's office…",
+   "I don't want to talk about it, okay?"
+  ],
+  "a1_friday.mind_your_step:0": [
+   "Lilly noticed it all too quickly…",
+   "Sorry, I'm not in very good condition.",
+   "I don't really want to talk about it."
+  ],
+  "a1c11o2:0": [
+   "I promised to eat with Emi too, but I can't be in two places at the same time.",
+   "I'll go to the lunch with Emi and her friend.",
+   "I'll go with Shizune, after all I'm in the Student Council now."
+  ],
+  "a1_monday.gateway_effect:0": [
+   "Why?",
+   "Yeah, of course."
+  ],
+  "a1_monday.in_the_nursery:0": [
+   "Ask about the library.",
+   "Ask about Shizune's deafness.",
+   "I think I got everything I need to know."
+  ],
+  "a1_saturday.creative_pain:0": [
+   "I wish I knew…",
+   "I just kinda stuck with her, I think.",
+   "I'm interested in the art club."
+  ],
+  "a1_saturday.sip_p2:0": [
+   "There's got to be something to do that can kill the time…",
+   "Go for a walk into town.",
+   "Go to the library."
+  ],
+  "a1_thursday.cold_war:0": [
+   "I don't understand why Shizune is suddenly getting mad at me.",
+   "Don't drag me into this! I've done my part!",
+   "Hey, come on. Cut me and Lilly some slack…"
+  ],
+  "a1_tuesday.risk_vs_reward:0": [
+   "She has a point. Attack aggressively!",
+   "It's a trap, it's smarter to play defensively here."
+  ],
+  "a1_tuesday.shared_library:0": [
+   "It takes too many seconds to collect myself and remember what I walked up to her for.",
+   "Hi! I'm new here. Hisao Nakai. We're in the same class.",
+   "I'm sorry, I didn't mean to startle you."
+  ],
+  "a1_tuesday.bizarre_and_surreal:0": [
+   "I guess it could go either way.",
+   "She was cute.",
+   "She wasn't cute."
+  ],
+  "a1_wednesday.lunch_evolution_theory:0": [
+   "What to do…",
+   "Read my book.",
+   "Go talk with Hanako.",
+   "Wait for Shizune and Misha to come to a decision."
+  ],
+  "a1_wednesday.waylay:0": [
+   "Yes.",
+   "Maybe."
+  ],
+  "a2_emi.famous_last_words:0": [
+   "Still, I feel like I should at least offer to run with her…",
+   "Offer to run with Emi.",
+   "Keep quiet."
+  ],
+  "a2_hanako:0": [
+   "What do you think, Hanako?",
+   "I've done enough work for the council already."
+  ],
+  "a2_lilly.a_brief_history_of_thyme:0": [
+   "Ah, now I've piqued her curiosity. It feels kind of overly personal to talk about though…",
+   "Avoid the subject.",
+   "Tell the truth."
+  ],
+  "a2_rin.studies_in_grayscale:0": [
+   "Her sketch blows my mind.",
+   "You're amazing!",
+   "I wish I was as good as you."
+  ],
+  "a2_rin.things_you_like:0": [
+   "It's refreshing.",
+   "It makes me feel like I'm stuck."
+  ],
+  "a2_rin.underwater_and_maple:0": [
+   "I have to change.",
+   "I want to be more like Rin.",
+   "I want to be more like Emi."
+  ],
+  "a2_rin.in_her_own_image:0": [
+   "I think you'd be a big hit.",
+   "You'd be wasting your talents otherwise.",
+   "You won't get a chance like this again.",
+   "Because it would be exciting.",
+   "It isn't like you at all to hesitate like this.",
+   "You should aim high."
+  ],
+  "a2_rin.dandelions:0": [
+   "What about me?",
+   "What about Emi?"
+  ],
+  "a3_emi.definitions:0": [
+   "Why do I get the feeling that she's convincing herself as well as me?",
+   "Press Emi.",
+   "Let it rest."
+  ],
+  "a3_emi.phantom_pain:0": [
+   "I suppose I can spare a few minutes.",
+   "No, I have other things to worry about."
+  ],
+  "a3_emi.debate_expresses_doubt:0": [
+   "Sure, why not?",
+   "No, this is my problem."
+  ],
+  "a3_emi.guess_whos_coming_never_mind:0": [
+   "How to go about it?",
+   "Go after her.",
+   "Talk to her mom."
+  ],
+  "a3_emi.instant_replay:0": [
+   "I purse my lips, uncertain about how to respond.",
+   "Downplay the issue.",
+   "Give in and let Misha know."
+  ],
+  "a3_hanako.shady_encounter:0": [
+   "Miki certainly doesn't mince words.",
+   "Admit it.",
+   "Deny it."
+  ],
+  "a3_hanako.beginning_of_the_end:0": [
+   "Do you want to go into the city?",
+   "How about we call it a day?"
+  ],
+  "a3_lilly.minor_discord:0": [
+   "I think he's hyperventilating. Passing out for a little while would probably make him more relaxed than he normally is.",
+   "Humor him.",
+   "Ignore his insane ramblings."
+  ],
+  "a3_lilly.minor_discord:1": [
+   "Ask about Hanako.",
+   "Keep it to myself."
+  ],
+  "a3_lilly.prelude:0": [
+   "I sigh. This is exactly the kind of thing I wish others wouldn't do.",
+   "Address it.",
+   "Wave her off."
+  ],
+  "a3_lilly.the_momentary_present:0": [
+   "Talk about Hanako.",
+   "Talk about school."
+  ],
+  "a3_rin.badaan:0": [
+   "I can't make sense of my own thoughts.",
+   "I can't leave her alone either.",
+   "I want to be with her more."
+  ],
+  "a3_rin.rosetinted_glasses:0": [
+   "What am I, for her?",
+   "I want to support her.",
+   "I want to understand her."
+  ],
+  "a3_rin.boundless:0": [
+   "I don't understand what he's trying to say.",
+   "Is that why you're being so supportive of Rin?",
+   "Why did you turn away from being an artist?"
+  ],
+  "a3_rin.things_you_hate:0": [
+   "I need to understand.",
+   "It doesn't matter.",
+   "Then explain."
+  ],
+  "a3_shizune.tongue_tied:0": [
+   "Comfort Misha.",
+   "Refuse."
+  ],
+  "a4_hanako.faraway_presence:0": [
+   "The situation got effectively turned on its head. After everything that's happened, this is the first time I find myself doubting Lilly's judgment.",
+   "Agree with Lilly.",
+   "Trust my own judgment."
+  ],
+  "a4_lilly.out_and_about:0": [
+   "Wrapped in my own little world, I shake my head before remembering the futility of the gesture.",
+   "Mention the letter.",
+   "Drop the subject."
+  ],
+  "a4_rin.the_scene:0": [
+   "But aren't you happy people are interested in your paintings?",
+   "But if you found someone like that, then what?"
+  ]
+ },
+ "routes": [
+  {
+   "id": "emi-good",
+   "name": "Emi · good end",
+   "group": "Emi",
+   "note": "",
+   "end": "emigood_achieve",
+   "path": [
+    [
+     "a1_monday.gateway_effect:0",
+     1,
+     false
+    ],
+    [
+     "a1_monday.in_the_nursery:0",
+     2,
+     false
+    ],
+    [
+     "a1_tuesday.risk_vs_reward:0",
+     0,
+     false
+    ],
+    [
+     "a1_tuesday.shared_library:0",
+     1,
+     false
+    ],
+    [
+     "a1_tuesday.bizarre_and_surreal:0",
+     2,
+     false
+    ],
+    [
+     "a1_wednesday.lunch_evolution_theory:0",
+     1,
+     false
+    ],
+    [
+     "a1_wednesday.waylay:0",
+     0,
+     true
+    ],
+    [
+     "a1_thursday.cold_war:0",
+     2,
+     false
+    ],
+    [
+     "a1_friday.exercise:0",
+     1,
+     true
+    ],
+    [
+     "a2_emi.famous_last_words:0",
+     1,
+     false
+    ],
+    [
+     "a3_emi.definitions:0",
+     1,
+     false
+    ],
+    [
+     "a3_emi.phantom_pain:0",
+     0,
+     true
+    ],
+    [
+     "a3_emi.debate_expresses_doubt:0",
+     0,
+     false
+    ],
+    [
+     "a3_emi.guess_whos_coming_never_mind:0",
+     2,
+     true
+    ]
+   ]
+  },
+  {
+   "id": "emi-bad",
+   "name": "Emi · bad end",
+   "group": "Emi",
+   "note": "",
+   "end": "emibad_achieve",
+   "path": [
+    [
+     "a1_monday.gateway_effect:0",
+     1,
+     false
+    ],
+    [
+     "a1_monday.in_the_nursery:0",
+     2,
+     false
+    ],
+    [
+     "a1_tuesday.risk_vs_reward:0",
+     0,
+     false
+    ],
+    [
+     "a1_tuesday.shared_library:0",
+     1,
+     false
+    ],
+    [
+     "a1_tuesday.bizarre_and_surreal:0",
+     2,
+     false
+    ],
+    [
+     "a1_wednesday.lunch_evolution_theory:0",
+     1,
+     false
+    ],
+    [
+     "a1_wednesday.waylay:0",
+     0,
+     true
+    ],
+    [
+     "a1_thursday.cold_war:0",
+     2,
+     false
+    ],
+    [
+     "a1_friday.exercise:0",
+     1,
+     true
+    ],
+    [
+     "a2_emi.famous_last_words:0",
+     1,
+     false
+    ],
+    [
+     "a3_emi.definitions:0",
+     1,
+     false
+    ],
+    [
+     "a3_emi.phantom_pain:0",
+     0,
+     false
+    ],
+    [
+     "a3_emi.debate_expresses_doubt:0",
+     0,
+     false
+    ],
+    [
+     "a3_emi.guess_whos_coming_never_mind:0",
+     1,
+     true
+    ],
+    [
+     "a3_emi.instant_replay:0",
+     1,
+     true
+    ]
+   ]
+  },
+  {
+   "id": "hanako-good",
+   "name": "Hanako · good end",
+   "group": "Hanako",
+   "note": "",
+   "end": "hanakogood_achieve",
+   "path": [
+    [
+     "a1_monday.gateway_effect:0",
+     1,
+     false
+    ],
+    [
+     "a1_monday.in_the_nursery:0",
+     0,
+     false
+    ],
+    [
+     "a1_tuesday.risk_vs_reward:0",
+     0,
+     false
+    ],
+    [
+     "a1_tuesday.shared_library:0",
+     2,
+     false
+    ],
+    [
+     "a1_tuesday.bizarre_and_surreal:0",
+     1,
+     false
+    ],
+    [
+     "a1_wednesday.lunch_evolution_theory:0",
+     2,
+     true
+    ],
+    [
+     "a1_wednesday.waylay:0",
+     1,
+     true
+    ],
+    [
+     "a1_thursday.cold_war:0",
+     2,
+     true
+    ],
+    [
+     "a1_friday.mind_your_step:0",
+     1,
+     true
+    ],
+    [
+     "a1_saturday.sip_p2:0",
+     2,
+     true
+    ],
+    [
+     "a2_hanako:0",
+     0,
+     false
+    ],
+    [
+     "a3_hanako.shady_encounter:0",
+     1,
+     false
+    ],
+    [
+     "a3_hanako.beginning_of_the_end:0",
+     0,
+     true
+    ],
+    [
+     "a4_hanako.faraway_presence:0",
+     1,
+     true
+    ]
+   ]
+  },
+  {
+   "id": "hanako-neutral",
+   "name": "Hanako · neutral end",
+   "group": "Hanako",
+   "note": "",
+   "end": "hanakoneutral_achieve",
+   "path": [
+    [
+     "a1_monday.gateway_effect:0",
+     1,
+     false
+    ],
+    [
+     "a1_monday.in_the_nursery:0",
+     0,
+     false
+    ],
+    [
+     "a1_tuesday.risk_vs_reward:0",
+     0,
+     false
+    ],
+    [
+     "a1_tuesday.shared_library:0",
+     2,
+     false
+    ],
+    [
+     "a1_tuesday.bizarre_and_surreal:0",
+     1,
+     false
+    ],
+    [
+     "a1_wednesday.lunch_evolution_theory:0",
+     2,
+     true
+    ],
+    [
+     "a1_wednesday.waylay:0",
+     1,
+     true
+    ],
+    [
+     "a1_thursday.cold_war:0",
+     2,
+     true
+    ],
+    [
+     "a1_friday.mind_your_step:0",
+     1,
+     true
+    ],
+    [
+     "a1_saturday.sip_p2:0",
+     2,
+     true
+    ],
+    [
+     "a2_hanako:0",
+     0,
+     false
+    ],
+    [
+     "a3_hanako.shady_encounter:0",
+     1,
+     false
+    ],
+    [
+     "a3_hanako.beginning_of_the_end:0",
+     0,
+     true
+    ],
+    [
+     "a4_hanako.faraway_presence:0",
+     2,
+     true
+    ]
+   ]
+  },
+  {
+   "id": "hanako-bad",
+   "name": "Hanako · bad end",
+   "group": "Hanako",
+   "note": "",
+   "end": "hanakobad_achieve",
+   "path": [
+    [
+     "a1_monday.gateway_effect:0",
+     1,
+     false
+    ],
+    [
+     "a1_monday.in_the_nursery:0",
+     0,
+     false
+    ],
+    [
+     "a1_tuesday.risk_vs_reward:0",
+     0,
+     false
+    ],
+    [
+     "a1_tuesday.shared_library:0",
+     2,
+     false
+    ],
+    [
+     "a1_tuesday.bizarre_and_surreal:0",
+     1,
+     false
+    ],
+    [
+     "a1_wednesday.lunch_evolution_theory:0",
+     2,
+     true
+    ],
+    [
+     "a1_wednesday.waylay:0",
+     1,
+     true
+    ],
+    [
+     "a1_thursday.cold_war:0",
+     2,
+     true
+    ],
+    [
+     "a1_friday.mind_your_step:0",
+     1,
+     true
+    ],
+    [
+     "a1_saturday.sip_p2:0",
+     2,
+     true
+    ],
+    [
+     "a2_hanako:0",
+     1,
+     false
+    ],
+    [
+     "a3_hanako.shady_encounter:0",
+     2,
+     false
+    ],
+    [
+     "a3_hanako.beginning_of_the_end:0",
+     1,
+     true
+    ],
+    [
+     "a4_hanako.faraway_presence:0",
+     1,
+     false
+    ]
+   ]
+  },
+  {
+   "id": "lilly-good",
+   "name": "Lilly · good end",
+   "group": "Lilly",
+   "note": "",
+   "end": "lillygood_achieve",
+   "path": [
+    [
+     "a1_monday.gateway_effect:0",
+     1,
+     false
+    ],
+    [
+     "a1_monday.in_the_nursery:0",
+     0,
+     false
+    ],
+    [
+     "a1_tuesday.risk_vs_reward:0",
+     0,
+     false
+    ],
+    [
+     "a1_tuesday.shared_library:0",
+     2,
+     false
+    ],
+    [
+     "a1_tuesday.bizarre_and_surreal:0",
+     1,
+     false
+    ],
+    [
+     "a1_wednesday.lunch_evolution_theory:0",
+     2,
+     true
+    ],
+    [
+     "a1_wednesday.waylay:0",
+     1,
+     true
+    ],
+    [
+     "a1_thursday.cold_war:0",
+     2,
+     true
+    ],
+    [
+     "a1_friday.mind_your_step:0",
+     1,
+     true
+    ],
+    [
+     "a1_saturday.sip_p2:0",
+     1,
+     true
+    ],
+    [
+     "a2_lilly.a_brief_history_of_thyme:0",
+     2,
+     true
+    ],
+    [
+     "a3_lilly.minor_discord:0",
+     1,
+     false
+    ],
+    [
+     "a3_lilly.minor_discord:1",
+     0,
+     false
+    ],
+    [
+     "a3_lilly.prelude:0",
+     1,
+     true
+    ],
+    [
+     "a3_lilly.the_momentary_present:0",
+     0,
+     false
+    ],
+    [
+     "a4_lilly.out_and_about:0",
+     1,
+     true
+    ]
+   ]
+  },
+  {
+   "id": "lilly-neutral",
+   "name": "Lilly · neutral end",
+   "group": "Lilly",
+   "note": "",
+   "end": "lillyneutral_achieve",
+   "path": [
+    [
+     "a1_monday.gateway_effect:0",
+     1,
+     false
+    ],
+    [
+     "a1_monday.in_the_nursery:0",
+     0,
+     false
+    ],
+    [
+     "a1_tuesday.risk_vs_reward:0",
+     0,
+     false
+    ],
+    [
+     "a1_tuesday.shared_library:0",
+     2,
+     false
+    ],
+    [
+     "a1_tuesday.bizarre_and_surreal:0",
+     1,
+     false
+    ],
+    [
+     "a1_wednesday.lunch_evolution_theory:0",
+     2,
+     true
+    ],
+    [
+     "a1_wednesday.waylay:0",
+     1,
+     true
+    ],
+    [
+     "a1_thursday.cold_war:0",
+     2,
+     true
+    ],
+    [
+     "a1_friday.mind_your_step:0",
+     1,
+     true
+    ],
+    [
+     "a1_saturday.sip_p2:0",
+     1,
+     true
+    ],
+    [
+     "a2_lilly.a_brief_history_of_thyme:0",
+     2,
+     false
+    ],
+    [
+     "a3_lilly.minor_discord:0",
+     1,
+     false
+    ],
+    [
+     "a3_lilly.minor_discord:1",
+     0,
+     false
+    ],
+    [
+     "a3_lilly.prelude:0",
+     1,
+     false
+    ],
+    [
+     "a3_lilly.the_momentary_present:0",
+     0,
+     false
+    ],
+    [
+     "a4_lilly.out_and_about:0",
+     2,
+     true
+    ]
+   ]
+  },
+  {
+   "id": "rin-good",
+   "name": "Rin · good end",
+   "group": "Rin",
+   "note": "",
+   "end": "ringood_achieve",
+   "path": [
+    [
+     "a1_monday.gateway_effect:0",
+     0,
+     false
+    ],
+    [
+     "a1_monday.in_the_nursery:0",
+     2,
+     false
+    ],
+    [
+     "a1_tuesday.risk_vs_reward:0",
+     0,
+     false
+    ],
+    [
+     "a1_tuesday.shared_library:0",
+     2,
+     false
+    ],
+    [
+     "a1_tuesday.bizarre_and_surreal:0",
+     2,
+     false
+    ],
+    [
+     "a1_wednesday.lunch_evolution_theory:0",
+     1,
+     true
+    ],
+    [
+     "a1_wednesday.waylay:0",
+     0,
+     false
+    ],
+    [
+     "a1_thursday.cold_war:0",
+     1,
+     false
+    ],
+    [
+     "a1_friday.exercise:0",
+     2,
+     true
+    ],
+    [
+     "a1_friday.mind_your_step:0",
+     1,
+     true
+    ],
+    [
+     "a1_saturday.creative_pain:0",
+     2,
+     true
+    ],
+    [
+     "a2_rin.studies_in_grayscale:0",
+     2,
+     false
+    ],
+    [
+     "a2_rin.things_you_like:0",
+     0,
+     false
+    ],
+    [
+     "a2_rin.underwater_and_maple:0",
+     1,
+     false
+    ],
+    [
+     "a2_rin.in_her_own_image:0",
+     4,
+     false
+    ],
+    [
+     "a2_rin.dandelions:0",
+     0,
+     false
+    ],
+    [
+     "a3_rin.rosetinted_glasses:0",
+     2,
+     false
+    ],
+    [
+     "a3_rin.boundless:0",
+     1,
+     false
+    ],
+    [
+     "a3_rin.things_you_hate:0",
+     0,
+     true
+    ],
+    [
+     "a4_rin.the_scene:0",
+     1,
+     true
+    ]
+   ]
+  },
+  {
+   "id": "rin-neutral",
+   "name": "Rin · neutral end",
+   "group": "Rin",
+   "note": "",
+   "end": "rinneutral_achieve",
+   "path": [
+    [
+     "a1_monday.gateway_effect:0",
+     0,
+     false
+    ],
+    [
+     "a1_monday.in_the_nursery:0",
+     2,
+     false
+    ],
+    [
+     "a1_tuesday.risk_vs_reward:0",
+     0,
+     false
+    ],
+    [
+     "a1_tuesday.shared_library:0",
+     2,
+     false
+    ],
+    [
+     "a1_tuesday.bizarre_and_surreal:0",
+     2,
+     false
+    ],
+    [
+     "a1_wednesday.lunch_evolution_theory:0",
+     1,
+     true
+    ],
+    [
+     "a1_wednesday.waylay:0",
+     0,
+     false
+    ],
+    [
+     "a1_thursday.cold_war:0",
+     1,
+     false
+    ],
+    [
+     "a1_friday.exercise:0",
+     2,
+     true
+    ],
+    [
+     "a1_friday.mind_your_step:0",
+     1,
+     true
+    ],
+    [
+     "a1_saturday.creative_pain:0",
+     2,
+     true
+    ],
+    [
+     "a2_rin.studies_in_grayscale:0",
+     2,
+     false
+    ],
+    [
+     "a2_rin.things_you_like:0",
+     0,
+     false
+    ],
+    [
+     "a2_rin.underwater_and_maple:0",
+     1,
+     false
+    ],
+    [
+     "a2_rin.in_her_own_image:0",
+     4,
+     false
+    ],
+    [
+     "a2_rin.dandelions:0",
+     0,
+     false
+    ],
+    [
+     "a3_rin.rosetinted_glasses:0",
+     2,
+     false
+    ],
+    [
+     "a3_rin.boundless:0",
+     1,
+     false
+    ],
+    [
+     "a3_rin.things_you_hate:0",
+     0,
+     true
+    ],
+    [
+     "a4_rin.the_scene:0",
+     0,
+     true
+    ]
+   ]
+  },
+  {
+   "id": "rin-bad",
+   "name": "Rin · bad end",
+   "group": "Rin",
+   "note": "",
+   "end": "rinbad_achieve",
+   "path": [
+    [
+     "a1_monday.gateway_effect:0",
+     0,
+     false
+    ],
+    [
+     "a1_monday.in_the_nursery:0",
+     2,
+     false
+    ],
+    [
+     "a1_tuesday.risk_vs_reward:0",
+     0,
+     false
+    ],
+    [
+     "a1_tuesday.shared_library:0",
+     2,
+     false
+    ],
+    [
+     "a1_tuesday.bizarre_and_surreal:0",
+     2,
+     false
+    ],
+    [
+     "a1_wednesday.lunch_evolution_theory:0",
+     1,
+     true
+    ],
+    [
+     "a1_wednesday.waylay:0",
+     0,
+     false
+    ],
+    [
+     "a1_thursday.cold_war:0",
+     1,
+     false
+    ],
+    [
+     "a1_friday.exercise:0",
+     2,
+     true
+    ],
+    [
+     "a1_friday.mind_your_step:0",
+     1,
+     true
+    ],
+    [
+     "a1_saturday.creative_pain:0",
+     2,
+     true
+    ],
+    [
+     "a2_rin.studies_in_grayscale:0",
+     2,
+     false
+    ],
+    [
+     "a2_rin.things_you_like:0",
+     0,
+     false
+    ],
+    [
+     "a2_rin.underwater_and_maple:0",
+     1,
+     false
+    ],
+    [
+     "a2_rin.in_her_own_image:0",
+     4,
+     false
+    ],
+    [
+     "a2_rin.dandelions:0",
+     0,
+     false
+    ],
+    [
+     "a3_rin.rosetinted_glasses:0",
+     2,
+     false
+    ],
+    [
+     "a3_rin.boundless:0",
+     1,
+     false
+    ],
+    [
+     "a3_rin.things_you_hate:0",
+     2,
+     true
+    ]
+   ]
+  },
+  {
+   "id": "shizune-good",
+   "name": "Shizune · good end",
+   "group": "Shizune",
+   "note": "",
+   "end": "shizunegood_achieve",
+   "path": [
+    [
+     "a1_monday.gateway_effect:0",
+     1,
+     true
+    ],
+    [
+     "a1_monday.in_the_nursery:0",
+     1,
+     false
+    ],
+    [
+     "a1_tuesday.risk_vs_reward:0",
+     0,
+     true
+    ],
+    [
+     "a1_tuesday.shared_library:0",
+     2,
+     false
+    ],
+    [
+     "a1_tuesday.bizarre_and_surreal:0",
+     2,
+     false
+    ],
+    [
+     "a1_wednesday.lunch_evolution_theory:0",
+     3,
+     true
+    ],
+    [
+     "a1_wednesday.waylay:0",
+     1,
+     true
+    ],
+    [
+     "a1_thursday.cold_war:0",
+     1,
+     true
+    ],
+    [
+     "a1_friday.home_field_advantage:0",
+     1,
+     true
+    ],
+    [
+     "a3_shizune.tongue_tied:0",
+     1,
+     true
+    ]
+   ]
+  },
+  {
+   "id": "shizune-bad",
+   "name": "Shizune · bad end",
+   "group": "Shizune",
+   "note": "",
+   "end": "shizunebad_achieve",
+   "path": [
+    [
+     "a1_monday.gateway_effect:0",
+     1,
+     true
+    ],
+    [
+     "a1_monday.in_the_nursery:0",
+     1,
+     false
+    ],
+    [
+     "a1_tuesday.risk_vs_reward:0",
+     0,
+     true
+    ],
+    [
+     "a1_tuesday.shared_library:0",
+     2,
+     false
+    ],
+    [
+     "a1_tuesday.bizarre_and_surreal:0",
+     2,
+     false
+    ],
+    [
+     "a1_wednesday.lunch_evolution_theory:0",
+     3,
+     true
+    ],
+    [
+     "a1_wednesday.waylay:0",
+     1,
+     true
+    ],
+    [
+     "a1_thursday.cold_war:0",
+     1,
+     true
+    ],
+    [
+     "a1_friday.home_field_advantage:0",
+     1,
+     true
+    ],
+    [
+     "a3_shizune.tongue_tied:0",
+     0,
+     true
+    ]
+   ]
+  },
+  {
+   "id": "kenji",
+   "name": "Kenji · bad end",
+   "group": "Act 1",
+   "note": "Act 1's bad end. Some guides say to finish the other endings first; this version doesn't need that.",
+   "end": "kenji_achieve",
+   "path": [
+    [
+     "a1_monday.gateway_effect:0",
+     1,
+     true
+    ],
+    [
+     "a1_monday.in_the_nursery:0",
+     1,
+     false
+    ],
+    [
+     "a1_tuesday.risk_vs_reward:0",
+     0,
+     true
+    ],
+    [
+     "a1_tuesday.shared_library:0",
+     2,
+     false
+    ],
+    [
+     "a1_tuesday.bizarre_and_surreal:0",
+     2,
+     false
+    ],
+    [
+     "a1_wednesday.lunch_evolution_theory:0",
+     3,
+     true
+    ],
+    [
+     "a1_wednesday.waylay:0",
+     0,
+     true
+    ],
+    [
+     "a1_thursday.cold_war:0",
+     1,
+     true
+    ],
+    [
+     "a1_friday.exercise:0",
+     1,
+     true
+    ],
+    [
+     "a1_friday.slow_recovery:0",
+     0,
+     true
+    ]
+   ]
+  }
+ ]
+}
