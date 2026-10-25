@@ -293,23 +293,28 @@
       // so the bytes come back as "x-user-defined" text, where each char code
       // is one byte (high bytes land at U+F780-U+F7FF; & 0xff recovers them).
       // Big files go in 8 MB pieces to keep the temporary string small.
+      // Text decoding still sniffs for a byte order mark, which beats the
+      // charset asked for: a piece starting EF BB BF lost those bytes and one
+      // starting FF FE or FE FF came back as UTF-16. So every piece starts
+      // with one zero byte, dropped again below.
       const SYNC_PIECE = 8 * 1024 * 1024;
+      const SYNC_PAD = new Uint8Array(1);
       function readSync(file, relative) {
         const size = file.size;
         const bytes = new Uint8Array(size);
         for (let offset = 0; offset < size; offset += SYNC_PIECE) {
           const end = Math.min(offset + SYNC_PIECE, size);
-          const url = URL.createObjectURL(file.slice(offset, end));
+          const url = URL.createObjectURL(new Blob([SYNC_PAD, file.slice(offset, end)]));
           try {
             const xhr = new XMLHttpRequest();
             xhr.open("GET", url, false);
             xhr.overrideMimeType("text/plain; charset=x-user-defined");
             xhr.send();
             const text = xhr.responseText;
-            if (xhr.status !== 200 && xhr.status !== 0 || text.length !== end - offset) {
-              throw new Error(`read ${text.length} of ${end - offset} bytes at ${offset}`);
+            if (xhr.status !== 200 && xhr.status !== 0 || text.length !== end - offset + 1) {
+              throw new Error(`read ${text.length - 1} of ${end - offset} bytes at ${offset}`);
             }
-            for (let i = 0; i < text.length; i++) bytes[offset + i] = text.charCodeAt(i) & 0xff;
+            for (let i = 1; i < text.length; i++) bytes[offset + i - 1] = text.charCodeAt(i) & 0xff;
           } catch (error) {
             throw new Error(`Could not read "${relative}": ${error.message || error}`);
           } finally {
