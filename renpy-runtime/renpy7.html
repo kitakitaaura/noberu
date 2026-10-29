@@ -918,12 +918,21 @@
       // Powersave drops the framerate when Ren'Py thinks the game is idle,
       // which on a laptop reads as stutter. This build has no renpy_exec, so
       // the preference is set through the interpreter directly.
+      // Ren'Py's image cache kept to its budget while the game runs, and on touch
+      // screens a 128 MB budget and images looked for 8 statements ahead
+      // (noberu_patches.keep_image_cache). A phone browser kills a tab that
+      // outgrows its memory, without a word.
+      const IMAGE_CACHE_PY =
+        "import noberu_patches\n" +
+        `noberu_patches.keep_image_cache(${matchMedia("(pointer: coarse)").matches ? "128, 8" : "None"})\n`;
+
       function applyPerformancePreferences() {
         try {
           Module.ccall("PyRun_SimpleString", "number", ["string"], [
             "import renpy\n" +
             "renpy.game.preferences.gl_powersave = False\n" +
-            "renpy.game.preferences.gl_framerate = None\n"
+            "renpy.game.preferences.gl_framerate = None\n" +
+            IMAGE_CACHE_PY
           ]);
         } catch (error) {
           console.warn("[renpy] could not set performance preferences", error);

@@ -82,6 +82,15 @@ engine's filesystem directly, from a run dependency the engine waits on.
      `MessageChannel` message instead of `setTimeout`, which browsers clamp to
      4 ms; KSRE yields ~780 times before its first frame. Both pages set
      `Module.noberuFastYield` at boot and clear it at the first frame.
+- **Image cache on the web** (`noberu_patches.py` `keep_image_cache`, called by
+  both pages once the game runs): Ren'Py trims its image cache only in idle
+  frames on Emscripten, and a frame is never idle while anything animates, so
+  during animated scenes, skipping or quick taps the cache grew past its budget
+  without limit (KSRE asks for 400 MB; 1.5 GB of textures within minutes). A
+  phone browser then kills the tab and reloads it with no error. It is now
+  trimmed five times a second, with the textures it lets go of freed at once,
+  and on touch screens the budget is 128 MB and Ren'Py looks ahead 8 statements
+  for images instead of 32.
 - **Textures** (`noberu_patches.py`): Ren'Py frees a GL texture from
   `Texture.__del__`, which is Cython and only exists on Python 3, so the 7.x
   runtime never freed one: Butterfly Soup's GPU memory grew ~400 MB a scene

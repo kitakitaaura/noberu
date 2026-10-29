@@ -139,6 +139,64 @@ def patch_video():
     renpysound.read_video = hook
 
 
+# The image cache on the web. Ren'Py keeps decoded images (in wasm memory) and
+# their GL textures in renpy.display.im.cache, and trims it back to its budget
+# (config.image_cache_size_mb) in cleanout(). On the desktop a preload thread
+# does that; on Emscripten it only happens in the interaction loop's idle-time
+# step, which never comes while the game is busy - animation, quick clicks,
+# skipping, or a phone with no spare frame time. KSRE asks for 400 MB and held
+# 1.5 GB of textures within minutes, and a phone browser kills the tab without
+# a word. So the cache is trimmed five times a second from a periodic callback
+# (and the textures it lets go of freed then too),
+# and the page can lower the budget and how many statements ahead Ren'Py loads
+# images for (it does both on touch screens; images it predicts are pinned for
+# the current interaction, so a long look-ahead can outgrow a small budget).
+#
+# The page calls this once the game is running, after the game's own init has
+# set its config.
+
+def keep_image_cache(limit_mb=None, predict=None):
+    import time
+    import renpy
+
+    cache = renpy.display.im.cache
+
+    if limit_mb:
+        current_mb = cache.cache_limit * 4 // (1024 * 1024)
+        if not current_mb or limit_mb < current_mb:
+            # Through config too, so a display restart (cache.init) keeps it.
+            renpy.config.image_cache_size = None
+            renpy.config.image_cache_size_mb = limit_mb
+            cache.cache_limit = int(limit_mb * 1024 * 1024 // 4)
+
+    if predict is not None and predict < renpy.config.predict_statements:
+        renpy.config.predict_statements = predict
+
+    if getattr(cache, "_noberu_kept", False):
+        return
+    cache._noberu_kept = True
+
+    last = [0.0]
+
+    def trim():
+        now = time.time()
+        if now - last[0] < 0.2:
+            return
+        last[0] = now
+        try:
+            with cache.lock:
+                cache.cleanout()
+            # Textures Python has let go of wait in the loader's free list
+            # until a frame is drawn, and skipping or a long load draws few.
+            loader = getattr(renpy.display.draw, "texture_loader", None)
+            if loader is not None:
+                loader.cleanup()
+        except Exception as error:
+            cache._noberu_error = repr(error)
+
+    renpy.config.periodic_callbacks.append(trim)
+
+
 # GL textures on Python 2 (the 7.x runtime): Ren'Py frees a texture from
 # Texture.__del__, which queues its GL name for TextureLoader.cleanup(). That
 # __del__ is written in Cython, where it only works on Python 3, so on the
