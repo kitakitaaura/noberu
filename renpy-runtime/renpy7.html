@@ -734,6 +734,7 @@
     </script>
     <script src="noberu-loading.js"></script>
     <script src="noberu-text-hook.js"></script>
+    <script src="noberu-crash-report.js"></script>
     <script src="noberu-video.js"></script>
     <script src="stage.js"></script>
     <script src="dev.js"></script>
@@ -871,6 +872,7 @@
       window.presplashEnd = function () {
         Module.noberuFastYield = false;
         NoberuLoading.done();
+        NoberuCrashReport.running();
         try {
           shellPresplashEnd();
         } finally {
@@ -944,6 +946,7 @@
       async function boot(root, fileList) {
         if (started) return;
         started = true;
+        NoberuCrashReport.start(root);
 
         const staged = await NoberuRenPyStage.prepare({
           fileList: fileList,

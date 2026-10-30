@@ -20,6 +20,11 @@ in `../index.html` reads `game/script_version.txt` and loads the matching page:
 Shared:
 
 - `stage.js`: builds the `game.zip` both runtimes boot from (below).
+- `noberu-crash-report.js`: a phone browser that runs out of memory reloads
+  the tab without a word. While a game runs, this keeps the wasm heap (and
+  each time it grew, with the line on screen), live GL textures, the block
+  cache and the last line in localStorage every 3 s; if the next boot finds
+  the last run never closed normally, a card in the frame shows them.
 - `noberu-loading.js`: the loading screen, in noberu's style (the same look
   as kirikiri-runtime's `noberu-skin.css`): noberu's wordmark, a hairline bar
   and one line of status in the middle, an error card when something fails. Ren'Py's own
@@ -55,7 +60,7 @@ engine's filesystem directly, from a run dependency the engine waits on.
 - **Files read as needed** (`stage.js`): files of 512 KB or more (in practice
   the `.rpa` archives) are placeholders that report their real size and read
   their bytes from the picked `File` when Ren'Py asks, in 1 MB blocks kept in
-  a least-recently-used cache (192 MB, 96 MB on touch screens). Ren'Py reads
+  a least-recently-used cache (192 MB, 48 MB on touch screens). Ren'Py reads
   synchronously, so a block is read with a synchronous `XMLHttpRequest` of a
   `blob:` URL, as rlvm-runtime does. Each request starts with one padding
   byte: text decoding sniffs for a byte order mark even under
