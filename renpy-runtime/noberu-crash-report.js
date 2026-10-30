@@ -149,6 +149,7 @@
     run.textureMB = mb(textureBytes);
     run.textures = textures.size;
     run.audioMB = mb(audioBytes);
+    if (global.NoberuAudio) Object.assign(run, global.NoberuAudio.stats());
     run.peakTextureMB = Math.max(run.peakTextureMB || 0, run.textureMB);
     run.peakAudioMB = Math.max(run.peakAudioMB || 0, run.audioMB);
     const stage = global.NoberuRenPyStage;
@@ -192,7 +193,8 @@
     const details = [
       `wasm ${p.wasmMB} MB`,
       `textures ${p.textureMB} MB (${p.textures})` + (p.peakTextureMB > p.textureMB ? `, peak ${p.peakTextureMB}` : ""),
-      p.audioMB != null ? `audio ${p.audioMB} MB` + (p.peakAudioMB > p.audioMB ? `, peak ${p.peakAudioMB}` : "") : null,
+      p.audioMB != null ? `audio ${p.audioMB} MB` + (p.peakAudioMB > p.audioMB ? `, peak ${p.peakAudioMB}` : "") +
+        (p.decoded != null ? ` (${p.decoded} decoded, ${p.reused} reused)` : "") : null,
       p.fileCacheMB != null ? `file cache ${p.fileCacheMB} MB` : null,
       p.jsMB != null ? `js ${p.jsMB} MB` : null,
       p.hidden ? "in the background" : null,

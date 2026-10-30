@@ -26,6 +26,13 @@ Shared:
   audio (and their peaks), the block cache, the last line and the browser in
   localStorage every second; if the next boot finds the last run never closed
   normally, a card in the frame shows them.
+- `noberu-audio.js`: Ren'Py's web audio decodes a whole track (~50 MB a
+  song) every time it is queued, unless that file is already loaded on the
+  channel. This hands back the buffer already decoded from the same bytes
+  while it is still alive (a WeakRef, so it keeps nothing alive itself), and
+  shares a decode already in progress. An iPhone reached 673 MB of decoded
+  audio a minute into Katawa Shoujo; the crash card now counts decodes and
+  reuses to show which way that went.
 - `noberu-loading.js`: the loading screen, in noberu's style (the same look
   as kirikiri-runtime's `noberu-skin.css`): noberu's wordmark, a hairline bar
   and one line of status in the middle, an error card when something fails. Ren'Py's own
