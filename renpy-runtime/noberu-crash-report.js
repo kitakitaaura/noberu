@@ -195,6 +195,8 @@
       `textures ${p.textureMB} MB (${p.textures})` + (p.peakTextureMB > p.textureMB ? `, peak ${p.peakTextureMB}` : ""),
       p.audioMB != null ? `audio ${p.audioMB} MB` + (p.peakAudioMB > p.audioMB ? `, peak ${p.peakAudioMB}` : "") +
         (p.decoded != null ? ` (${p.decoded} decoded, ${p.reused} reused)` : "") : null,
+      p.decodes && p.decodes.length ? "decoded " + p.decodes.map((d) => `${d[0]} ×${d[1]}`).join(", ") : null,
+      p.audioState && p.audioState !== "running" ? `sound ${p.audioState}` : null,
       p.fileCacheMB != null ? `file cache ${p.fileCacheMB} MB` : null,
       p.jsMB != null ? `js ${p.jsMB} MB` : null,
       p.hidden ? "in the background" : null,

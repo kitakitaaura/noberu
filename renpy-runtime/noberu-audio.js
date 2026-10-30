@@ -14,13 +14,47 @@
 // keeps nothing alive itself), and a decode of bytes already being decoded
 // waits for that one. Both runtime pages load this before the engine.
 //
-//   NoberuAudio.stats()   { decoded, reused }
+// iOS starts a page's audio only from a tap, and Ren'Py resumes its context
+// from its main loop, never from one; so any tap or key resumes it here.
+//
+// After that card, the next one (30 decoded, 3 reused, 779 MB) still could not
+// be reproduced in Chrome or WebKit, so each decode is also noted by the name
+// Ren'Py queued it under, with the audio's state then, for the crash card.
+//
+//   NoberuAudio.stats()   { decoded, reused, decodes: [[name, times], ...], audioState }
 (function (global) {
   "use strict";
 
   const alive = new Map(); // key -> WeakRef(AudioBuffer)
   const pending = new Map(); // key -> Promise(AudioBuffer)
   const stats = { decoded: 0, reused: 0 };
+  const names = new Map(); // name Ren'Py queued -> times decoded
+  let queuing = null; // the name being queued while renpyAudio.queue runs
+
+  const hook = setInterval(() => {
+    const audio = global.renpyAudio;
+    if (!audio || typeof audio.queue !== "function") return;
+    clearInterval(hook);
+    const queue = audio.queue;
+    audio.queue = function (channel, file, name) {
+      queuing = String(name || file).split("/").pop();
+      try {
+        return queue.apply(this, arguments);
+      } finally {
+        queuing = null;
+      }
+    };
+  }, 200);
+
+  function unlock() {
+    const context = global.renpyAudio && global.renpyAudio.context;
+    if (context && context.state !== "running" && context.state !== "closed") {
+      context.resume().catch(() => {});
+    }
+  }
+  for (const type of ["touchend", "pointerup", "click", "keydown"]) {
+    global.addEventListener(type, unlock, true);
+  }
 
   // The bytes' identity: length plus a hash of the first and last 64 KB.
   function key(data) {
@@ -59,6 +93,8 @@
         result = pending.get(k);
       } else {
         stats.decoded++;
+        const name = queuing || "?";
+        names.set(name, (names.get(name) || 0) + 1);
         result = decode.call(this, data);
         if (k) {
           pending.set(k, result);
@@ -78,5 +114,13 @@
     };
   }
 
-  global.NoberuAudio = { stats: () => Object.assign({}, stats) };
+  global.NoberuAudio = {
+    stats: () => {
+      const context = global.renpyAudio && global.renpyAudio.context;
+      return Object.assign({}, stats, {
+        decodes: [...names].sort((a, b) => b[1] - a[1]).slice(0, 6),
+        audioState: context ? context.state : null,
+      });
+    },
+  };
 })(window);
