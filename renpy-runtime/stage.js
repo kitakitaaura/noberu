@@ -129,7 +129,7 @@
   // Several blocks in one request when a read spans them.
   const MAX_REQUEST = 16 * BLOCK;
   const touch = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
-  const CACHE_BYTES = (touch ? 48 : 192) * 1024 * 1024;
+  const CACHE_BYTES = (touch ? 24 : 192) * 1024 * 1024;
 
   const cache = new Map(); // "id:block" -> Uint8Array, oldest first
   let cachedBytes = 0;

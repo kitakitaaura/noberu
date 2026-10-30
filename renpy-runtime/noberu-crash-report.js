@@ -2,9 +2,10 @@
 //
 // A phone browser that runs out of memory kills the tab and loads it again
 // without a word, so nobody can tell why a game "just reloaded". While a game
-// runs, this keeps a few numbers in localStorage every 3 s: the wasm heap
-// (and each time it grew), the GL textures alive, stage.js's block cache, and
-// the last line of dialogue; growth counts from the game's first frame, since
+// runs, this keeps a few numbers in localStorage every second: the wasm heap
+// (and each time it grew), the GL textures and decoded audio alive (and their
+// peaks), stage.js's block cache, the last line of dialogue and the browser;
+// growth counts from the game's first frame, since
 // loading itself grows the heap. A page that closes normally marks the record
 // closed (pagehide). If the next boot finds it still open, the game ended
 // some other way, and a card at the top of the frame says what things looked
@@ -71,6 +72,39 @@
     };
   }
 
+  // Decoded audio alive (Ren'Py's web audio decodes each track whole: ~50 MB
+  // a song), dropped as the browser collects each AudioBuffer.
+  let audioBytes = 0;
+  const audioGone = typeof FinalizationRegistry === "function"
+    ? new FinalizationRegistry((bytes) => { audioBytes -= bytes; })
+    : null;
+  for (const C of [global.AudioContext, global.webkitAudioContext]) {
+    if (!C || !C.prototype.decodeAudioData) continue;
+    const decode = C.prototype.decodeAudioData;
+    C.prototype.decodeAudioData = function (data, done, failed) {
+      const counted = (buffer) => {
+        if (buffer && audioGone) {
+          const bytes = buffer.length * buffer.numberOfChannels * 4;
+          audioBytes += bytes;
+          audioGone.register(buffer, bytes);
+        }
+        return buffer;
+      };
+      const wrapped = typeof done === "function" ? (buffer) => done(counted(buffer)) : done;
+      const result = decode.call(this, data, wrapped, failed);
+      return result && typeof done !== "function" ? result.then(counted) : result;
+    };
+  }
+
+  // "iPhone; CPU iPhone OS 18_6 like Mac OS X · Version/18.6", for the card.
+  function browser() {
+    const ua = navigator.userAgent || "";
+    const platform = (ua.match(/\(([^)]+)\)/) || [])[1] || "";
+    const name = (ua.match(/(CriOS|FxiOS|EdgiOS|EdgA|SamsungBrowser|Firefox|Chrome|Version)\/[\d.]+/) || [])[0] || "";
+    const memory = navigator.deviceMemory ? ` · ${navigator.deviceMemory} GB` : "";
+    return [platform, name].filter(Boolean).join(" · ") + memory;
+  }
+
   const mb = (bytes) => Math.round(bytes / (1024 * 1024));
 
   function wasmBytes() {
@@ -114,6 +148,9 @@
     run.at = Date.now();
     run.textureMB = mb(textureBytes);
     run.textures = textures.size;
+    run.audioMB = mb(audioBytes);
+    run.peakTextureMB = Math.max(run.peakTextureMB || 0, run.textureMB);
+    run.peakAudioMB = Math.max(run.peakAudioMB || 0, run.audioMB);
     const stage = global.NoberuRenPyStage;
     run.fileCacheMB = stage && stage.lazyStats ? stage.lazyStats().cachedMB : null;
     if (global.performance && performance.memory) run.jsMB = mb(performance.memory.usedJSHeapSize);
@@ -133,10 +170,11 @@
       open: true,
       started: Date.now(),
       touch: typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches,
+      browser: browser(),
       growth: [],
     };
     save();
-    setInterval(save, 3000);
+    setInterval(save, 1000);
     global.addEventListener("pagehide", () => {
       run.open = false;
       save();
@@ -153,7 +191,8 @@
     const minutes = Math.max(1, Math.round((p.at - p.started) / 60000));
     const details = [
       `wasm ${p.wasmMB} MB`,
-      `textures ${p.textureMB} MB (${p.textures})`,
+      `textures ${p.textureMB} MB (${p.textures})` + (p.peakTextureMB > p.textureMB ? `, peak ${p.peakTextureMB}` : ""),
+      p.audioMB != null ? `audio ${p.audioMB} MB` + (p.peakAudioMB > p.audioMB ? `, peak ${p.peakAudioMB}` : "") : null,
       p.fileCacheMB != null ? `file cache ${p.fileCacheMB} MB` : null,
       p.jsMB != null ? `js ${p.jsMB} MB` : null,
       p.hidden ? "in the background" : null,
@@ -174,7 +213,8 @@
     body.textContent =
       "That usually means the browser ran out of memory. Then: " + details +
       (p.line ? `. Last line: "${p.line}"` : "") +
-      (growth ? `. Memory grew at ${growth}` : "") + ".";
+      (growth ? `. Memory grew at ${growth}` : "") + "." +
+      (p.browser ? ` (${p.browser})` : "");
     const close = document.createElement("button");
     close.type = "button";
     close.setAttribute("aria-label", "close");

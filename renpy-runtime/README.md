@@ -22,9 +22,10 @@ Shared:
 - `stage.js`: builds the `game.zip` both runtimes boot from (below).
 - `noberu-crash-report.js`: a phone browser that runs out of memory reloads
   the tab without a word. While a game runs, this keeps the wasm heap (and
-  each time it grew, with the line on screen), live GL textures, the block
-  cache and the last line in localStorage every 3 s; if the next boot finds
-  the last run never closed normally, a card in the frame shows them.
+  each time it grew, with the line on screen), live GL textures and decoded
+  audio (and their peaks), the block cache, the last line and the browser in
+  localStorage every second; if the next boot finds the last run never closed
+  normally, a card in the frame shows them.
 - `noberu-loading.js`: the loading screen, in noberu's style (the same look
   as kirikiri-runtime's `noberu-skin.css`): noberu's wordmark, a hairline bar
   and one line of status in the middle, an error card when something fails. Ren'Py's own
@@ -60,7 +61,7 @@ engine's filesystem directly, from a run dependency the engine waits on.
 - **Files read as needed** (`stage.js`): files of 512 KB or more (in practice
   the `.rpa` archives) are placeholders that report their real size and read
   their bytes from the picked `File` when Ren'Py asks, in 1 MB blocks kept in
-  a least-recently-used cache (192 MB, 48 MB on touch screens). Ren'Py reads
+  a least-recently-used cache (192 MB, 24 MB on touch screens). Ren'Py reads
   synchronously, so a block is read with a synchronous `XMLHttpRequest` of a
   `blob:` URL, as rlvm-runtime does. Each request starts with one padding
   byte: text decoding sniffs for a byte order mark even under
@@ -94,7 +95,7 @@ engine's filesystem directly, from a run dependency the engine waits on.
   without limit (KSRE asks for 400 MB; 1.5 GB of textures within minutes). A
   phone browser then kills the tab and reloads it with no error. It is now
   trimmed five times a second, with the textures it lets go of freed at once,
-  and on touch screens the budget is 128 MB and Ren'Py looks ahead 8 statements
+  and on touch screens the budget is 64 MB and Ren'Py looks ahead 8 statements
   for images instead of 32.
 - **Textures** (`noberu_patches.py`): Ren'Py frees a GL texture from
   `Texture.__del__`, which is Cython and only exists on Python 3, so the 7.x
