@@ -5032,7 +5032,10 @@
           if (typeof kirikiriIframe.contentWindow.KrKrInstallAndBoot === "function") resolve();
           else reject(new Error("kirikiri runtime did not load."));
         });
-        kirikiriIframe.src = "kirikiri-runtime/";
+        // Safari before 27 has no WebAssembly JSPI, which the engine needs;
+        // nojspi/ is the same engine built to work without it.
+        const jspi = typeof WebAssembly === "object" && typeof WebAssembly.Suspending === "function";
+        kirikiriIframe.src = jspi ? "kirikiri-runtime/" : "kirikiri-runtime/nojspi/";
       });
     }
 

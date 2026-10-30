@@ -51,6 +51,29 @@ python3 strip-upstream.py /tmp/krkr
 Upstream is a personal fork that does not accept pull requests, so the edits
 are re-applied to each new build rather than carried upstream.
 
+### nojspi/: the engine for Safari before 27
+
+Since June 2026 upstream needs WebAssembly JSPI, which Safari only has from 27,
+so older iPhones stopped at "This browser lacks WebAssembly JSPI". `nojspi/`
+holds the same engine built with `-DKRKR2_WEB_JSPI=OFF` on our fork,
+[kitakitaaura/kirikiroid2-web](https://github.com/kitakitaaura/kirikiroid2-web)
+(branch `noberu`): file reads are synchronous XHRs on `blob:` URLs, sound uses
+the engine's native synchronous path, and threads come from a pool of 64
+workers. The tab loads `nojspi/` when `WebAssembly.Suspending` is missing, and
+offline play keeps only the build the browser uses. It needs iOS 16.4 or later
+(wasm SIMD). See `plans/krkr-no-jspi.md` in the workspace.
+
+The fork's CI puts it in `nojspi/` of the same artifact:
+
+```sh
+gh run list -R kitakitaaura/kirikiroid2-web --workflow "Build Web" --status success --limit 1
+gh run download <run-id> -R kitakitaaura/kirikiroid2-web -n web-build -D /tmp/krkr-fork
+python3 strip-upstream.py --nojspi-only /tmp/krkr-fork
+```
+
+`--nojspi-only` leaves the main build alone. Without it the fork's main build
+replaces this folder's too.
+
 ## What is stripped, and why
 
 - **Google Analytics.** The stock page loads gtag on every start and reports to

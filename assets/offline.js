@@ -76,12 +76,24 @@
     return manifestPromise;
   }
 
+  // KiriKiri ships its engine twice and the tab loads one: the main build
+  // needs WebAssembly JSPI, nojspi/ is for browsers without it (Safari before
+  // 27). Only that one is kept; the glue, skin and JSZip are shared.
+  const KRKR_MAIN_BUILD = /^kirikiri-runtime\/(index\.(html|js|wasm)|vlfs\.js|assets\.zip)$/;
+  const krkrNoJspi = !(typeof WebAssembly === "object" && typeof WebAssembly.Suspending === "function");
+  function forThisBrowser(dir, info) {
+    if (dir !== "kirikiri-runtime") return info;
+    const files = info.files.filter(([path]) =>
+      krkrNoJspi ? !KRKR_MAIN_BUILD.test(path) : !path.startsWith("kirikiri-runtime/nojspi/"));
+    return { ...info, files, bytes: files.reduce((sum, [, size]) => sum + size, 0) };
+  }
+
   // The engines this device can run (the Windows one is desktop only).
   async function engines() {
     const { engines: all } = await manifest();
     return Object.entries(all)
       .filter(([dir]) => !(isTouch && dir === "boxedwine-runtime"))
-      .map(([dir, info]) => ({ dir, label: LABELS[dir] || dir.replace(/-runtime$/, ""), ...info }));
+      .map(([dir, info]) => ({ dir, label: LABELS[dir] || dir.replace(/-runtime$/, ""), ...forThisBrowser(dir, info) }));
   }
 
   const totalBytes = (list) => list.reduce((sum, e) => sum + e.bytes, 0);

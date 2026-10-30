@@ -7,6 +7,12 @@ pull a new build we re-apply these edits rather than carrying a patch there.
     gh run download <run-id> -R fenghengzhi/kirikiroid2-web -n web-build -D /tmp/krkr
     python3 strip-upstream.py /tmp/krkr
 
+Our fork (kitakitaaura/kirikiroid2-web, branch noberu) also builds the engine
+without WebAssembly JSPI for Safari before 27, in the artifact's nojspi/. When
+that folder is there it is stripped the same way into nojspi/ here, with the
+shared files (glue, skin, JSZip) loaded from this folder. `--nojspi-only`
+updates nojspi/ and leaves the main build alone.
+
 What it removes, and why:
 
   * Google Analytics. The stock page loads gtag on every start and reports to
@@ -41,6 +47,7 @@ JSZIP_CDN = (
     "<script src=https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"
     " crossorigin=anonymous></script>"
 )
+# Pages in nojspi/ load these with "../" in front (see tags()).
 JSZIP_LOCAL = '<script src="jszip.min.js"></script>'
 MANIFEST_LINK = "<link href=manifest.webmanifest rel=manifest>"
 GLUE_TAG = '<script src="noberu-glue.js"></script>'
@@ -56,8 +63,19 @@ SAVE_PATH_WIDER = (
 )
 
 
-def strip(html: str) -> tuple[str, list[str]]:
+def tags(up: str) -> dict[str, str]:
+    """Our tags for a page `up` ("" or "../") below kirikiri-runtime/."""
+    return {
+        "jszip": JSZIP_LOCAL.replace('src="', 'src="' + up),
+        "glue": GLUE_TAG.replace('src="', 'src="' + up),
+        "runtime": RUNTIME_TAG.replace('src="', 'src="' + up),
+        "skin": SKIN_TAG.replace('href="', 'href="' + up),
+    }
+
+
+def strip(html: str, up: str = "") -> tuple[str, list[str]]:
     done = []
+    tag = tags(up)
 
     start = html.index(GTAG_START)
     end = html.index("</script>", start) + len("</script>")
@@ -69,7 +87,7 @@ def strip(html: str) -> tuple[str, list[str]]:
 
     if JSZIP_CDN not in html:
         raise SystemExit("the JSZip CDN tag changed upstream; check its version")
-    html = html.replace(JSZIP_CDN, JSZIP_LOCAL, 1)
+    html = html.replace(JSZIP_CDN, tag["jszip"], 1)
     done.append("JSZip pointed at the local copy")
 
     count = html.count('"serviceWorker"in navigator')
@@ -82,8 +100,8 @@ def strip(html: str) -> tuple[str, list[str]]:
 
     # The tab's entry point. It lives in its own file so this script can keep
     # overwriting index.html from upstream without losing it.
-    if GLUE_TAG not in html:
-        html = html.replace("</body>", GLUE_TAG + "</body>", 1)
+    if tag["glue"] not in html:
+        html = html.replace("</body>", tag["glue"] + "</body>", 1)
         done.append("noberu glue injected")
 
     # preRun makes /savedata unguarded. When a game already has saves, the
@@ -99,8 +117,8 @@ def strip(html: str) -> tuple[str, list[str]]:
     # noberu's runtime hooks (master volume, sharp pixels) have to be in
     # place before the engine makes its AudioContext, so they go first in
     # <head>.
-    if RUNTIME_TAG not in html:
-        html = html.replace("<head>", "<head>" + RUNTIME_TAG, 1)
+    if tag["runtime"] not in html:
+        html = html.replace("<head>", "<head>" + tag["runtime"], 1)
         done.append("runtime hooks injected")
 
     # Only /savedata/ and /save/ are kept between visits, but a KAG game can
@@ -115,28 +133,26 @@ def strip(html: str) -> tuple[str, list[str]]:
 
     # noberu's look for the loading and error overlays. It has to come after
     # upstream's <style> to win, so it goes last in <head>.
-    if SKIN_TAG not in html:
-        html = html.replace("</head>", SKIN_TAG + "</head>", 1)
+    if tag["skin"] not in html:
+        html = html.replace("</head>", tag["skin"] + "</head>", 1)
         done.append("noberu skin linked")
 
     return html, done
 
 
-def main() -> None:
-    if len(sys.argv) != 2:
-        raise SystemExit(__doc__)
-
-    source = Path(sys.argv[1])
-    here = Path(__file__).resolve().parent
-
+def install(source: Path, target: Path, up: str) -> None:
+    """Copy one build's runtime files from `source` and strip its page."""
     for name in RUNTIME_FILES:
         if not (source / name).is_file():
             raise SystemExit(f"{name} is missing from {source}")
-        shutil.copy2(source / name, here / name)
+    target.mkdir(exist_ok=True)
+    for name in RUNTIME_FILES:
+        shutil.copy2(source / name, target / name)
 
-    html, done = strip((here / "index.html").read_text(encoding="utf-8"))
-    (here / "index.html").write_text(html, encoding="utf-8")
+    html, done = strip((target / "index.html").read_text(encoding="utf-8"), up)
+    (target / "index.html").write_text(html, encoding="utf-8")
 
+    print(f"{target.name}/:")
     for line in done:
         print("-", line)
 
@@ -146,6 +162,25 @@ def main() -> None:
         if marker in line
     ]
     print("remaining third-party loads:", len(leftover))
+
+
+def main() -> None:
+    args = sys.argv[1:]
+    nojspi_only = "--nojspi-only" in args
+    args = [a for a in args if a != "--nojspi-only"]
+    if len(args) != 1:
+        raise SystemExit(__doc__)
+
+    source = Path(args[0])
+    here = Path(__file__).resolve().parent
+
+    if not nojspi_only:
+        install(source, here, "")
+    if (source / "nojspi").is_dir():
+        install(source / "nojspi", here / "nojspi", "../")
+    elif nojspi_only:
+        raise SystemExit(f"{source} has no nojspi/ build")
+
     print("\nLoad it once and confirm every request is same-origin:")
     print('  performance.getEntriesByType("resource")'
           '.filter(e => new URL(e.name).origin !== location.origin)')
