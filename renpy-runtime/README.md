@@ -30,9 +30,21 @@ Shared:
   song) every time it is queued, unless that file is already loaded on the
   channel. This hands back the buffer already decoded from the same bytes
   while it is still alive (a WeakRef, so it keeps nothing alive itself), and
-  shares a decode already in progress. An iPhone reached 673 MB of decoded
-  audio a minute into Katawa Shoujo; the crash card now counts decodes and
-  reuses to show which way that went.
+  shares a decode already in progress. It also lets go of each sound as soon
+  as Ren'Py is done with it (no channel has it playing or queued, every
+  source that played it has ended). In WebKit that is the fix for iPhone
+  reloads: WebKit keeps every source that ever had an `onended` handler
+  alive for good, and Ren'Py gives each source one, made inside
+  `renpyAudio.queue()` so that it keeps the queue entry and its song
+  reachable. Every song decoded stayed in memory (961 MB a minute into
+  Katawa Shoujo). So those sources get their handler and buffer cleared,
+  and the collector is nudged (a dropped, never-written 256 MB ArrayBuffer)
+  until the song is gone. Where the browser allows it (Chrome), the sample
+  data is transferred away and freed at once. Any tap or key also resumes
+  Ren'Py's audio context, which iOS starts only from a gesture. Ren'Py's
+  channels come from a getter `noberu_patches.py` appends to `_audio.js`.
+  The crash card counts decodes, reuses, releases and collections, and names
+  the files decoded most.
 - `noberu-loading.js`: the loading screen, in noberu's style (the same look
   as kirikiri-runtime's `noberu-skin.css`): noberu's wordmark, a hairline bar
   and one line of status in the middle, an error card when something fails. Ren'Py's own
@@ -151,6 +163,11 @@ engine's filesystem directly, from a run dependency the engine waits on.
   because it ships loose files. The patch copies an archived sound to
   `/tmp/noberu-audio/` for the moment the browser reads it, then removes it.
   Verified on DDLC: the title music and menu sounds decode and play.
+- **Audio channels for the page** (`noberu_patches.py`, both engine zips):
+  `_audio.js` keeps its channels in a `let channels` of its own. The patch
+  wraps `webaudio.emscripten.run_script` so the script defining it gets
+  `renpyAudio.noberuChannels()` appended, which `noberu-audio.js` reads to
+  tell which sounds Ren'Py is done with.
 - **Shims** (`renpy7.html`): stand-in Python modules written to `/` for
   desktop-only imports. `fcntl`, which DDLC's single-instance lock needs.
 

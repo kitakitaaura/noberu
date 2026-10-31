@@ -79,6 +79,36 @@ def patch_webaudio():
     renpysound.queue = wrap(renpysound.queue)
 
 
+# Web audio channels, for the page: _audio.js keeps what each channel is
+# playing and has queued in a `channels` variable of its own, out of reach of
+# other scripts. noberu-audio.js needs it to tell a decoded sound Ren'Py has
+# finished with, whose memory it then gives back at once: Safari can leave
+# dozens of them (~50 MB a song) uncollected until an iPhone kills the tab.
+# So the one script that defines `channels` gets a getter appended.
+
+CHANNELS_GETTER = "\nrenpyAudio.noberuChannels = function () { return channels; };\n"
+
+
+def patch_audio_channels(webaudio):
+    real = webaudio.emscripten
+
+    class Emscripten(object):
+        pass
+
+    shim = Emscripten()
+    for name in dir(real):
+        if not name.startswith("__"):
+            setattr(shim, name, getattr(real, name))
+
+    def run_script(js):
+        if "let channels" in js and "renpyAudio" in js:
+            js += CHANNELS_GETTER
+        return real.run_script(js)
+
+    shim.run_script = run_script
+    webaudio.emscripten = shim
+
+
 # Web video frames: webaudio.read_video makes a new GL texture for every
 # frame and has the browser upload the <video> into it, and those textures are
 # never deleted. A 1080p movie leaked 8 MB of GPU memory a frame: Cinderella
@@ -258,6 +288,10 @@ def watching_import(name, *args, **kwargs):
                 patch_webaudio()
             except Exception as error:
                 print("noberu: web audio patch failed: %r" % (error,))
+            try:
+                patch_audio_channels(webaudio)
+            except Exception as error:
+                print("noberu: audio channels patch failed: %r" % (error,))
             try:
                 patch_video()
             except Exception as error:

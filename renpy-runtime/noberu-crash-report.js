@@ -73,20 +73,32 @@
   }
 
   // Decoded audio alive (Ren'Py's web audio decodes each track whole: ~50 MB
-  // a song), dropped as the browser collects each AudioBuffer.
+  // a song), dropped as the browser collects each AudioBuffer, or when
+  // noberu-audio.js releases its data first.
   let audioBytes = 0;
+  const audioHeld = new WeakMap(); // AudioBuffer -> { bytes } still counted
   const audioGone = typeof FinalizationRegistry === "function"
-    ? new FinalizationRegistry((bytes) => { audioBytes -= bytes; })
+    ? new FinalizationRegistry((held) => { audioBytes -= held.bytes; })
     : null;
+  global.NoberuCrashAudio = {
+    released(buffer) {
+      const held = audioHeld.get(buffer);
+      if (held) {
+        audioBytes -= held.bytes;
+        held.bytes = 0;
+      }
+    },
+  };
   for (const C of [global.AudioContext, global.webkitAudioContext]) {
     if (!C || !C.prototype.decodeAudioData) continue;
     const decode = C.prototype.decodeAudioData;
     C.prototype.decodeAudioData = function (data, done, failed) {
       const counted = (buffer) => {
-        if (buffer && audioGone) {
-          const bytes = buffer.length * buffer.numberOfChannels * 4;
-          audioBytes += bytes;
-          audioGone.register(buffer, bytes);
+        if (buffer && audioGone && !audioHeld.has(buffer)) {
+          const held = { bytes: buffer.length * buffer.numberOfChannels * 4 };
+          audioBytes += held.bytes;
+          audioHeld.set(buffer, held);
+          audioGone.register(buffer, held);
         }
         return buffer;
       };
@@ -194,7 +206,8 @@
       `wasm ${p.wasmMB} MB`,
       `textures ${p.textureMB} MB (${p.textures})` + (p.peakTextureMB > p.textureMB ? `, peak ${p.peakTextureMB}` : ""),
       p.audioMB != null ? `audio ${p.audioMB} MB` + (p.peakAudioMB > p.audioMB ? `, peak ${p.peakAudioMB}` : "") +
-        (p.decoded != null ? ` (${p.decoded} decoded, ${p.reused} reused)` : "") : null,
+        (p.decoded != null ? ` (${p.decoded} decoded, ${p.reused} reused` +
+          (p.released != null ? `, ${p.released} released, ${p.collected || 0} collected)` : ")") : "") : null,
       p.decodes && p.decodes.length ? "decoded " + p.decodes.map((d) => `${d[0]} ×${d[1]}`).join(", ") : null,
       p.audioState && p.audioState !== "running" ? `sound ${p.audioState}` : null,
       p.fileCacheMB != null ? `file cache ${p.fileCacheMB} MB` : null,
