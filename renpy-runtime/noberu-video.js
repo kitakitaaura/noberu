@@ -63,6 +63,32 @@
     });
   }
 
+  // On iPhones a movie plays its own sound. _audio.js routes a <video>'s sound
+  // through its Web Audio graph (createMediaElementSource, for the channel's
+  // volume and fades), and there it crackled through Katawa Shoujo's movies:
+  // 1080p VP9 is decoded in software and every frame copied to a texture, and
+  // the graph ran dry. Safari's own playback holds up under that load. iOS
+  // ignores a media element's volume anyway, so the channel volume and fades
+  // are all that is lost. And where _audio.js fell back to playing a movie
+  // muted (autoplay refused), the next tap unmutes it: only the "Click to play
+  // the video" prompt did that before.
+  const iOS = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  if (iOS) {
+    for (const C of [window.AudioContext, window.webkitAudioContext]) {
+      if (!C || !C.prototype.createMediaElementSource) continue;
+      C.prototype.createMediaElementSource = function (mediaElement) {
+        return { mediaElement, connect() {}, disconnect() {} };
+      };
+    }
+    const unmute = () => {
+      for (const el of document.querySelectorAll("video")) {
+        if (el.muted && !el.paused) el.muted = false;
+      }
+    };
+    for (const type of ["touchend", "click", "keydown"]) window.addEventListener(type, unmute, true);
+  }
+
   // _audio.js runs `renpyAudio = {}` (a global) before adding its methods.
   let audio = window.renpyAudio;
   wrap(audio);

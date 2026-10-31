@@ -50,6 +50,13 @@ Shared:
   and one line of status in the middle, an error card when something fails. Ren'Py's own
   status boxes are hidden while the game loads; what the engine prints after
   that shows as a small card at the bottom.
+- `noberu-video.js`: movies. Ren'Py's web player only takes a `url:`, so a
+  movie in the game's files is handed over as a blob: URL. On iPhones a
+  movie also plays its own sound instead of going through `_audio.js`'s Web
+  Audio graph: there Katawa Shoujo's 1080p VP9 movies crackled (software
+  decode plus a texture upload per frame), and the next tap unmutes a movie
+  `_audio.js` had to start muted. `noberu-audio.js` doesn't nudge the
+  collector while a movie plays.
 - `dev.js`: the `?autoload=` path, dev only.
 
 `renpy.html` is written here around Ren'Py's own `renpy-pre.js`. `renpy7.html`

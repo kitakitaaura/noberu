@@ -209,12 +209,21 @@
         }
       }
     }
+    // Not while a movie plays: on an iPhone it already has the phone busy
+    // (software VP9 at 1080p), and its sound crackled.
+    if (!dropped.size || moviePlaying()) return;
     for (const [token, nudges] of dropped) {
       if (nudges >= 30) dropped.delete(token); // something else still holds it
       else dropped.set(token, nudges + 1);
     }
     // In a task of its own, after this one's derefs have let go.
-    if (dropped.size) setTimeout(nudge, 0);
+    setTimeout(nudge, 0);
+  }
+
+  function moviePlaying() {
+    const audio = global.renpyAudio;
+    const channels = audio && typeof audio.noberuChannels === "function" ? audio.noberuChannels() : null;
+    return !!channels && Object.values(channels).some((c) => c.video && c.playing);
   }
 
   function nudge() {
