@@ -581,6 +581,7 @@
     renpy: { label: "Ren'Py", tab: "renpy" },
     kirikiri: { label: "KiriKiri", tab: "kirikiri" },
     siglus: { label: "SiglusEngine", tab: "siglus" },
+    luca: { label: "LUCA System", tab: "luca" },
     tyrano: { label: "TyranoScript", tab: "tyrano" },
     rpgmaker: { label: "RPG Maker", tab: "rpgmaker" },
     vnds: { label: "VNDS", tab: "vnds" },
@@ -652,6 +653,8 @@
       // Localized Steam builds ship SceneEN.pck / GameexeEN.dat rather than the
       // canonical names, so match the whole family.
       if (any(/(^|\/)scene[a-z]*\.pck$/i)) return "siglus";
+      // LUCA System (Prototype re-releases): everything is in .PAK archives.
+      if (has("script.pak") && has("charcg.pak")) return "luca";
       if (any(/\.xp3$/)) return "kirikiri";
       if (has("gameexe.ini") || has("seen.txt")) return "rlvm";
       // Ponscripter keeps the NScripter archives but has

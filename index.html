@@ -2676,6 +2676,82 @@
         </div>
       </div>
 
+      <div class="view" id="luca-view" role="tabpanel" aria-labelledby="luca-tab">
+        <div class="screen">
+          <div class="viewport" id="luca-viewport">
+            <div class="static-noise" aria-hidden="true"></div>
+            <div class="scene">
+              <div class="pixel-sun" aria-hidden="true"></div>
+              <div class="hill" aria-hidden="true"></div>
+              <form class="upload-zone" id="luca-upload-zone">
+                <div class="upload-symbol" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path d="M12 16V5M8 9l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.7"
+                      stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15" fill="none"
+                      stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                  </svg>
+                </div>
+                <h1>luca</h1>
+                <p class="verbose">
+                  Plays LUCA System games (Prototype) with noberu's own engine, written for the browser.
+                </p>
+                <p class="brief">For Little Busters! English Edition. Pick the game's folder.</p>
+                <input class="file-input" id="luca-rom-input" type="file" webkitdirectory multiple />
+                <div class="button-row">
+                  <label class="retro-button" for="luca-rom-input">choose folder</label>
+                  <button class="retro-button secondary" type="button" id="luca-run">boot local</button>
+                  <button class="retro-button secondary" type="button" data-library="luca">from library</button>
+                </div>
+              </form>
+            </div>
+            <div class="play-frame-wrap" id="luca-frame-wrap" aria-label="local luca runtime">
+              <div class="play-runtime">
+                <iframe class="play-canvas" id="luca-iframe" title="luca runtime"
+                  style="border:2px solid var(--line);background:#000;box-shadow:0 0 24px transparent;"></iframe>
+                <div class="runtime-overlay" id="luca-runtime-overlay">
+                  <div class="runtime-card">
+                    <b id="luca-runtime-title">luca runtime</b>
+                    <p id="luca-runtime-message">Waiting for a staged game.</p>
+                  </div>
+                </div>
+              </div>
+              <div class="play-frame-toolbar">
+                <span id="luca-frame-label">luca runtime</span>
+                <button class="tiny-button" type="button" id="luca-hide">staging</button>
+              </div>
+            </div>
+          </div>
+
+          <aside class="side-panel" aria-label="luca upload details">
+            <div class="panel-header">
+              <h2>luca</h2>
+              <p class="verbose">noberu's own LUCA System engine (Rust, built for the browser): Little Busters!
+                English Edition, with the other Prototype re-releases to follow.</p>
+            </div>
+            <div class="panel-body">
+              <p class="control-note verbose">Nothing is copied: the game's .PAK archives are read straight
+                from this device, one image or sound at a time, so the 8.6 GB release starts in seconds.</p>
+              <div class="file-card" id="luca-file-card">
+                <b>No folder selected</b>
+                <span>Choose the game's folder (the one with files/SCRIPT.PAK in it).</span>
+                <div class="meter" aria-hidden="true"><span id="luca-meter-fill"></span></div>
+              </div>
+              <div class="button-row">
+                <button class="retro-button" type="button" id="luca-boot">boot local</button>
+                <button class="retro-button secondary" type="button" id="luca-clear">clear</button>
+              </div>
+              <p class="control-note verbose">Early build: text, choices, pictures, music and voices.
+                Minigames play themselves for now, and there are no saves yet.</p>
+              <p class="control-note brief">Click or Enter to read on. Hold Ctrl to skip.</p>
+            </div>
+            <div class="panel-footer">
+              <p id="luca-status">Status: waiting for a folder.</p>
+            </div>
+          </aside>
+        </div>
+      </div>
+
       <div class="view" id="tyrano-view" role="tabpanel" aria-labelledby="tyrano-tab">
         <div class="screen">
           <div class="viewport" id="tyrano-viewport">
@@ -2912,6 +2988,11 @@
       <span class="tab-icon" aria-hidden="true">✿</span>
       <span class="tab-label">siglus</span>
     </button>
+    <button class="tab-button" id="luca-tab" type="button" role="tab" aria-selected="false"
+      aria-controls="luca-view" data-tab="luca">
+      <span class="tab-icon" aria-hidden="true">✦</span>
+      <span class="tab-label">luca</span>
+    </button>
     <button class="tab-button" id="tyrano-tab" type="button" role="tab" aria-selected="false"
       aria-controls="tyrano-view" data-tab="tyrano">
       <span class="tab-icon" aria-hidden="true">✾</span>
@@ -3002,6 +3083,7 @@
       renpy: document.querySelector("#renpy-view"),
       kirikiri: document.querySelector("#kirikiri-view"),
       siglus: document.querySelector("#siglus-view"),
+      luca: document.querySelector("#luca-view"),
       tyrano: document.querySelector("#tyrano-view"),
       rpgmaker: document.querySelector("#rpgmaker-view"),
     };
@@ -3134,6 +3216,8 @@
               ? "Channel: ren'py staging"
               : tabName === "siglus"
               ? "Channel: siglus / Key staging"
+              : tabName === "luca"
+              ? "Channel: luca / LUCA System staging"
               : tabName === "tyrano"
               ? "Channel: tyrano / TyranoScript staging"
               : tabName === "rpgmaker"
@@ -3201,6 +3285,9 @@
       }
       if (currentTab === "siglus") {
         return { frameWrap: siglusFrameWrap, label: "siglus runtime", channel: "siglus / Key", focusEl: siglusIframe };
+      }
+      if (currentTab === "luca") {
+        return { frameWrap: lucaFrameWrap, label: "luca runtime", channel: "luca / LUCA System", focusEl: lucaIframe };
       }
       if (currentTab === "kirikiri") {
         return { frameWrap: kirikiriFrameWrap, label: "kirikiri runtime", channel: "kirikiri / KAG", focusEl: kirikiriIframe };
@@ -4694,6 +4781,140 @@
     siglusBoot.addEventListener("click", bootSiglus);
     siglusHide.addEventListener("click", showSiglusStaging);
 
+    // --- luca tab --------------------------------------------------------
+
+    const lucaRomInput = document.querySelector("#luca-rom-input");
+    const lucaFileCard = document.querySelector("#luca-file-card");
+    const lucaStatus = document.querySelector("#luca-status");
+    const lucaClear = document.querySelector("#luca-clear");
+    const lucaRun = document.querySelector("#luca-run");
+    const lucaBoot = document.querySelector("#luca-boot");
+    const lucaHide = document.querySelector("#luca-hide");
+    const lucaFrameWrap = document.querySelector("#luca-frame-wrap");
+    const lucaFrameLabel = document.querySelector("#luca-frame-label");
+    const lucaIframe = document.querySelector("#luca-iframe");
+    const lucaRuntimeOverlay = document.querySelector("#luca-runtime-overlay");
+    const lucaRuntimeTitle = document.querySelector("#luca-runtime-title");
+    const lucaRuntimeMessage = document.querySelector("#luca-runtime-message");
+    const lucaEmptyCard = lucaFileCard.innerHTML;
+    let lucaStagedRoot = null;
+    let lucaStagedFiles = null;
+    let lucaBooting = false;
+
+    function setLucaMessage(title, message, hideOverlay = false) {
+      lucaRuntimeTitle.textContent = title;
+      lucaRuntimeMessage.textContent = message;
+      lucaRuntimeOverlay.classList.toggle("hidden", hideOverlay);
+      lucaFrameLabel.textContent = title;
+    }
+
+    function showLucaStaging() {
+      lucaFrameWrap.classList.remove("active", "emulator-maximized");
+      lucaIframe.removeAttribute("src");
+      statusReadout.textContent = "Channel: luca / Key staging";
+    }
+
+    function setLucaFolder(list) {
+      const files = [...(list || [])];
+      if (files.length === 0) return;
+      const first = files[0].webkitRelativePath || "";
+      if (!first.includes("/")) {
+        lucaStatus.textContent = "Status: choose a folder, not loose files.";
+        return;
+      }
+      const root = first.split("/")[0];
+      lucaStagedRoot = root;
+      lucaStagedFiles = list;
+      const bytes = files.reduce((sum, file) => sum + file.size, 0);
+      lucaFileCard.innerHTML = `
+          <b>${root}</b>
+          <span>${files.length} files / ${(bytes / 1073741824).toFixed(2)} GB</span>
+          <div class="meter" aria-hidden="true"><span id="luca-meter-fill"></span></div>`;
+      const fill = document.querySelector("#luca-meter-fill");
+      if (fill) fill.style.width = "100%";
+      lucaStatus.textContent = "Status: game staged. Boot local starts it.";
+      lucaFrameLabel.textContent = `luca runtime / staged: ${root}`;
+      setTab("luca");
+    }
+
+    function loadLucaIframe(timeoutMs = 60000) {
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(
+          () => reject(new Error("luca runtime took too long to load.")), timeoutMs);
+        lucaIframe.addEventListener("load", function onLoad() {
+          lucaIframe.removeEventListener("load", onLoad);
+          clearTimeout(timer);
+          if (typeof lucaIframe.contentWindow.LucaInstallAndBoot === "function") resolve();
+          else reject(new Error("luca runtime did not load."));
+        });
+        lucaIframe.src = "luca-runtime/noberu";
+      });
+    }
+
+    async function bootLuca() {
+      if (lucaBooting) return;
+      setTab("luca");
+      if (!lucaStagedRoot || !lucaStagedFiles) {
+        setLucaMessage("waiting for folder", "Choose a LucaEngine game folder, then boot local.");
+        lucaStatus.textContent = "Status: waiting for a folder.";
+        return;
+      }
+
+      lucaBooting = true;
+      lucaFrameWrap.classList.add("active");
+
+      try {
+        setLucaMessage("booting", "Starting the LUCA engine...");
+        lucaStatus.textContent = "Status: starting the LUCA runtime...";
+        await loadLucaIframe();
+        lucaIframe.contentWindow.LucaInstallAndBoot(lucaStagedRoot, lucaStagedFiles);
+      } catch (error) {
+        setLucaMessage("boot failed", error.message);
+        lucaStatus.textContent = `Status: ${error.message}`;
+      } finally {
+        lucaBooting = false;
+      }
+    }
+
+    window.addEventListener("message", (event) => {
+      const data = event.data;
+      if (!data || data.source !== "luca-runtime") return;
+      if (event.source !== lucaIframe.contentWindow) return;
+      const label = lucaStagedRoot || "the game";
+      if (data.type === "status") {
+        setLucaMessage("luca runtime", data.text || "working...");
+        lucaStatus.textContent = `Status: ${data.text || "working"}`;
+      } else if (data.type === "booting") {
+        setLucaMessage("booting", `Handing off to the engine (${data.files} files)...`);
+        lucaStatus.textContent = "Status: booting...";
+      } else if (data.type === "running") {
+        setLucaMessage("luca runtime", `Running ${label}`, true);
+        lucaStatus.textContent = `Status: running ${label} (${data.width}x${data.height})`;
+        lucaIframe.focus();
+      } else if (data.type === "error") {
+        setLucaMessage("runtime error", data.message);
+        lucaStatus.textContent = `Status: ${data.message}`;
+      }
+    });
+
+    lucaRomInput.addEventListener("change", (event) => {
+      setLucaFolder(event.target.files);
+    });
+
+    lucaClear.addEventListener("click", () => {
+      lucaRomInput.value = "";
+      lucaStagedRoot = null;
+      lucaStagedFiles = null;
+      lucaFileCard.innerHTML = lucaEmptyCard;
+      lucaStatus.textContent = "Status: waiting for a folder.";
+      setLucaMessage("luca runtime", "Waiting for a staged game.");
+      showLucaStaging();
+    });
+
+    lucaRun.addEventListener("click", bootLuca);
+    lucaBoot.addEventListener("click", bootLuca);
+    lucaHide.addEventListener("click", showLucaStaging);
+
     // --- tyrano tab --------------------------------------------------------
     //
     // A TyranoScript game is already a web game, so there is no runtime to boot
@@ -5465,6 +5686,7 @@
       else if (tab === "renpy") staging = setRenpyFolder(files);
       else if (tab === "kirikiri") staging = setKirikiriFolder(files);
       else if (tab === "siglus") staging = setSiglusFolder(files);
+      else if (tab === "luca") staging = setLucaFolder(files);
       else if (tab === "tyrano") staging = setTyranoFolder(files);
       else if (tab === "rpgmaker") staging = setRpgmakerFolder(files);
       else if (tab === "vnds") staging = setVndsFolder(files);

@@ -1,0 +1,46 @@
+html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+body { display: flex; align-items: center; justify-content: center; }
+
+/* 1280x720 stage, scaled to fit by luca.js (transform), so text and canvas scale together */
+#stage {
+  position: relative; width: 1280px; height: 720px; flex: none;
+  transform-origin: center center; outline: none; overflow: hidden;
+  font-family: "Helvetica Neue", Arial, "Hiragino Sans", sans-serif;
+  user-select: none; -webkit-user-select: none; cursor: default;
+}
+#screen { position: absolute; inset: 0; width: 1280px; height: 720px; background: #000; }
+#movie { position: absolute; inset: 0; width: 1280px; height: 720px; background: #000; display: none; }
+#movie.playing { display: block; }
+
+#textbox {
+  position: absolute; left: 90px; right: 90px; bottom: 26px; min-height: 150px;
+  padding: 22px 34px 26px; box-sizing: border-box;
+  background: rgba(10, 16, 34, 0.78); border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 14px;
+  color: #fff; font-size: 27px; line-height: 1.5; text-shadow: 0 1px 2px #000;
+}
+#name {
+  position: absolute; top: -22px; left: 26px; padding: 4px 18px;
+  background: rgba(40, 70, 140, 0.95); border-radius: 10px; font-size: 24px; font-weight: 600;
+}
+#name:empty { display: none; }
+#text { white-space: pre-wrap; }
+#more { position: absolute; right: 22px; bottom: 10px; font-size: 18px; opacity: 0; }
+#textbox.ready #more { opacity: 0.8; animation: bob 1s ease-in-out infinite; }
+@keyframes bob { 50% { transform: translateY(4px); } }
+
+#choices {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 22px; background: rgba(0, 0, 0, 0.35);
+}
+#choices button {
+  min-width: 560px; padding: 16px 30px; font: inherit; font-size: 27px; color: #fff;
+  background: rgba(20, 30, 60, 0.9); border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 12px; cursor: pointer;
+}
+#choices button:hover, #choices button:focus-visible { background: rgba(60, 90, 170, 0.95); outline: none; }
+
+#notice {
+  position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%);
+  max-width: 900px; padding: 20px 30px; color: #fff; font-size: 24px; text-align: center;
+  background: rgba(0, 0, 0, 0.8); border-radius: 12px; white-space: pre-wrap;
+}
+.hidden { display: none !important; }

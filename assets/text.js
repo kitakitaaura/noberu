@@ -37,6 +37,7 @@
     "onsru-frame-wrap": "Umineko",
     "kirikiri-frame-wrap": "KiriKiri",
     "siglus-frame-wrap": "Siglus",
+    "luca-frame-wrap": "LUCA",
     "vnds-frame-wrap": "VNDS",
   };
 

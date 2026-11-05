@@ -33,6 +33,7 @@
     "renpy-runtime": "ren'py",
     "kirikiri-runtime": "kirikiri",
     "siglus-runtime": "siglus",
+    "luca-runtime": "luca",
     "tyrano-runtime": "tyrano",
     "rpgmaker-runtime": "rpg maker",
     "boxedwine-runtime": "wine (Windows)",

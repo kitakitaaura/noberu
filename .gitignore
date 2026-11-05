@@ -24,3 +24,6 @@ offline.json
 # jmdict-simplified's JSON (kept in ~/Documents/noberu-assets/dict-src);
 # tools/stage-deploy.sh builds it when it is missing.
 dict/
+
+# dev symlink to a local game (never commit or deploy)
+luca-runtime/testgame

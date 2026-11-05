@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <!-- noberu runtime hooks (volume, text for the reading tools): before any engine code (assets/runtime.js) -->
+  <script src="../assets/runtime.js"></script>
+  <meta charset="utf-8" />
+  <title>luca runtime</title>
+  <link rel="stylesheet" href="luca.css" />
+</head>
+<body>
+  <div id="stage" tabindex="0">
+    <canvas id="screen" width="1280" height="720"></canvas>
+    <video id="movie" playsinline></video>
+    <div id="textbox" class="hidden">
+      <div id="name"></div>
+      <div id="text"></div>
+      <div id="more" aria-hidden="true">▼</div>
+    </div>
+    <div id="choices" class="hidden" role="menu"></div>
+    <div id="notice" class="hidden"></div>
+  </div>
+  <script type="module" src="luca.js"></script>
+</body>
+</html>
