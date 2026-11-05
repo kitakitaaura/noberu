@@ -27,7 +27,7 @@ no COOP/COEP headers and works on any page.
 ## Rebuilding
 
 The source is `~/Documents/Noberu/siglus_rs`, branch `noberu`: upstream
-`main` at f3edbbc (25 Sep 2026) plus one commit of ours, f52ceda. To take
+`main` at f3edbbc (25 Sep 2026) plus our commits (f52ceda to 5f2a152). To take
 newer upstream work, rebase that branch onto upstream `main`.
 
 ```sh
@@ -79,6 +79,20 @@ wasm-bindgen-cli has to match the crate (0.2.111). It lives in its own
    Verified on Rewrite+ by keyboard alone: title → Load → slot → "Load
    game?" Yes/No → back in the game. Also verified on this build: the OP
    movie (op00, 433 MB, streamed), mid-game save and reload, voice-era text.
+
+6. Browser file writes outside `original_save.rs` (5f2a152, 2026-11-04).
+   `resource.rs` gains `remove_file`, `copy_file`, `rename_file`; `wasm_vfs.rs`
+   gains the `siglusRemoveFile` import. `syscom.rs` sends slot delete/copy/swap,
+   save thumbnails, the saved backlog and capture files through them, where
+   `std::fs` used to do nothing on wasm. `GLOBAL.CAPTURE_FROM_FILE` logs and
+   carries on instead of panicking. In `noberu-glue.js`, `siglusRemoveFile`
+   drops overlay files and hides picked-folder ones for the launch.
+   Tested 2026-11-05 on Rewrite+ (headless Chrome): save with thumbnail,
+   exchange, delete, then reload and load all work.
+7. Localized save folder (5f2a152, 2026-11-05). Steam builds with
+   `GameexeEN.dat` keep saves in `savedata_en/`; `original_save::save_dir`
+   now uses that folder when it exists, so the player's own progress loads.
+   `noberu-glue.js` moves saves older builds put under `savedata/` into it.
 
 The September build (before upstream's later fixes) is kept at
 `~/Documents/noberu-assets/siglus-pkg-2026-09-19` in case of a regression.

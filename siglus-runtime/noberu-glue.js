@@ -133,6 +133,10 @@
   // ahead of the original files on every read. Persisted per game folder.
 
   const overlay = new Map();
+  // Files the engine deleted that also exist in the picked folder (saves
+  // copied in from a PC). The folder can't change, so they are hidden for
+  // this launch only; they come back on the next one.
+  const hidden = new Set();
   const STORE = "files";
   let db = null;
   let dbName = null;
@@ -165,12 +169,51 @@
     });
   }
 
+  function unpersist(key) {
+    if (!db) return;
+    try {
+      db.transaction(STORE, "readwrite").objectStore(STORE).delete(key);
+    } catch (error) {
+      console.warn("siglus: save delete failed", error);
+    }
+  }
+
   function persist(key, bytes) {
     if (!db) return;
     try {
       db.transaction(STORE, "readwrite").objectStore(STORE).put(bytes, key);
     } catch (error) {
       console.warn("siglus: save persist failed", error);
+    }
+  }
+
+  // A localized Steam build keeps saves in savedata_<lang> when that folder
+  // exists (Rewrite+ in English: GameexeEN.dat, savedata_en). Same rule as
+  // original_save::save_dir in siglus_rs. Builds before 2026-11-05 always
+  // wrote savedata/, so those saves are moved over once; a file already in
+  // the new folder wins.
+  function localizedSaveDir() {
+    for (const loc of LOCALES) {
+      const lc = loc.toLowerCase();
+      const localized = byPath.has(`Gameexe${loc}.dat`) || byPath.has(`Gameexe${loc}.ini`) ||
+        byFolded.has(`gameexe${lc}.dat`) || byFolded.has(`gameexe${lc}.ini`);
+      if (localized && dirChildren.has(`savedata_${lc}`)) return `savedata_${lc}`;
+    }
+    return null;
+  }
+
+  function moveOldSaves() {
+    const dir = localizedSaveDir();
+    if (!dir) return;
+    for (const [key, bytes] of [...overlay]) {
+      if (!key.startsWith("savedata/")) continue;
+      const moved = dir + key.slice("savedata".length);
+      if (!overlay.has(moved)) {
+        overlay.set(moved, bytes);
+        persist(moved, bytes);
+      }
+      overlay.delete(key);
+      unpersist(key);
     }
   }
 
@@ -200,22 +243,27 @@
     }
   }
 
+  // The picked folder's file for `p`, unless the engine deleted it.
+  function original(p) {
+    return hidden.has(fold(p)) ? null : resolve(p);
+  }
+
   globalThis.siglusFileExists = (p) =>
-    overlay.has(fold(p)) || resolve(p) !== null;
+    overlay.has(fold(p)) || original(p) !== null;
 
   globalThis.siglusKnownFileCount = () => byPath.size;
 
   globalThis.siglusFileSize = (p) => {
     const saved = overlay.get(fold(p));
     if (saved) return saved.length;
-    const file = resolve(p);
+    const file = original(p);
     return file ? file.size : 0;
   };
 
   globalThis.siglusReadFile = (p) => {
     const saved = overlay.get(fold(p));
     if (saved) return saved;
-    const file = resolve(p);
+    const file = original(p);
     if (!file) throw new Error(`Siglus file not found: ${p}`);
     return readBlobSync(file, p);
   };
@@ -228,7 +276,7 @@
       const from = Math.min(start, saved.length);
       return saved.subarray(from, Math.min(from + want, saved.length));
     }
-    const file = resolve(p);
+    const file = original(p);
     if (!file) throw new Error(`Siglus file not found: ${p}`);
     const end = Math.min(start + want, file.size);
     if (end <= start) return new Uint8Array(0);
@@ -241,13 +289,22 @@
     const bytes = new Uint8Array(data.length);
     bytes.set(data);
     overlay.set(key, bytes);
+    hidden.delete(key);
     persist(key, bytes);
+  };
+
+  // Deleting, copying and swapping save slots. A missing file is fine.
+  globalThis.siglusRemoveFile = (p) => {
+    const key = fold(p);
+    if (overlay.delete(key)) unpersist(key);
+    if (resolve(p) !== null) hidden.add(key);
   };
 
   globalThis.siglusListDir = (p) => {
     const dir = norm(p).replace(/\/$/, "");
-    const out = new Set(dirChildren.get(dir) || []);
     const prefix = dir ? dir.toLowerCase() + "/" : "";
+    const out = new Set([...(dirChildren.get(dir) || [])].filter(
+      (name) => !hidden.has(prefix + name.toLowerCase())));
     for (const key of overlay.keys()) {
       if (!key.startsWith(prefix)) continue;
       const rest = key.slice(prefix.length);
@@ -314,6 +371,7 @@
 
       status("restoring saves...");
       await loadOverlay(root);
+      moveOldSaves();
 
       const size = sizeCanvas();
       window.addEventListener("resize", sizeCanvas);
